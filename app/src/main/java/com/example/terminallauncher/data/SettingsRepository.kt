@@ -39,13 +39,14 @@ class SettingsRepository(private val context: Context) {
         val FIRST_RUN_COMPLETED = booleanPreferencesKey("first_run_completed")
         val ALIASES_RAW = stringPreferencesKey("aliases_raw")
         val HISTORY_RAW = stringPreferencesKey("history_raw")
+        val BUFFER_RAW = stringPreferencesKey("terminal_buffer_raw")
     }
 
     val settingsFlow: Flow<LauncherSettings> = context.dataStore.data.map { preferences ->
         val themeName = preferences[PreferencesKeys.THEME] ?: TerminalThemeType.CRT_GREEN.name
         val theme = try {
             TerminalThemeType.valueOf(themeName)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             TerminalThemeType.CRT_GREEN
         }
 
@@ -69,6 +70,23 @@ class SettingsRepository(private val context: Context) {
             aliases = aliasesMap,
             history = historyList
         )
+    }
+
+    val bufferFlow: Flow<List<TerminalLine>> = context.dataStore.data.map { preferences ->
+        val raw = preferences[PreferencesKeys.BUFFER_RAW] ?: ""
+        parseBuffer(raw)
+    }
+
+    suspend fun saveTerminalBuffer(lines: List<TerminalLine>) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.BUFFER_RAW] = serializeBuffer(lines)
+        }
+    }
+
+    suspend fun clearTerminalBuffer() {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.BUFFER_RAW] = ""
+        }
     }
 
     suspend fun setTheme(theme: TerminalThemeType) {
@@ -147,5 +165,20 @@ class SettingsRepository(private val context: Context) {
 
     private fun serializeAliases(map: Map<String, String>): String {
         return map.entries.joinToString("\n") { "${it.key}=${it.value}" }
+    }
+
+    private fun parseBuffer(raw: String): List<TerminalLine> {
+        if (raw.isBlank()) return emptyList()
+        return raw.split("\u0000").mapNotNull { entry ->
+            val parts = entry.split("\u0001", limit = 2)
+            if (parts.size == 2) {
+                val type = try { LineType.valueOf(parts[0]) } catch (e: Exception) { LineType.OUTPUT }
+                TerminalLine(parts[1], type)
+            } else null
+        }
+    }
+
+    private fun serializeBuffer(lines: List<TerminalLine>): String {
+        return lines.takeLast(200).joinToString("\u0000") { "${it.type.name}\u0001${it.text}" }
     }
 }

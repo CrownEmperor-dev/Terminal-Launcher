@@ -37,23 +37,33 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     val uiState: StateFlow<TerminalUiState> = _uiState.asStateFlow()
 
     private var temporaryInput: String = ""
+    private var isBufferLoaded: Boolean = false
 
     init {
         viewModelScope.launch {
-            settingsRepository.settingsFlow.collectLatest { settings ->
-                val previousSettings = _uiState.value.settings
-                _uiState.value = _uiState.value.copy(settings = settings)
-
-                // On startup fastfetch
-                if (previousSettings.history.isEmpty() && _uiState.value.lines.isEmpty()) {
-                    val initialLines = mutableListOf<TerminalLine>()
-                    initialLines.add(TerminalLine("Welcome to Terminal Launcher v1.0", LineType.HEADER))
-                    initialLines.add(TerminalLine("Type 'help' for documentation, 'ls' for app list.", LineType.SYSTEM))
-                    if (settings.fastfetchOnStart) {
-                        initialLines.addAll(commandEngine.generateFastfetchLines())
+            settingsRepository.bufferFlow.collectLatest { savedBuffer ->
+                if (!isBufferLoaded) {
+                    isBufferLoaded = true
+                    if (savedBuffer.isNotEmpty()) {
+                        _uiState.value = _uiState.value.copy(lines = savedBuffer)
+                    } else {
+                        val initialLines = mutableListOf<TerminalLine>()
+                        initialLines.add(TerminalLine("Welcome to Terminal Launcher v1.0", LineType.HEADER))
+                        initialLines.add(TerminalLine("Type 'help' for documentation, 'ls' for app list.", LineType.SYSTEM))
+                        val settings = _uiState.value.settings
+                        if (settings.fastfetchOnStart) {
+                            initialLines.addAll(commandEngine.generateFastfetchLines())
+                        }
+                        _uiState.value = _uiState.value.copy(lines = initialLines)
+                        settingsRepository.saveTerminalBuffer(initialLines)
                     }
-                    _uiState.value = _uiState.value.copy(lines = initialLines)
                 }
+            }
+        }
+
+        viewModelScope.launch {
+            settingsRepository.settingsFlow.collectLatest { settings ->
+                _uiState.value = _uiState.value.copy(settings = settings)
             }
         }
     }
@@ -114,10 +124,12 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
             if (result.shouldClearBuffer) {
                 _uiState.value = _uiState.value.copy(lines = emptyList())
+                settingsRepository.clearTerminalBuffer()
             } else {
                 val updatedLines = _uiState.value.lines.toMutableList()
                 updatedLines.addAll(result.outputLines)
                 _uiState.value = _uiState.value.copy(lines = updatedLines)
+                settingsRepository.saveTerminalBuffer(updatedLines)
             }
         }
     }
@@ -145,7 +157,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     fun navigateHistoryDown() {
         val history = _uiState.value.settings.history
         val currentIndex = _uiState.value.historyIndex
-        if (currentIndex == -1 || history.isEmpty()) return
+        if ((currentIndex == -1) || history.isEmpty()) return
 
         val newIndex = currentIndex + 1
         if (newIndex >= history.size) {
@@ -166,6 +178,9 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
     fun clearScreen() {
         _uiState.value = _uiState.value.copy(lines = emptyList())
+        viewModelScope.launch {
+            settingsRepository.clearTerminalBuffer()
+        }
     }
 
     fun refreshApps() {

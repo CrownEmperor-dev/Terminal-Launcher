@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -102,13 +103,14 @@ fun TerminalScreen(
             .background(colorScheme.background)
             .statusBarsPadding()
             .navigationBarsPadding()
+            .imePadding()
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
             ) {
                 focusRequester.requestFocus()
             }
-            .padding(12.dp)
+            .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 20.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Output Line Buffer
@@ -165,7 +167,7 @@ fun TerminalScreen(
                             .fillMaxWidth()
                             .focusRequester(focusRequester)
                             .onPreviewKeyEvent { event ->
-                                if (event.isCtrlPressed && event.key == Key.L) {
+                                if (event.isCtrlPressed && (event.key == Key.L)) {
                                     viewModel.clearScreen()
                                     true
                                 } else when (event.key) {
