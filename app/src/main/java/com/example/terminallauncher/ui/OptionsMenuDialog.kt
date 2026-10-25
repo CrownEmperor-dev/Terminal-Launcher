@@ -287,6 +287,52 @@ fun OptionsMenuDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // About Info Card
+                Text(
+                    text = "[ ABOUT TERMINAL LAUNCHER ]",
+                    style = TextStyle(
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colorScheme.promptColor
+                    )
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, colorScheme.textGhost, RoundedCornerShape(4.dp))
+                        .padding(8.dp)
+                ) {
+                    Text(
+                        text = "Terminal Launcher v1.0.0 (MIT License)",
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = colorScheme.textPrimary
+                        )
+                    )
+                    Text(
+                        text = "Developed by CrownEmperor-dev",
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            color = colorScheme.textSecondary
+                        )
+                    )
+                    Text(
+                        text = "github.com/CrownEmperor-dev/Terminal-Launcher",
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 10.sp,
+                            color = colorScheme.systemColor
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 // Close Button
                 Button(
                     onClick = onDismiss,

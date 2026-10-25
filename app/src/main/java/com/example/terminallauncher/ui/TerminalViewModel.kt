@@ -42,6 +42,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
     private var temporaryInput: String = ""
     private var isBufferLoaded: Boolean = false
+    private var suppressedInput: String? = null
 
     init {
         viewModelScope.launch {
@@ -120,12 +121,18 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun dismissGhostCompletion() {
+        suppressedInput = _uiState.value.inputFieldValue.text
+        _uiState.value = _uiState.value.copy(ghostSuffix = "")
+    }
+
     fun onInputChanged(newValue: TextFieldValue) {
         val text = newValue.text
         val autocomplete = _uiState.value.settings.autocompleteEnabled
         val textLower = text.lowercase()
 
-        val ghost = if (autocomplete && text.isNotBlank()) {
+        val ghost = if (autocomplete && text.isNotBlank() && text != suppressedInput) {
+            suppressedInput = null
             if (textLower.startsWith("uninstall ")) {
                 val subQuery = text.substring("uninstall ".length)
                 appRepository.getCompletionRemaining(subQuery) ?: ""
@@ -260,6 +267,21 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
     fun refreshApps() {
         appRepository.refreshApps()
+    }
+
+    fun onPackageEvent(packageName: String, isRemoved: Boolean) {
+        refreshApps()
+        val text = if (isRemoved) {
+            "[APP UNINSTALLED]: $packageName removed successfully."
+        } else {
+            "[NEW APP INSTALLED]: $packageName detected."
+        }
+        val line = TerminalLine(text = text, type = LineType.SUCCESS)
+        val updatedLines = _uiState.value.lines.toMutableList().apply { add(line) }
+        _uiState.value = _uiState.value.copy(lines = updatedLines)
+        viewModelScope.launch {
+            settingsRepository.saveTerminalBuffer(updatedLines)
+        }
     }
 
     private fun getBuiltInCommandCompletion(input: String): String {

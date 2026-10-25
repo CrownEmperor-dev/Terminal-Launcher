@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.hardware.camera2.CameraManager
+import android.media.AudioManager
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
@@ -12,6 +13,8 @@ import android.os.SystemClock
 import android.provider.Settings
 import androidx.compose.runtime.Immutable
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import java.util.UUID
 import kotlin.math.pow
@@ -53,6 +56,11 @@ class CommandEngine(
         val trimmed = commandInput.trim()
         if (trimmed.isEmpty()) return CommandResult()
 
+        // Check if input matches a web URL directly
+        if (isWebUrl(trimmed)) {
+            return handleWebUrl(trimmed)
+        }
+
         // Check if input matches an alias
         val resolvedCommand = currentSettings.aliases[trimmed.lowercase()] ?: trimmed
         val tokens = resolvedCommand.split(Regex("\\s+"))
@@ -61,6 +69,9 @@ class CommandEngine(
 
         return when (cmd) {
             "help", "man" -> handleHelp()
+            "about", "version" -> handleAbout()
+            "time", "date" -> handleTime()
+            "killall", "trim" -> handleKillall()
             "options", "customize", "preferences" -> CommandResult(
                 outputLines = listOf(TerminalLine(text = "Opening GUI Options Menu...", type = LineType.SUCCESS)),
                 openOptionsMenu = true
@@ -133,6 +144,77 @@ class CommandEngine(
         return CommandResult(outputLines = lines)
     }
 
+    private fun handleAbout(): CommandResult {
+        val lines = listOf(
+            TerminalLine(text = "TERMINAL LAUNCHER - ABOUT", type = LineType.HEADER),
+            TerminalLine(text = "==================================================", type = LineType.SYSTEM),
+            TerminalLine(text = "App Name    : Terminal Launcher", type = LineType.OUTPUT),
+            TerminalLine(text = "Version     : v1.0.0 (Build 1)", type = LineType.OUTPUT),
+            TerminalLine(text = "Developer   : CrownEmperor-dev", type = LineType.OUTPUT),
+            TerminalLine(text = "Framework   : Kotlin & Jetpack Compose", type = LineType.OUTPUT),
+            TerminalLine(text = "License     : MIT License", type = LineType.OUTPUT),
+            TerminalLine(text = "Repository  : https://github.com/CrownEmperor-dev/Terminal-Launcher", type = LineType.OUTPUT),
+            TerminalLine(text = "==================================================", type = LineType.SYSTEM)
+        )
+        return CommandResult(outputLines = lines)
+    }
+
+    private fun handleTime(): CommandResult {
+        val now = Date()
+        val timeFormat = SimpleDateFormat("hh:mm:ss a (z)", Locale.US)
+        val dateFormat = SimpleDateFormat("EEEE, MMMM dd, yyyy", Locale.US)
+        val epochSeconds = System.currentTimeMillis() / 1000
+
+        val lines = listOf(
+            TerminalLine(text = "SYSTEM DATE & TIME", type = LineType.HEADER),
+            TerminalLine(text = "==================================================", type = LineType.SYSTEM),
+            TerminalLine(text = "Time        : ${timeFormat.format(now)}", type = LineType.OUTPUT),
+            TerminalLine(text = "Date        : ${dateFormat.format(now)}", type = LineType.OUTPUT),
+            TerminalLine(text = "Unix Epoch  : $epochSeconds seconds", type = LineType.OUTPUT),
+            TerminalLine(text = "==================================================", type = LineType.SYSTEM)
+        )
+        return CommandResult(outputLines = lines)
+    }
+
+    private fun handleKillall(): CommandResult {
+        val actManager = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        val initialRam = getRamUsageInfo()
+
+        return try {
+            val runningAppProcesses = actManager.runningAppProcesses ?: emptyList()
+            var killedCount = 0
+            runningAppProcesses.forEach { proc ->
+                if (proc.pkgList.isNotEmpty() && proc.processName != context.packageName) {
+                    proc.pkgList.forEach { pkg ->
+                        try {
+                            actManager.killBackgroundProcesses(pkg)
+                            killedCount++
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
+
+            System.gc()
+            val newRam = getRamUsageInfo()
+
+            CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "BACKGROUND PROCESS TRIM", type = LineType.HEADER),
+                    TerminalLine(text = "==================================================", type = LineType.SYSTEM),
+                    TerminalLine(text = "Trimmed Packages : $killedCount background processes", type = LineType.OUTPUT),
+                    TerminalLine(text = "RAM Before Trim  : $initialRam", type = LineType.OUTPUT),
+                    TerminalLine(text = "RAM After Trim   : $newRam", type = LineType.SUCCESS),
+                    TerminalLine(text = "==================================================", type = LineType.SYSTEM)
+                )
+            )
+        } catch (e: Exception) {
+            CommandResult(
+                outputLines = listOf(TerminalLine(text = "Memory trim error: ${e.message}", type = LineType.ERROR)),
+                success = false
+            )
+        }
+    }
+
     private fun handleSystemSettings(): CommandResult {
         return try {
             val intent = Intent(Settings.ACTION_SETTINGS).apply {
@@ -162,7 +244,8 @@ class CommandEngine(
         }
 
         return try {
-            val intent = Intent(Intent.ACTION_DELETE, Uri.parse("package:${app.packageName}")).apply {
+            val intent = Intent(Intent.ACTION_DELETE).apply {
+                data = Uri.fromParts("package", app.packageName, null)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(intent)
@@ -225,6 +308,9 @@ class CommandEngine(
         lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
         lines.add(TerminalLine(text = "CORE COMMANDS:", type = LineType.HEADER))
         lines.add(TerminalLine(text = "  options / customize GUI visual settings menu", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  about / version    App details, license, and repository URL", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  time / date        Display system date, time, and epoch", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  killall / trim     Trim background tasks & free RAM", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  matrix             Full-screen matrix digital rain easter egg", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  ls [letter|dir]    List applications, storage (e.g. ls storage), or filter", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  cd <dir>           Change active storage directory (e.g. cd storage0/Download)", type = LineType.OUTPUT))
@@ -250,7 +336,8 @@ class CommandEngine(
         lines.add(TerminalLine(text = "  battery [status|health] Power & battery health metrics", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  calc <expr>          Solve inline math expressions", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  sys flash            Toggle flashlight/torch hardware", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  sys wifi / bt        Open Wi-Fi / Bluetooth settings", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  sys ringer <s|v|n>   Set ringer mode: silent, vibrate, normal", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  sys settings <page>  Open settings page (e.g. sys settings display)", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  call <number>        Launch phone dialer", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  sms <number>         Launch SMS messaging", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
@@ -274,7 +361,7 @@ class CommandEngine(
             }
             "/system", "system" -> {
                 lines.add(TerminalLine(text = "SYSTEM COMMANDS:", type = LineType.HEADER))
-                val sysCmds = listOf("options", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
+                val sysCmds = listOf("options", "about", "time", "killall", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
                 sysCmds.forEach { lines.add(TerminalLine(text = "  $it", type = LineType.OUTPUT)) }
             }
             "/storage", "storage" -> {
@@ -584,6 +671,8 @@ class CommandEngine(
 
     private fun handleSys(args: List<String>): CommandResult {
         val action = args.firstOrNull()?.lowercase() ?: ""
+        val subArgs = args.drop(1)
+
         return when (action) {
             "flash", "flashlight", "torch" -> toggleFlashlight()
             "wifi" -> {
@@ -594,12 +683,86 @@ class CommandEngine(
                 context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
                 CommandResult(outputLines = listOf(TerminalLine(text = "Opened Bluetooth Settings", type = LineType.SUCCESS)))
             }
-            "silent", "sound" -> {
-                context.startActivity(Intent(Settings.ACTION_SOUND_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
-                CommandResult(outputLines = listOf(TerminalLine(text = "Opened Sound Settings", type = LineType.SUCCESS)))
+            "silent", "sound", "ringer" -> handleRingerMode(subArgs.firstOrNull()?.lowercase() ?: "")
+            "rotation" -> handleAutoRotation()
+            "gps", "location" -> {
+                context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+                CommandResult(outputLines = listOf(TerminalLine(text = "Opened Location Settings", type = LineType.SUCCESS)))
             }
-            "settings" -> handleSystemSettings()
-            else -> CommandResult(outputLines = listOf(TerminalLine(text = "Usage: sys <flash|wifi|bt|sound|settings>", type = LineType.ERROR)), success = false)
+            "hotspot" -> {
+                context.startActivity(Intent("android.settings.TETHER_SETTINGS").apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+                CommandResult(outputLines = listOf(TerminalLine(text = "Opened Hotspot & Tethering Settings", type = LineType.SUCCESS)))
+            }
+            "settings" -> handleSysSettingsSubpage(subArgs.joinToString(" "))
+            else -> CommandResult(outputLines = listOf(TerminalLine(text = "Usage: sys <flash|wifi|bt|sound|rotation|gps|hotspot|settings>", type = LineType.ERROR)), success = false)
+        }
+    }
+
+    private fun handleSysSettingsSubpage(subpage: String): CommandResult {
+        if (subpage.isBlank()) return handleSystemSettings()
+        val lower = subpage.lowercase()
+
+        val intent = when {
+            lower.startsWith("app ") || lower.startsWith("package ") -> {
+                val appName = subpage.substringAfter(" ").trim()
+                val app = appRepository.findApp(appName)
+                if (app != null) {
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", app.packageName, null))
+                } else {
+                    return CommandResult(outputLines = listOf(TerminalLine(text = "App not found: '$appName'", type = LineType.ERROR)), success = false)
+                }
+            }
+            lower.contains("display") || lower.contains("screen") -> Intent(Settings.ACTION_DISPLAY_SETTINGS)
+            lower.contains("battery") || lower.contains("power") -> Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS)
+            lower.contains("storage") -> Intent(Settings.ACTION_INTERNAL_STORAGE_SETTINGS)
+            lower.contains("keyboard") || lower.contains("input") -> Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
+            lower.contains("network") || lower.contains("data") -> Intent(Settings.ACTION_DATA_ROAMING_SETTINGS)
+            lower.contains("default") -> Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+            lower.contains("developer") || lower.contains("dev") -> Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+            lower.contains("accessibility") -> Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            lower.contains("security") || lower.contains("lock") -> Intent(Settings.ACTION_SECURITY_SETTINGS)
+            else -> Intent(Settings.ACTION_SETTINGS)
+        }.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+
+        return try {
+            context.startActivity(intent)
+            CommandResult(outputLines = listOf(TerminalLine(text = "Opened System Settings ($subpage)...", type = LineType.SUCCESS)))
+        } catch (e: Exception) {
+            CommandResult(outputLines = listOf(TerminalLine(text = "Unable to open subpage ($subpage): ${e.message}", type = LineType.ERROR)), success = false)
+        }
+    }
+
+    private fun handleRingerMode(mode: String): CommandResult {
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        return when (mode) {
+            "silent" -> {
+                audioManager.ringerMode = AudioManager.RINGER_MODE_SILENT
+                CommandResult(outputLines = listOf(TerminalLine(text = "Ringer set to SILENT", type = LineType.SUCCESS)))
+            }
+            "vibrate" -> {
+                audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
+                CommandResult(outputLines = listOf(TerminalLine(text = "Ringer set to VIBRATE", type = LineType.SUCCESS)))
+            }
+            "normal", "sound" -> {
+                audioManager.ringerMode = AudioManager.RINGER_MODE_NORMAL
+                CommandResult(outputLines = listOf(TerminalLine(text = "Ringer set to NORMAL", type = LineType.SUCCESS)))
+            }
+            else -> {
+                context.startActivity(Intent(Settings.ACTION_SOUND_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+                CommandResult(outputLines = listOf(TerminalLine(text = "Opened Sound Settings. Usage: sys sound <silent|vibrate|normal>", type = LineType.SUCCESS)))
+            }
+        }
+    }
+
+    private fun handleAutoRotation(): CommandResult {
+        return try {
+            val current = Settings.System.getInt(context.contentResolver, Settings.System.ACCELEROMETER_ROTATION, 0)
+            val newMode = if (current == 1) 0 else 1
+            Settings.System.putInt(context.contentResolver, Settings.System.ACCELEROMETER_ROTATION, newMode)
+            CommandResult(outputLines = listOf(TerminalLine(text = "Auto-rotation turned ${if (newMode == 1) "ON" else "OFF"}", type = LineType.SUCCESS)))
+        } catch (_: Exception) {
+            context.startActivity(Intent(Settings.ACTION_DISPLAY_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+            CommandResult(outputLines = listOf(TerminalLine(text = "Opened Display Settings for auto-rotation toggle", type = LineType.SUCCESS)))
         }
     }
 
@@ -650,6 +813,28 @@ class CommandEngine(
             CommandResult(outputLines = listOf(TerminalLine(text = "Opened Power / Battery menu", type = LineType.SUCCESS)))
         } catch (_: Exception) {
             CommandResult(outputLines = listOf(TerminalLine(text = "Unable to trigger power action", type = LineType.ERROR)), success = false)
+        }
+    }
+
+    private fun isWebUrl(input: String): Boolean {
+        val lower = input.lowercase()
+        return lower.startsWith("http://") || lower.startsWith("https://") || lower.startsWith("www.") ||
+               (lower.contains(".") && !lower.contains(" ") && lower.split(".").last() in listOf("com", "org", "net", "io", "dev", "edu", "gov", "app", "me", "ai", "co", "uk", "de", "fr"))
+    }
+
+    private fun handleWebUrl(input: String): CommandResult {
+        val formattedUrl = when {
+            input.startsWith("http://") || input.startsWith("https://") -> input
+            else -> "https://$input"
+        }
+        return try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(formattedUrl)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            CommandResult(outputLines = listOf(TerminalLine(text = "Opening URL '$formattedUrl' in browser...", type = LineType.SUCCESS)))
+        } catch (e: Exception) {
+            CommandResult(outputLines = listOf(TerminalLine(text = "Unable to open URL: ${e.message}", type = LineType.ERROR)), success = false)
         }
     }
 

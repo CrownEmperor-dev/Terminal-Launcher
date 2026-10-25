@@ -1,7 +1,12 @@
 package com.example.terminallauncher.ui
 
 import android.Manifest
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -27,6 +32,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -70,7 +76,11 @@ fun TerminalScreen(
 
     // First-run runtime permissions check
     val permissionsToRequest = remember {
-        listOf(Manifest.permission.CAMERA, Manifest.permission.CALL_PHONE)
+        val list = mutableListOf(Manifest.permission.CAMERA, Manifest.permission.CALL_PHONE)
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
+            list.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+        list
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -85,6 +95,32 @@ fun TerminalScreen(
         }
         if (missingPermissions.isNotEmpty()) {
             permissionLauncher.launch(missingPermissions.toTypedArray())
+        }
+    }
+
+    // Dynamic Package Event BroadcastReceiver (Detect app installs & uninstalls)
+    DisposableEffect(context) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                val action = intent?.action ?: return
+                val pkgName = intent.data?.schemeSpecificPart ?: return
+                when (action) {
+                    Intent.ACTION_PACKAGE_REMOVED -> viewModel.onPackageEvent(pkgName, isRemoved = true)
+                    Intent.ACTION_PACKAGE_ADDED -> viewModel.onPackageEvent(pkgName, isRemoved = false)
+                }
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED)
+            addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addDataScheme("package")
+        }
+        context.registerReceiver(receiver, filter)
+
+        onDispose {
+            try {
+                context.unregisterReceiver(receiver)
+            } catch (_: Exception) {}
         }
     }
 
@@ -211,6 +247,12 @@ fun TerminalScreen(
                                     Key.Tab -> {
                                         if (uiState.ghostSuffix.isNotEmpty()) {
                                             viewModel.acceptGhostCompletion()
+                                            true
+                                        } else false
+                                    }
+                                    Key.Backspace -> {
+                                        if (uiState.ghostSuffix.isNotEmpty()) {
+                                            viewModel.dismissGhostCompletion()
                                             true
                                         } else false
                                     }
