@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +20,15 @@ enum class TerminalThemeType {
     MONOCHROME
 }
 
+enum class AsciiArtStyle {
+    DEFAULT,
+    BUGDROID,
+    TUX,
+    RETRO_PC,
+    MINIMAL,
+    OFF
+}
+
 data class LauncherSettings(
     val theme: TerminalThemeType = TerminalThemeType.CRT_GREEN,
     val promptString: String = "user@mobile:~$ ",
@@ -26,7 +36,9 @@ data class LauncherSettings(
     val autocompleteEnabled: Boolean = true,
     val firstRunCompleted: Boolean = false,
     val aliases: Map<String, String> = mapOf("yt" to "YouTube", "cam" to "Camera", "notes" to "Keep"),
-    val history: List<String> = emptyList()
+    val history: List<String> = emptyList(),
+    val textSizeSp: Int = 15,
+    val asciiArtStyle: AsciiArtStyle = AsciiArtStyle.DEFAULT
 )
 
 class SettingsRepository(private val context: Context) {
@@ -40,6 +52,8 @@ class SettingsRepository(private val context: Context) {
         val ALIASES_RAW = stringPreferencesKey("aliases_raw")
         val HISTORY_RAW = stringPreferencesKey("history_raw")
         val BUFFER_RAW = stringPreferencesKey("terminal_buffer_raw")
+        val TEXT_SIZE_SP = intPreferencesKey("text_size_sp")
+        val ASCII_ART_STYLE = stringPreferencesKey("ascii_art_style")
     }
 
     val settingsFlow: Flow<LauncherSettings> = context.dataStore.data.map { preferences ->
@@ -61,6 +75,14 @@ class SettingsRepository(private val context: Context) {
         val historyRaw = preferences[PreferencesKeys.HISTORY_RAW] ?: ""
         val historyList = if (historyRaw.isBlank()) emptyList() else historyRaw.split("\n")
 
+        val textSize = preferences[PreferencesKeys.TEXT_SIZE_SP] ?: 15
+        val asciiStyleName = preferences[PreferencesKeys.ASCII_ART_STYLE] ?: AsciiArtStyle.DEFAULT.name
+        val asciiStyle = try {
+            AsciiArtStyle.valueOf(asciiStyleName)
+        } catch (_: Exception) {
+            AsciiArtStyle.DEFAULT
+        }
+
         LauncherSettings(
             theme = theme,
             promptString = prompt,
@@ -68,7 +90,9 @@ class SettingsRepository(private val context: Context) {
             autocompleteEnabled = autocomplete,
             firstRunCompleted = firstRun,
             aliases = aliasesMap,
-            history = historyList
+            history = historyList,
+            textSizeSp = textSize,
+            asciiArtStyle = asciiStyle
         )
     }
 
@@ -116,6 +140,18 @@ class SettingsRepository(private val context: Context) {
     suspend fun setFirstRunCompleted(completed: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.FIRST_RUN_COMPLETED] = completed
+        }
+    }
+
+    suspend fun setTextSizeSp(textSizeSp: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.TEXT_SIZE_SP] = textSizeSp
+        }
+    }
+
+    suspend fun setAsciiArtStyle(style: AsciiArtStyle) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.ASCII_ART_STYLE] = style.name
         }
     }
 
@@ -172,7 +208,7 @@ class SettingsRepository(private val context: Context) {
         return raw.split("\u0000").mapNotNull { entry ->
             val parts = entry.split("\u0001", limit = 2)
             if (parts.size == 2) {
-                val type = try { LineType.valueOf(parts[0]) } catch (e: Exception) { LineType.OUTPUT }
+                val type = try { LineType.valueOf(parts[0]) } catch (_: Exception) { LineType.OUTPUT }
                 TerminalLine(parts[1], type)
             } else null
         }

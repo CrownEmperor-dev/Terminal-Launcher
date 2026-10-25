@@ -29,6 +29,7 @@ data class TerminalLine(
 data class CommandResult(
     val outputLines: List<TerminalLine> = emptyList(),
     val shouldClearBuffer: Boolean = false,
+    val openOptionsMenu: Boolean = false,
     val launchedApp: AppModel? = null,
     val success: Boolean = true
 )
@@ -45,14 +46,18 @@ class CommandEngine(
         val trimmed = commandInput.trim()
         if (trimmed.isEmpty()) return CommandResult()
 
-        // 1. Check if input matches an alias first
+        // Check if input matches an alias
         val resolvedCommand = currentSettings.aliases[trimmed.lowercase()] ?: trimmed
         val tokens = resolvedCommand.split(Regex("\\s+"))
         val cmd = tokens.first().lowercase()
         val args = tokens.drop(1)
 
         return when (cmd) {
-            "help", "man" -> handleHelp(args)
+            "help", "man" -> handleHelp()
+            "options", "customize", "preferences" -> CommandResult(
+                outputLines = listOf(TerminalLine("Opening GUI Options Menu...", LineType.SUCCESS)),
+                openOptionsMenu = true
+            )
             "clear" -> CommandResult(shouldClearBuffer = true)
             "ls" -> handleLs(args, currentSettings)
             "cd" -> handleCd(args)
@@ -62,9 +67,9 @@ class CommandEngine(
             "unalias" -> handleUnalias(args, currentSettings)
             "history" -> handleHistory(currentSettings)
             "config", "settings" -> handleConfig(args, currentSettings)
-            "fastfetch", "neofetch" -> CommandResult(outputLines = generateFastfetchLines())
-            "top", "htop" -> CommandResult(outputLines = generateTopLines())
-            "battery" -> CommandResult(outputLines = generateBatteryLines())
+            "infofetch", "fastfetch", "neofetch" -> handleInfofetch(args, currentSettings)
+            "top", "htop" -> handleTop(args)
+            "battery" -> handleBattery(args)
             "calc" -> handleCalc(args.joinToString(" "))
             "sys", "toggle" -> handleSys(args)
             "call" -> handleCall(args.joinToString(" "))
@@ -74,7 +79,7 @@ class CommandEngine(
         }
     }
 
-    fun generateFastfetchLines(): List<TerminalLine> {
+    fun generateInfofetchLines(asciiStyle: AsciiArtStyle = AsciiArtStyle.DEFAULT): List<TerminalLine> {
         val osVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
         val model = "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}"
         val cpuArch = Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown"
@@ -82,13 +87,7 @@ class CommandEngine(
         val batInfo = getBatteryStatusInfo()
         val uptime = getUptimeString()
 
-        val asciiArt = listOf(
-            "  _____                   _             _ ",
-            " |_   _|___ _ __ _ __ ___ (_)_ __   __ _| |",
-            "   | |/ _ \\ '__| '_ ` _ \\| | '_ \\ / _` | |",
-            "   | |  __/ |  | | | | | | | | | | (_| | |",
-            "   |_|\\___|_|  |_| |_| |_|_|_| |_|\\__,_|_|"
-        )
+        val asciiArt = getAsciiArtBanner(asciiStyle)
 
         val infoDetails = listOf(
             "OS: $osVersion",
@@ -103,51 +102,105 @@ class CommandEngine(
 
         val result = mutableListOf<TerminalLine>()
         result.add(TerminalLine("--------------------------------------------------", LineType.SYSTEM))
-        asciiArt.forEach { result.add(TerminalLine(it, LineType.HEADER)) }
-        result.add(TerminalLine("--------------------------------------------------", LineType.SYSTEM))
+        if (asciiArt.isNotEmpty()) {
+            asciiArt.forEach { result.add(TerminalLine(it, LineType.HEADER)) }
+            result.add(TerminalLine("--------------------------------------------------", LineType.SYSTEM))
+        }
         infoDetails.forEach { result.add(TerminalLine(it, LineType.OUTPUT)) }
         result.add(TerminalLine("--------------------------------------------------", LineType.SYSTEM))
         return result
     }
 
-    private fun handleHelp(args: List<String>): CommandResult {
+    private fun handleInfofetch(args: List<String>, settings: LauncherSettings): CommandResult {
+        val isUpdate = args.firstOrNull()?.lowercase() == "update"
+        val lines = generateInfofetchLines(settings.asciiArtStyle).toMutableList()
+        if (isUpdate) {
+            lines.add(0, TerminalLine("[REFRESHED REAL-TIME SYSTEM INFORMATION]", LineType.SUCCESS))
+        }
+        return CommandResult(outputLines = lines)
+    }
+
+    private fun getAsciiArtBanner(style: AsciiArtStyle): List<String> {
+        return when (style) {
+            AsciiArtStyle.DEFAULT -> listOf(
+                "  _____                   _             _ ",
+                " |_   _|___ _ __ _ __ ___ (_)_ __   __ _| |",
+                "   | |/ _ \\ '__| '_ ` _ \\| | '_ \\ / _` | |",
+                "   | |  __/ |  | | | | | | | | | | (_| | |",
+                "   |_|\\___|_|  |_| |_| |_|_|_| |_|\\__,_|_|"
+            )
+            AsciiArtStyle.BUGDROID -> listOf(
+                "       __   __       ",
+                "      (  \\_/  )      ",
+                "       \\     /       ",
+                "      .-'   '-.      ",
+                "     /  O   O  \\     ",
+                "    |           |    ",
+                "   .-------------.   ",
+                "  /               \\  "
+            )
+            AsciiArtStyle.TUX -> listOf(
+                "     a_a      ",
+                "    o(_)_o    ",
+                "   .-\"==\"-.   ",
+                "  /   ||   \\  ",
+                " |    ||    | ",
+                "  \\_  ||  _/  ",
+                "    `\"\"`\"\"`   "
+            )
+            AsciiArtStyle.RETRO_PC -> listOf(
+                "  +---------+ ",
+                "  |  >_     | ",
+                "  +---------+ ",
+                "  |  [===]  | ",
+                "  +---------+ "
+            )
+            AsciiArtStyle.MINIMAL -> listOf(
+                " [ TERMINAL LAUNCHER ] "
+            )
+            AsciiArtStyle.OFF -> emptyList()
+        }
+    }
+
+    private fun handleHelp(): CommandResult {
         val lines = mutableListOf<TerminalLine>()
         lines.add(TerminalLine("Terminal Launcher v1.0 - Shell Manual", LineType.HEADER))
         lines.add(TerminalLine("==================================================", LineType.SYSTEM))
         lines.add(TerminalLine("CORE COMMANDS:", LineType.HEADER))
-        lines.add(TerminalLine("  ls [dir]          List installed applications, system tools, or aliases", LineType.OUTPUT))
-        lines.add(TerminalLine("  open <app>        Launch an app by name or package (or type app name directly)", LineType.OUTPUT))
+        lines.add(TerminalLine("  options / customize GUI visual settings menu", LineType.OUTPUT))
+        lines.add(TerminalLine("  ls [letter|filter] List applications or filter by letter (e.g. ls o)", LineType.OUTPUT))
+        lines.add(TerminalLine("  open <app>         Launch an app by name or package", LineType.OUTPUT))
         lines.add(TerminalLine("  alias [k=v]       Set custom command shortcut (e.g., alias yt=YouTube)", LineType.OUTPUT))
         lines.add(TerminalLine("  unalias <key>     Remove a custom alias", LineType.OUTPUT))
         lines.add(TerminalLine("  clear             Clear current terminal screen", LineType.OUTPUT))
         lines.add(TerminalLine("  history           Show command execution history", LineType.OUTPUT))
-        lines.add(TerminalLine("  help / man        Display this help documentation", LineType.OUTPUT))
+        lines.add(TerminalLine("  help / man        Display documentation", LineType.OUTPUT))
         lines.add(TerminalLine("", LineType.OUTPUT))
         lines.add(TerminalLine("SETTINGS & PREFERENCES:", LineType.HEADER))
-        lines.add(TerminalLine("  config                     Show current launcher preferences", LineType.OUTPUT))
+        lines.add(TerminalLine("  config                     Show current launcher settings", LineType.OUTPUT))
         lines.add(TerminalLine("  config set theme <t>       Set theme: green, amber, oled, mono", LineType.OUTPUT))
         lines.add(TerminalLine("  config set fastfetch <on|off> Toggle startup system banner", LineType.OUTPUT))
         lines.add(TerminalLine("  config set prompt <text>   Customize shell prompt string", LineType.OUTPUT))
         lines.add(TerminalLine("  config set autocomplete <on|off> Toggle ghost auto-completion", LineType.OUTPUT))
         lines.add(TerminalLine("", LineType.OUTPUT))
         lines.add(TerminalLine("SYSTEM & UTILITIES:", LineType.HEADER))
-        lines.add(TerminalLine("  fastfetch / neofetch System overview and ASCII hardware banner", LineType.OUTPUT))
-        lines.add(TerminalLine("  top / htop           Display RAM and system resource usage", LineType.OUTPUT))
-        lines.add(TerminalLine("  battery              Show detailed power and battery health", LineType.OUTPUT))
-        lines.add(TerminalLine("  calc <expr>          Solve inline math expressions (e.g. calc (12*4)/3)", LineType.OUTPUT))
+        lines.add(TerminalLine("  infofetch [update]   System hardware specs & live refresh", LineType.OUTPUT))
+        lines.add(TerminalLine("  top [memory]         System monitor & RAM usage breakdown", LineType.OUTPUT))
+        lines.add(TerminalLine("  battery [status|health] Power & battery health metrics", LineType.OUTPUT))
+        lines.add(TerminalLine("  calc <expr>          Solve inline math expressions", LineType.OUTPUT))
         lines.add(TerminalLine("  sys flash            Toggle flashlight/torch hardware", LineType.OUTPUT))
         lines.add(TerminalLine("  sys wifi / bt        Open Wi-Fi / Bluetooth settings", LineType.OUTPUT))
-        lines.add(TerminalLine("  call <number>        Launch phone dialer or direct call", LineType.OUTPUT))
+        lines.add(TerminalLine("  call <number>        Launch phone dialer", LineType.OUTPUT))
         lines.add(TerminalLine("  sms <number>         Launch SMS messaging", LineType.OUTPUT))
         lines.add(TerminalLine("==================================================", LineType.SYSTEM))
         return CommandResult(outputLines = lines)
     }
 
     private fun handleLs(args: List<String>, settings: LauncherSettings): CommandResult {
-        val target = args.firstOrNull()?.lowercase() ?: currentPath
+        val target = args.firstOrNull()?.replace("\"", "")?.trim() ?: currentPath
         val lines = mutableListOf<TerminalLine>()
 
-        when (target) {
+        when (target.lowercase()) {
             "/aliases", "aliases" -> {
                 lines.add(TerminalLine("CONFIGURED ALIASES:", LineType.HEADER))
                 if (settings.aliases.isEmpty()) {
@@ -160,22 +213,59 @@ class CommandEngine(
             }
             "/system", "system" -> {
                 lines.add(TerminalLine("SYSTEM COMMANDS:", LineType.HEADER))
-                val sysCmds = listOf("fastfetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config")
+                val sysCmds = listOf("options", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config")
                 sysCmds.forEach { lines.add(TerminalLine("  $it", LineType.OUTPUT)) }
             }
             else -> {
-                val apps = appRepository.getApps()
-                lines.add(TerminalLine("INSTALLED APPLICATIONS (${apps.size}):", LineType.HEADER))
-                apps.chunked(3).forEach { row ->
-                    val rowText = row.joinToString("   ") { app ->
-                        val alias = settings.aliases.entries.firstOrNull { it.value.equals(app.label, ignoreCase = true) }?.key
-                        if (alias != null) "${app.label} [$alias]" else app.label
+                val allApps = appRepository.getApps()
+                val filterQuery = if (target != "~" && target != "/apps" && target != "apps") target.lowercase() else ""
+
+                val filteredApps = if (filterQuery.isNotEmpty()) {
+                    allApps.filter { it.label.lowercase().startsWith(filterQuery) || it.packageName.lowercase().startsWith(filterQuery) }
+                } else {
+                    allApps
+                }
+
+                val headerText = if (filterQuery.isNotEmpty()) {
+                    "INSTALLED APPLICATIONS MATCHING '$filterQuery' (${filteredApps.size}):"
+                } else {
+                    "INSTALLED APPLICATIONS (${filteredApps.size}):"
+                }
+
+                lines.add(TerminalLine(headerText, LineType.HEADER))
+
+                if (filteredApps.isEmpty()) {
+                    lines.add(TerminalLine("  (no apps found matching '$filterQuery')", LineType.OUTPUT))
+                } else {
+                    filteredApps.chunked(3).forEach { row ->
+                        val rowText = row.joinToString("   ") { app ->
+                            val alias = settings.aliases.entries.firstOrNull { it.value.equals(app.label, ignoreCase = true) }?.key
+                            if (alias != null) "${app.label} [$alias]" else app.label
+                        }
+                        lines.add(TerminalLine(rowText, LineType.OUTPUT))
                     }
-                    lines.add(TerminalLine(rowText, LineType.OUTPUT))
                 }
             }
         }
         return CommandResult(outputLines = lines)
+    }
+
+    private fun handleTop(args: List<String>): CommandResult {
+        val subCommand = args.firstOrNull()?.lowercase() ?: ""
+        return if (subCommand == "memory" || subCommand == "mem") {
+            CommandResult(outputLines = generateDetailedMemoryLines())
+        } else {
+            CommandResult(outputLines = generateTopLines())
+        }
+    }
+
+    private fun handleBattery(args: List<String>): CommandResult {
+        val subCommand = args.firstOrNull()?.lowercase() ?: ""
+        return if (subCommand == "status" || subCommand == "health" || subCommand == "info") {
+            CommandResult(outputLines = generateDetailedBatteryLines())
+        } else {
+            CommandResult(outputLines = generateBatteryLines())
+        }
     }
 
     private fun handleCd(args: List<String>): CommandResult {
@@ -261,8 +351,10 @@ class CommandEngine(
                 TerminalLine("  fastfetch      : ${if (settings.fastfetchOnStart) "on" else "off"}", LineType.OUTPUT),
                 TerminalLine("  prompt         : '${settings.promptString}'", LineType.OUTPUT),
                 TerminalLine("  autocomplete   : ${if (settings.autocompleteEnabled) "on" else "off"}", LineType.OUTPUT),
+                TerminalLine("  textSizeSp     : ${settings.textSizeSp}sp", LineType.OUTPUT),
+                TerminalLine("  asciiArtStyle  : ${settings.asciiArtStyle.name.lowercase()}", LineType.OUTPUT),
                 TerminalLine("--------------------------------------------------", LineType.SYSTEM),
-                TerminalLine("Usage: config set <theme|fastfetch|prompt|autocomplete> <value>", LineType.SYSTEM)
+                TerminalLine("Usage: config set <theme|fastfetch|prompt|autocomplete|size|ascii> <value>", LineType.SYSTEM)
             )
             return CommandResult(outputLines = lines)
         }
@@ -287,10 +379,10 @@ class CommandEngine(
                         CommandResult(outputLines = listOf(TerminalLine("Invalid theme. Options: green, amber, oled, mono", LineType.ERROR)), success = false)
                     }
                 }
-                "fastfetch", "neofetch" -> {
+                "fastfetch", "neofetch", "infofetch" -> {
                     val enabled = value.lowercase() in listOf("on", "true", "1", "yes")
                     settingsRepository.setFastfetchOnStart(enabled)
-                    CommandResult(outputLines = listOf(TerminalLine("Startup fastfetch set to ${if (enabled) "on" else "off"}", LineType.SUCCESS)))
+                    CommandResult(outputLines = listOf(TerminalLine("Startup infofetch set to ${if (enabled) "on" else "off"}", LineType.SUCCESS)))
                 }
                 "prompt" -> {
                     val promptStr = if (value.endsWith(" ")) value else "$value "
@@ -301,6 +393,20 @@ class CommandEngine(
                     val enabled = value.lowercase() in listOf("on", "true", "1", "yes")
                     settingsRepository.setAutocompleteEnabled(enabled)
                     CommandResult(outputLines = listOf(TerminalLine("Ghost auto-complete set to ${if (enabled) "on" else "off"}", LineType.SUCCESS)))
+                }
+                "size", "textsize" -> {
+                    val size = value.toIntOrNull() ?: 15
+                    settingsRepository.setTextSizeSp(size)
+                    CommandResult(outputLines = listOf(TerminalLine("Text size set to ${size}sp", LineType.SUCCESS)))
+                }
+                "ascii", "art" -> {
+                    val style = try { AsciiArtStyle.valueOf(value.uppercase()) } catch (_: Exception) { null }
+                    if (style != null) {
+                        settingsRepository.setAsciiArtStyle(style)
+                        CommandResult(outputLines = listOf(TerminalLine("ASCII art style set to ${style.name.lowercase()}", LineType.SUCCESS)))
+                    } else {
+                        CommandResult(outputLines = listOf(TerminalLine("Invalid style. Options: default, bugdroid, tux, retro_pc, minimal, off", LineType.ERROR)), success = false)
+                    }
                 }
                 else -> CommandResult(outputLines = listOf(TerminalLine("Unknown config key: $option", LineType.ERROR)), success = false)
             }
@@ -386,13 +492,12 @@ class CommandEngine(
         return try {
             context.startActivity(intent)
             CommandResult(outputLines = listOf(TerminalLine("Opened Power / Battery menu", LineType.SUCCESS)))
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             CommandResult(outputLines = listOf(TerminalLine("Unable to trigger power action", LineType.ERROR)), success = false)
         }
     }
 
     private fun handleFallback(input: String, settings: LauncherSettings): CommandResult {
-        // Direct app search or launch
         val app = appRepository.findApp(input)
         if (app != null) {
             val launched = appRepository.launchApp(app)
@@ -409,7 +514,7 @@ class CommandEngine(
         return CommandResult(
             outputLines = listOf(
                 TerminalLine("command not found: $input", LineType.ERROR),
-                TerminalLine("Type 'help' for available commands or 'ls' for app list.", LineType.SYSTEM)
+                TerminalLine("Type 'help' for available commands or 'options' for GUI settings.", LineType.SYSTEM)
             ),
             success = false
         )
@@ -451,6 +556,40 @@ class CommandEngine(
             TerminalLine("Power State   : $battery", LineType.OUTPUT),
             TerminalLine("System Uptime : $uptime", LineType.OUTPUT),
             TerminalLine("Architecture  : ${Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown"}", LineType.OUTPUT),
+            TerminalLine("==================================================", LineType.SYSTEM),
+            TerminalLine("Tip: Run 'top memory' for detailed memory breakdown.", LineType.SYSTEM)
+        )
+    }
+
+    private fun generateDetailedMemoryLines(): List<TerminalLine> {
+        val actManager = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+        val memInfo = android.app.ActivityManager.MemoryInfo()
+        actManager.getMemoryInfo(memInfo)
+
+        val totalMb = memInfo.totalMem / (1024 * 1024)
+        val availMb = memInfo.availMem / (1024 * 1024)
+        val usedMb = totalMb - availMb
+        val threshMb = memInfo.threshold / (1024 * 1024)
+
+        val runtime = Runtime.getRuntime()
+        val maxHeapMb = runtime.maxMemory() / (1024 * 1024)
+        val totalHeapMb = runtime.totalMemory() / (1024 * 1024)
+        val freeHeapMb = runtime.freeMemory() / (1024 * 1024)
+        val usedHeapMb = totalHeapMb - freeHeapMb
+
+        return listOf(
+            TerminalLine("DETAILED SYSTEM MEMORY ALLOCATION", LineType.HEADER),
+            TerminalLine("==================================================", LineType.SYSTEM),
+            TerminalLine("Total RAM Physical  : ${totalMb} MB", LineType.OUTPUT),
+            TerminalLine("RAM Currently Used  : ${usedMb} MB (${usedMb * 100 / totalMb}%)", LineType.OUTPUT),
+            TerminalLine("RAM Available Free  : ${availMb} MB", LineType.OUTPUT),
+            TerminalLine("Low Memory Warning  : ${if (memInfo.lowMemory) "YES (CRITICAL)" else "NO (HEALTHY)"}", LineType.OUTPUT),
+            TerminalLine("Low Memory Threshold: ${threshMb} MB", LineType.OUTPUT),
+            TerminalLine("--------------------------------------------------", LineType.SYSTEM),
+            TerminalLine("Process Heap Max    : ${maxHeapMb} MB", LineType.OUTPUT),
+            TerminalLine("Process Heap Total  : ${totalHeapMb} MB", LineType.OUTPUT),
+            TerminalLine("Process Heap Used   : ${usedHeapMb} MB", LineType.OUTPUT),
+            TerminalLine("Process Heap Free   : ${freeHeapMb} MB", LineType.OUTPUT),
             TerminalLine("==================================================", LineType.SYSTEM)
         )
     }
@@ -461,6 +600,7 @@ class CommandEngine(
         val level: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
         val pct = if (level != -1 && scale != -1) (level * 100 / scale) else 0
+
         val temp = (batteryStatus?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0) / 10.0
         val health = when (batteryStatus?.getIntExtra(BatteryManager.EXTRA_HEALTH, 0)) {
             BatteryManager.BATTERY_HEALTH_GOOD -> "Good"
@@ -474,6 +614,48 @@ class CommandEngine(
             TerminalLine("Level       : $pct%", LineType.OUTPUT),
             TerminalLine("Temperature : ${String.format(Locale.US, "%.1f", temp)} °C", LineType.OUTPUT),
             TerminalLine("Health      : $health", LineType.OUTPUT),
+            TerminalLine("==================================================", LineType.SYSTEM),
+            TerminalLine("Tip: Run 'battery status' for full hardware details.", LineType.SYSTEM)
+        )
+    }
+
+    private fun generateDetailedBatteryLines(): List<TerminalLine> {
+        val ifilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        val batteryStatus: Intent? = context.registerReceiver(null, ifilter)
+        val level: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+        val scale: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+        val pct = if (level != -1 && scale != -1) (level * 100 / scale) else 0
+
+        val statusInt = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val statusStr = when (statusInt) {
+            BatteryManager.BATTERY_STATUS_CHARGING -> "Charging"
+            BatteryManager.BATTERY_STATUS_DISCHARGING -> "Discharging"
+            BatteryManager.BATTERY_STATUS_FULL -> "Full"
+            BatteryManager.BATTERY_STATUS_NOT_CHARGING -> "Not Charging"
+            else -> "Unknown"
+        }
+
+        val pluggedInt = batteryStatus?.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) ?: -1
+        val pluggedStr = when (pluggedInt) {
+            BatteryManager.BATTERY_PLUGGED_AC -> "AC Power Adapter"
+            BatteryManager.BATTERY_PLUGGED_USB -> "USB Port"
+            BatteryManager.BATTERY_PLUGGED_WIRELESS -> "Wireless Charger"
+            else -> "Battery Only (Unplugged)"
+        }
+
+        val voltage = (batteryStatus?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) ?: 0) / 1000.0
+        val temp = (batteryStatus?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0) / 10.0
+        val tech = batteryStatus?.getStringExtra(BatteryManager.EXTRA_TECHNOLOGY) ?: "Li-ion"
+
+        return listOf(
+            TerminalLine("DETAILED BATTERY & POWER METRICS", LineType.HEADER),
+            TerminalLine("==================================================", LineType.SYSTEM),
+            TerminalLine("Charge Level  : $pct%", LineType.OUTPUT),
+            TerminalLine("Power State   : $statusStr", LineType.OUTPUT),
+            TerminalLine("Power Source  : $pluggedStr", LineType.OUTPUT),
+            TerminalLine("Voltage       : ${String.format(Locale.US, "%.2f", voltage)} V", LineType.OUTPUT),
+            TerminalLine("Temperature   : ${String.format(Locale.US, "%.1f", temp)} °C", LineType.OUTPUT),
+            TerminalLine("Technology    : $tech", LineType.OUTPUT),
             TerminalLine("==================================================", LineType.SYSTEM)
         )
     }
@@ -509,9 +691,7 @@ class CommandEngine(
 
             fun parse(): Double {
                 nextChar()
-                val x = parseExpression()
-                if (pos < sanitized.length) throw RuntimeException("Unexpected character: " + ch.toChar())
-                return x
+                return parseExpression()
             }
 
             fun parseExpression(): Double {

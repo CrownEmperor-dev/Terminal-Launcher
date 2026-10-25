@@ -13,13 +13,16 @@
 ---
 
 ```text
-user@mobile:~$ fastfetch
+user@mobile:~$ infofetch
 --------------------------------------------------
-  _____                   _             _ 
- |_   _|___ _ __ _ __ ___ (_)_ __   __ _| |
-   | |/ _ \ '__| '_ ` _ \| | '_ \ / _` | |
-   | |  __/ |  | | | | | | | | | | (_| | |
-   |_|\___|_|  |_| |_| |_|_|_| |_|\__,_|_|
+       __   __       
+      (  \_/  )      
+       \     /       
+      .-'   '-.      
+     /  O   O  \     
+    |           |    
+   .-------------.   
+  /               \  
 --------------------------------------------------
 OS: Android 8.0+ (API 26+)
 Host: Android Mobile Device
@@ -28,6 +31,7 @@ Shell: TerminalLauncher v1.0
 UI Engine: Jetpack Compose
 Edge-To-Edge: Active (Transparent System Bars)
 Themes: CRT Green | Amber Phosphor | OLED Black | Monochrome
+ASCII Banners: Default | Bugdroid | Tux | Retro PC | Minimal | Off
 Autocomplete: Inline Ghost Prediction
 --------------------------------------------------
 ```
@@ -47,11 +51,12 @@ SYNOPSIS
 DESCRIPTION
        Terminal Launcher replaces standard icon grids with an ultra-responsive monospaced
        shell interface. It provides instant app launching, inline ghost completion, retro CRT
-       visual styles, hardware keyboard shortcuts, and built-in system management utilities.
+       visual styles, hardware keyboard shortcuts, a GUI options menu, and built-in system management.
 
 OPTIONS & COMMANDS
-       core:
-           ls [dir]           List installed applications, aliases, or system utilities.
+       core & gui:
+           options / customize Open dedicated retro GUI Options Menu overlay.
+           ls [letter|dir]    List applications or filter by starting letter (e.g. ls o).
            open <app>         Explicitly launch an application by label or package name.
            alias <k=v>        Define custom command shortcuts (e.g. alias yt=YouTube).
            unalias <key>      Remove a custom alias.
@@ -59,23 +64,37 @@ OPTIONS & COMMANDS
            history            Display command execution history.
            help / man         Display command manual and usage documentation.
 
-       config:
-           config                     Show current launcher preferences.
+       config & preferences:
+           config                     Show current launcher preferences in shell.
            config set theme <theme>   Set palette: green, amber, oled, mono.
+           config set size <sp>       Set font size (e.g., config set size 15).
+           config set ascii <style>   Set banner style: default, bugdroid, tux, retro_pc, minimal, off.
            config set fastfetch <on|off> Toggle startup system banner display.
            config set prompt <text>   Customize shell prompt string (default: user@mobile:~$ ).
            config set autocomplete <on|off> Toggle ghost auto-completion overlay.
 
        system & utilities:
-           fastfetch / neofetch       Display ASCII banner and system diagnostic info.
-           top / htop                 View live RAM utilization and CPU core allocation.
-           battery                    Display power state, temperature, and health.
-           calc <expression>          Evaluate inline mathematical equations (e.g. calc 12*4).
-           sys flash                  Toggle flashlight / camera torch hardware.
-           sys wifi / bt / sound      Open system settings panels directly.
-           call <number>              Launch phone dialer or direct call intent.
-           sms <number>               Launch SMS messaging.
+           infofetch [update]   System hardware specs & real-time live refresh.
+           top [memory]         System monitor & RAM heap allocation breakdown.
+           battery [status]     Power state, temperature, voltage, and health metrics.
+           calc <expression>    Evaluate inline mathematical equations (e.g. calc (15*4)/3).
+           sys flash            Toggle flashlight / camera torch hardware.
+           sys wifi / bt / sound Open system settings panels directly.
+           call <number>        Launch phone dialer or direct call intent.
+           sms <number>         Launch SMS messaging.
 ```
+
+---
+
+## ⚙️ `user@mobile:~$ options`
+
+Type `options` (or `customize`) anywhere in the terminal to launch the **GUI Options Overlay**:
+
+* **Theme Color Palette**: CRT Green, Amber Phosphor, OLED Black, Monochrome.
+* **Font Size**: Small (12sp), Medium (15sp), Large (18sp).
+* **ASCII Art Banners**: Default title logo, **Bugdroid** (Android mascot), **Tux** (Linux mascot), Retro PC, Minimal, or Off.
+* **Toggles**: Startup Infofetch banner and Inline Ghost Autocomplete.
+* **Prompt Editor**: Live shell prompt text editing.
 
 ---
 
@@ -130,6 +149,10 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ---
+
+## 📄 License
+
+This project is licensed under the **MIT License** — see the [LICENSE](file:///home/mohammed/AndroidStudioProjects/TerminalLauncher/LICENSE) file for details.
 
 ```text
 user@mobile:~$ echo "Built with Jetpack Compose & Kotlin"

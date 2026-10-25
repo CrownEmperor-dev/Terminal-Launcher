@@ -45,6 +45,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -61,11 +62,12 @@ fun TerminalScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val colorScheme = remember(uiState.settings.theme) { getTerminalColorScheme(uiState.settings.theme) }
+    val fontSize = uiState.settings.textSizeSp.sp
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
     val context = LocalContext.current
 
-    // First-run runtime permissions check (Camera for flashlight, Call Phone for dialer)
+    // First-run runtime permissions check
     val permissionsToRequest = remember {
         listOf(Manifest.permission.CAMERA, Manifest.permission.CALL_PHONE)
     }
@@ -97,6 +99,21 @@ fun TerminalScreen(
         focusRequester.requestFocus()
     }
 
+    // Render GUI Options Dialog overlay if requested
+    if (uiState.isOptionsMenuVisible) {
+        OptionsMenuDialog(
+            settings = uiState.settings,
+            colorScheme = colorScheme,
+            onDismiss = { viewModel.closeOptionsMenu() },
+            onSetTheme = { viewModel.setTheme(it) },
+            onSetTextSize = { viewModel.setTextSize(it) },
+            onSetAsciiStyle = { viewModel.setAsciiStyle(it) },
+            onSetFastfetch = { viewModel.setFastfetchOnStart(it) },
+            onSetAutocomplete = { viewModel.setAutocompleteEnabled(it) },
+            onSetPrompt = { viewModel.setPromptString(it) }
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -121,7 +138,7 @@ fun TerminalScreen(
                     .fillMaxWidth()
             ) {
                 items(uiState.lines) { line ->
-                    TerminalLineView(line = line, colorScheme = colorScheme)
+                    TerminalLineView(line = line, colorScheme = colorScheme, fontSize = fontSize)
                 }
             }
 
@@ -136,7 +153,7 @@ fun TerminalScreen(
                     text = uiState.settings.promptString,
                     style = TextStyle(
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 15.sp,
+                        fontSize = fontSize,
                         fontWeight = FontWeight.Bold,
                         color = colorScheme.promptColor
                     )
@@ -154,7 +171,7 @@ fun TerminalScreen(
                             text = inputText + ghostText,
                             style = TextStyle(
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 15.sp,
+                                fontSize = fontSize,
                                 color = colorScheme.textGhost
                             )
                         )
@@ -190,7 +207,7 @@ fun TerminalScreen(
                             },
                         textStyle = TextStyle(
                             fontFamily = FontFamily.Monospace,
-                            fontSize = 15.sp,
+                            fontSize = fontSize,
                             color = colorScheme.textPrimary
                         ),
                         cursorBrush = SolidColor(colorScheme.promptColor),
@@ -211,7 +228,8 @@ fun TerminalScreen(
 @Composable
 fun TerminalLineView(
     line: TerminalLine,
-    colorScheme: TerminalColorScheme = getTerminalColorScheme(TerminalThemeType.CRT_GREEN)
+    colorScheme: TerminalColorScheme = getTerminalColorScheme(TerminalThemeType.CRT_GREEN),
+    fontSize: TextUnit = 15.sp
 ) {
     val textColor = when (line.type) {
         LineType.INPUT -> colorScheme.textPrimary
@@ -231,7 +249,7 @@ fun TerminalLineView(
         text = line.text,
         style = TextStyle(
             fontFamily = FontFamily.Monospace,
-            fontSize = 14.sp,
+            fontSize = fontSize,
             fontWeight = fontWeight,
             color = textColor
         ),

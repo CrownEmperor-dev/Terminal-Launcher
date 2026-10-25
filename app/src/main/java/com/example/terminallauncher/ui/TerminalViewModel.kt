@@ -6,12 +6,14 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.terminallauncher.data.AppRepository
+import com.example.terminallauncher.data.AsciiArtStyle
 import com.example.terminallauncher.data.CommandEngine
 import com.example.terminallauncher.data.CommandResult
 import com.example.terminallauncher.data.LauncherSettings
 import com.example.terminallauncher.data.LineType
 import com.example.terminallauncher.data.SettingsRepository
 import com.example.terminallauncher.data.TerminalLine
+import com.example.terminallauncher.data.TerminalThemeType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,7 +26,8 @@ data class TerminalUiState(
     val ghostSuffix: String = "",
     val settings: LauncherSettings = LauncherSettings(),
     val historyIndex: Int = -1,
-    val isFirstRunPromptActive: Boolean = false
+    val isFirstRunPromptActive: Boolean = false,
+    val isOptionsMenuVisible: Boolean = false
 )
 
 class TerminalViewModel(application: Application) : AndroidViewModel(application) {
@@ -49,10 +52,10 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                     } else {
                         val initialLines = mutableListOf<TerminalLine>()
                         initialLines.add(TerminalLine("Welcome to Terminal Launcher v1.0", LineType.HEADER))
-                        initialLines.add(TerminalLine("Type 'help' for documentation, 'ls' for app list.", LineType.SYSTEM))
+                        initialLines.add(TerminalLine("Type 'help' for documentation, 'ls' for app list, 'options' for GUI settings.", LineType.SYSTEM))
                         val settings = _uiState.value.settings
                         if (settings.fastfetchOnStart) {
-                            initialLines.addAll(commandEngine.generateFastfetchLines())
+                            initialLines.addAll(commandEngine.generateInfofetchLines(settings.asciiArtStyle))
                         }
                         _uiState.value = _uiState.value.copy(lines = initialLines)
                         settingsRepository.saveTerminalBuffer(initialLines)
@@ -65,6 +68,50 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
             settingsRepository.settingsFlow.collectLatest { settings ->
                 _uiState.value = _uiState.value.copy(settings = settings)
             }
+        }
+    }
+
+    fun openOptionsMenu() {
+        _uiState.value = _uiState.value.copy(isOptionsMenuVisible = true)
+    }
+
+    fun closeOptionsMenu() {
+        _uiState.value = _uiState.value.copy(isOptionsMenuVisible = false)
+    }
+
+    fun setTheme(theme: TerminalThemeType) {
+        viewModelScope.launch {
+            settingsRepository.setTheme(theme)
+        }
+    }
+
+    fun setTextSize(textSizeSp: Int) {
+        viewModelScope.launch {
+            settingsRepository.setTextSizeSp(textSizeSp)
+        }
+    }
+
+    fun setAsciiStyle(style: AsciiArtStyle) {
+        viewModelScope.launch {
+            settingsRepository.setAsciiArtStyle(style)
+        }
+    }
+
+    fun setFastfetchOnStart(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setFastfetchOnStart(enabled)
+        }
+    }
+
+    fun setAutocompleteEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setAutocompleteEnabled(enabled)
+        }
+    }
+
+    fun setPromptString(prompt: String) {
+        viewModelScope.launch {
+            settingsRepository.setPromptString(prompt)
         }
     }
 
@@ -121,6 +168,10 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             settingsRepository.addHistoryEntry(input)
             val result: CommandResult = commandEngine.execute(input, currentSettings)
+
+            if (result.openOptionsMenu) {
+                _uiState.value = _uiState.value.copy(isOptionsMenuVisible = true)
+            }
 
             if (result.shouldClearBuffer) {
                 _uiState.value = _uiState.value.copy(lines = emptyList())
@@ -188,7 +239,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun getBuiltInCommandCompletion(input: String): String {
-        val commands = listOf("help", "clear", "history", "config", "fastfetch", "neofetch", "top", "htop", "battery", "calc", "sys", "alias", "unalias", "open", "launch", "ls", "apps")
+        val commands = listOf("help", "options", "infofetch", "fastfetch", "neofetch", "clear", "history", "config", "top", "htop", "battery", "calc", "sys", "alias", "unalias", "open", "launch", "ls", "apps")
         val inputLower = input.lowercase()
         val match = commands.firstOrNull { it.startsWith(inputLower) && it != inputLower }
         return match?.substring(input.length) ?: ""

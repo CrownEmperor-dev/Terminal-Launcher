@@ -1,12 +1,10 @@
 package com.example.terminallauncher
 
 import com.example.terminallauncher.data.AppModel
+import com.example.terminallauncher.data.AsciiArtStyle
 import com.example.terminallauncher.data.LauncherSettings
-import com.example.terminallauncher.data.LineType
 import com.example.terminallauncher.data.TerminalThemeType
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -18,7 +16,6 @@ class CommandEngineTest {
         val expr2 = "(100 - 20) / 4"
         val expr3 = "2 ^ 3"
 
-        // Basic verification logic for math expression math parsing
         val val1 = evaluateMath(expr1)
         val val2 = evaluateMath(expr2)
         val val3 = evaluateMath(expr3)
@@ -39,6 +36,8 @@ class CommandEngineTest {
         assertTrue(settings.fastfetchOnStart)
         assertTrue(settings.autocompleteEnabled)
         assertEquals("YouTube", settings.aliases["yt"])
+        assertEquals(15, settings.textSizeSp)
+        assertEquals(AsciiArtStyle.DEFAULT, settings.asciiArtStyle)
     }
 
     private fun evaluateMath(expr: String): Double {
@@ -62,8 +61,7 @@ class CommandEngineTest {
 
             fun parse(): Double {
                 nextChar()
-                val x = parseExpression()
-                return x
+                return parseExpression()
             }
 
             fun parseExpression(): Double {
