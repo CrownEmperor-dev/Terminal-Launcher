@@ -209,12 +209,12 @@ class SettingsRepository(private val context: Context) {
             val parts = entry.split("\u0001", limit = 2)
             if (parts.size == 2) {
                 val type = try { LineType.valueOf(parts[0]) } catch (_: Exception) { LineType.OUTPUT }
-                TerminalLine(parts[1], type)
+                TerminalLine(text = parts[1], type = type)
             } else null
         }
     }
 
     private fun serializeBuffer(lines: List<TerminalLine>): String {
-        return lines.takeLast(200).joinToString("\u0000") { "${it.type.name}\u0001${it.text}" }
+        return lines.takeLast(100).joinToString("\u0000") { "${it.type.name}\u0001${it.text}" }
     }
 }

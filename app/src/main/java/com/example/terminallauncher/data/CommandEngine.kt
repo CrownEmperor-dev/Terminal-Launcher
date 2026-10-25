@@ -9,7 +9,9 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.SystemClock
 import android.provider.Settings
+import androidx.compose.runtime.Immutable
 import java.util.Locale
+import java.util.UUID
 import kotlin.math.pow
 
 enum class LineType {
@@ -21,7 +23,9 @@ enum class LineType {
     HEADER
 }
 
+@Immutable
 data class TerminalLine(
+    val id: String = UUID.randomUUID().toString(),
     val text: String,
     val type: LineType = LineType.OUTPUT
 )
@@ -30,6 +34,7 @@ data class CommandResult(
     val outputLines: List<TerminalLine> = emptyList(),
     val shouldClearBuffer: Boolean = false,
     val openOptionsMenu: Boolean = false,
+    val openMatrixMode: Boolean = false,
     val launchedApp: AppModel? = null,
     val success: Boolean = true
 )
@@ -55,8 +60,12 @@ class CommandEngine(
         return when (cmd) {
             "help", "man" -> handleHelp()
             "options", "customize", "preferences" -> CommandResult(
-                outputLines = listOf(TerminalLine("Opening GUI Options Menu...", LineType.SUCCESS)),
+                outputLines = listOf(TerminalLine(text = "Opening GUI Options Menu...", type = LineType.SUCCESS)),
                 openOptionsMenu = true
+            )
+            "matrix" -> CommandResult(
+                outputLines = listOf(TerminalLine(text = "Entering Matrix Digital Rain...", type = LineType.SUCCESS)),
+                openMatrixMode = true
             )
             "clear" -> CommandResult(shouldClearBuffer = true)
             "ls" -> handleLs(args, currentSettings)
@@ -66,7 +75,8 @@ class CommandEngine(
             "alias" -> handleAlias(args, currentSettings)
             "unalias" -> handleUnalias(args, currentSettings)
             "history" -> handleHistory(currentSettings)
-            "config", "settings" -> handleConfig(args, currentSettings)
+            "config" -> handleConfig(args, currentSettings)
+            "settings" -> handleSystemSettings()
             "infofetch", "fastfetch", "neofetch" -> handleInfofetch(args, currentSettings)
             "top", "htop" -> handleTop(args)
             "battery" -> handleBattery(args)
@@ -101,13 +111,13 @@ class CommandEngine(
         )
 
         val result = mutableListOf<TerminalLine>()
-        result.add(TerminalLine("--------------------------------------------------", LineType.SYSTEM))
+        result.add(TerminalLine(text = "--------------------------------------------------", type = LineType.SYSTEM))
         if (asciiArt.isNotEmpty()) {
-            asciiArt.forEach { result.add(TerminalLine(it, LineType.HEADER)) }
-            result.add(TerminalLine("--------------------------------------------------", LineType.SYSTEM))
+            asciiArt.forEach { result.add(TerminalLine(text = it, type = LineType.HEADER)) }
+            result.add(TerminalLine(text = "--------------------------------------------------", type = LineType.SYSTEM))
         }
-        infoDetails.forEach { result.add(TerminalLine(it, LineType.OUTPUT)) }
-        result.add(TerminalLine("--------------------------------------------------", LineType.SYSTEM))
+        infoDetails.forEach { result.add(TerminalLine(text = it, type = LineType.OUTPUT)) }
+        result.add(TerminalLine(text = "--------------------------------------------------", type = LineType.SYSTEM))
         return result
     }
 
@@ -115,9 +125,21 @@ class CommandEngine(
         val isUpdate = args.firstOrNull()?.lowercase() == "update"
         val lines = generateInfofetchLines(settings.asciiArtStyle).toMutableList()
         if (isUpdate) {
-            lines.add(0, TerminalLine("[REFRESHED REAL-TIME SYSTEM INFORMATION]", LineType.SUCCESS))
+            lines.add(0, TerminalLine(text = "[REFRESHED REAL-TIME SYSTEM INFORMATION]", type = LineType.SUCCESS))
         }
         return CommandResult(outputLines = lines)
+    }
+
+    private fun handleSystemSettings(): CommandResult {
+        return try {
+            val intent = Intent(Settings.ACTION_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            CommandResult(outputLines = listOf(TerminalLine(text = "Opening Android System Settings...", type = LineType.SUCCESS)))
+        } catch (e: Exception) {
+            CommandResult(outputLines = listOf(TerminalLine(text = "Unable to open System Settings: ${e.message}", type = LineType.ERROR)), success = false)
+        }
     }
 
     private fun getAsciiArtBanner(style: AsciiArtStyle): List<String> {
@@ -164,35 +186,37 @@ class CommandEngine(
 
     private fun handleHelp(): CommandResult {
         val lines = mutableListOf<TerminalLine>()
-        lines.add(TerminalLine("Terminal Launcher v1.0 - Shell Manual", LineType.HEADER))
-        lines.add(TerminalLine("==================================================", LineType.SYSTEM))
-        lines.add(TerminalLine("CORE COMMANDS:", LineType.HEADER))
-        lines.add(TerminalLine("  options / customize GUI visual settings menu", LineType.OUTPUT))
-        lines.add(TerminalLine("  ls [letter|filter] List applications or filter by letter (e.g. ls o)", LineType.OUTPUT))
-        lines.add(TerminalLine("  open <app>         Launch an app by name or package", LineType.OUTPUT))
-        lines.add(TerminalLine("  alias [k=v]       Set custom command shortcut (e.g., alias yt=YouTube)", LineType.OUTPUT))
-        lines.add(TerminalLine("  unalias <key>     Remove a custom alias", LineType.OUTPUT))
-        lines.add(TerminalLine("  clear             Clear current terminal screen", LineType.OUTPUT))
-        lines.add(TerminalLine("  history           Show command execution history", LineType.OUTPUT))
-        lines.add(TerminalLine("  help / man        Display documentation", LineType.OUTPUT))
-        lines.add(TerminalLine("", LineType.OUTPUT))
-        lines.add(TerminalLine("SETTINGS & PREFERENCES:", LineType.HEADER))
-        lines.add(TerminalLine("  config                     Show current launcher settings", LineType.OUTPUT))
-        lines.add(TerminalLine("  config set theme <t>       Set theme: green, amber, oled, mono", LineType.OUTPUT))
-        lines.add(TerminalLine("  config set fastfetch <on|off> Toggle startup system banner", LineType.OUTPUT))
-        lines.add(TerminalLine("  config set prompt <text>   Customize shell prompt string", LineType.OUTPUT))
-        lines.add(TerminalLine("  config set autocomplete <on|off> Toggle ghost auto-completion", LineType.OUTPUT))
-        lines.add(TerminalLine("", LineType.OUTPUT))
-        lines.add(TerminalLine("SYSTEM & UTILITIES:", LineType.HEADER))
-        lines.add(TerminalLine("  infofetch [update]   System hardware specs & live refresh", LineType.OUTPUT))
-        lines.add(TerminalLine("  top [memory]         System monitor & RAM usage breakdown", LineType.OUTPUT))
-        lines.add(TerminalLine("  battery [status|health] Power & battery health metrics", LineType.OUTPUT))
-        lines.add(TerminalLine("  calc <expr>          Solve inline math expressions", LineType.OUTPUT))
-        lines.add(TerminalLine("  sys flash            Toggle flashlight/torch hardware", LineType.OUTPUT))
-        lines.add(TerminalLine("  sys wifi / bt        Open Wi-Fi / Bluetooth settings", LineType.OUTPUT))
-        lines.add(TerminalLine("  call <number>        Launch phone dialer", LineType.OUTPUT))
-        lines.add(TerminalLine("  sms <number>         Launch SMS messaging", LineType.OUTPUT))
-        lines.add(TerminalLine("==================================================", LineType.SYSTEM))
+        lines.add(TerminalLine(text = "Terminal Launcher v1.0 - Shell Manual", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
+        lines.add(TerminalLine(text = "CORE COMMANDS:", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "  options / customize GUI visual settings menu", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  matrix             Full-screen matrix digital rain easter egg", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  ls [letter|filter] List applications or filter by letter (e.g. ls o)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  open <app>         Launch an app by name or package", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  alias [k=v]       Set custom command shortcut (e.g., alias yt=YouTube)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  unalias <key>     Remove a custom alias", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  clear             Clear current terminal screen", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  history           Show command execution history", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  help / man        Display documentation", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "SETTINGS & PREFERENCES:", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "  config                     Show launcher CLI configurations", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  config set theme <t>       Set theme: green, amber, oled, mono", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  config set fastfetch <on|off> Toggle startup system banner", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  config set prompt <text>   Customize shell prompt string", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  config set autocomplete <on|off> Toggle ghost auto-completion", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  settings                   Open Android device system settings", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "SYSTEM & UTILITIES:", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "  infofetch [update]   System hardware specs & live refresh", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  top [memory]         System monitor & RAM usage breakdown", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  battery [status|health] Power & battery health metrics", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  calc <expr>          Solve inline math expressions", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  sys flash            Toggle flashlight/torch hardware", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  sys wifi / bt        Open Wi-Fi / Bluetooth settings", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  call <number>        Launch phone dialer", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  sms <number>         Launch SMS messaging", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
         return CommandResult(outputLines = lines)
     }
 
@@ -202,19 +226,19 @@ class CommandEngine(
 
         when (target.lowercase()) {
             "/aliases", "aliases" -> {
-                lines.add(TerminalLine("CONFIGURED ALIASES:", LineType.HEADER))
+                lines.add(TerminalLine(text = "CONFIGURED ALIASES:", type = LineType.HEADER))
                 if (settings.aliases.isEmpty()) {
-                    lines.add(TerminalLine("  (no aliases defined. Use 'alias key=value')", LineType.OUTPUT))
+                    lines.add(TerminalLine(text = "  (no aliases defined. Use 'alias key=value')", type = LineType.OUTPUT))
                 } else {
                     settings.aliases.forEach { (k, v) ->
-                        lines.add(TerminalLine("  $k -> $v", LineType.OUTPUT))
+                        lines.add(TerminalLine(text = "  $k -> $v", type = LineType.OUTPUT))
                     }
                 }
             }
             "/system", "system" -> {
-                lines.add(TerminalLine("SYSTEM COMMANDS:", LineType.HEADER))
-                val sysCmds = listOf("options", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config")
-                sysCmds.forEach { lines.add(TerminalLine("  $it", LineType.OUTPUT)) }
+                lines.add(TerminalLine(text = "SYSTEM COMMANDS:", type = LineType.HEADER))
+                val sysCmds = listOf("options", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "matrix")
+                sysCmds.forEach { lines.add(TerminalLine(text = "  $it", type = LineType.OUTPUT)) }
             }
             else -> {
                 val allApps = appRepository.getApps()
@@ -232,17 +256,17 @@ class CommandEngine(
                     "INSTALLED APPLICATIONS (${filteredApps.size}):"
                 }
 
-                lines.add(TerminalLine(headerText, LineType.HEADER))
+                lines.add(TerminalLine(text = headerText, type = LineType.HEADER))
 
                 if (filteredApps.isEmpty()) {
-                    lines.add(TerminalLine("  (no apps found matching '$filterQuery')", LineType.OUTPUT))
+                    lines.add(TerminalLine(text = "  (no apps found matching '$filterQuery')", type = LineType.OUTPUT))
                 } else {
                     filteredApps.chunked(3).forEach { row ->
                         val rowText = row.joinToString("   ") { app ->
                             val alias = settings.aliases.entries.firstOrNull { it.value.equals(app.label, ignoreCase = true) }?.key
                             if (alias != null) "${app.label} [$alias]" else app.label
                         }
-                        lines.add(TerminalLine(rowText, LineType.OUTPUT))
+                        lines.add(TerminalLine(text = rowText, type = LineType.OUTPUT))
                     }
                 }
             }
@@ -275,9 +299,9 @@ class CommandEngine(
             "apps", "/apps" -> "/apps"
             "system", "/system" -> "/system"
             "aliases", "/aliases" -> "/aliases"
-            else -> return CommandResult(outputLines = listOf(TerminalLine("cd: no such directory: $path", LineType.ERROR)), success = false)
+            else -> return CommandResult(outputLines = listOf(TerminalLine(text = "cd: no such directory: $path", type = LineType.ERROR)), success = false)
         }
-        return CommandResult(outputLines = listOf(TerminalLine("Changed directory to $currentPath", LineType.SUCCESS)))
+        return CommandResult(outputLines = listOf(TerminalLine(text = "Changed directory to $currentPath", type = LineType.SUCCESS)))
     }
 
     private fun handleAppsList(): CommandResult {
@@ -286,21 +310,21 @@ class CommandEngine(
 
     private fun handleOpenApp(query: String): CommandResult {
         if (query.isBlank()) {
-            return CommandResult(outputLines = listOf(TerminalLine("Usage: open <app_name|package>", LineType.ERROR)), success = false)
+            return CommandResult(outputLines = listOf(TerminalLine(text = "Usage: open <app_name|package>", type = LineType.ERROR)), success = false)
         }
         val app = appRepository.findApp(query)
         return if (app != null) {
             val launched = appRepository.launchApp(app)
             if (launched) {
                 CommandResult(
-                    outputLines = listOf(TerminalLine("Launching ${app.label}...", LineType.SUCCESS)),
+                    outputLines = listOf(TerminalLine(text = "Launching ${app.label}...", type = LineType.SUCCESS)),
                     launchedApp = app
                 )
             } else {
-                CommandResult(outputLines = listOf(TerminalLine("Failed to launch ${app.label}", LineType.ERROR)), success = false)
+                CommandResult(outputLines = listOf(TerminalLine(text = "Failed to launch ${app.label}", type = LineType.ERROR)), success = false)
             }
         } else {
-            CommandResult(outputLines = listOf(TerminalLine("App not found: '$query'", LineType.ERROR)), success = false)
+            CommandResult(outputLines = listOf(TerminalLine(text = "App not found: '$query'", type = LineType.ERROR)), success = false)
         }
     }
 
@@ -312,32 +336,32 @@ class CommandEngine(
         val fullArg = args.joinToString(" ")
         val parts = fullArg.split("=", limit = 2)
         if (parts.size != 2 || parts[0].isBlank() || parts[1].isBlank()) {
-            return CommandResult(outputLines = listOf(TerminalLine("Usage: alias <key>=<target>", LineType.ERROR)), success = false)
+            return CommandResult(outputLines = listOf(TerminalLine(text = "Usage: alias <key>=<target>", type = LineType.ERROR)), success = false)
         }
 
         val key = parts[0].trim().lowercase()
         val target = parts[1].trim()
         settingsRepository.addAlias(key, target)
-        return CommandResult(outputLines = listOf(TerminalLine("Alias added: $key -> $target", LineType.SUCCESS)))
+        return CommandResult(outputLines = listOf(TerminalLine(text = "Alias added: $key -> $target", type = LineType.SUCCESS)))
     }
 
     private suspend fun handleUnalias(args: List<String>, settings: LauncherSettings): CommandResult {
         val key = args.firstOrNull()?.trim()?.lowercase()
         if (key.isNullOrBlank()) {
-            return CommandResult(outputLines = listOf(TerminalLine("Usage: unalias <key>", LineType.ERROR)), success = false)
+            return CommandResult(outputLines = listOf(TerminalLine(text = "Usage: unalias <key>", type = LineType.ERROR)), success = false)
         }
         settingsRepository.removeAlias(key)
-        return CommandResult(outputLines = listOf(TerminalLine("Alias removed: $key", LineType.SUCCESS)))
+        return CommandResult(outputLines = listOf(TerminalLine(text = "Alias removed: $key", type = LineType.SUCCESS)))
     }
 
     private fun handleHistory(settings: LauncherSettings): CommandResult {
         val lines = mutableListOf<TerminalLine>()
-        lines.add(TerminalLine("COMMAND HISTORY:", LineType.HEADER))
+        lines.add(TerminalLine(text = "COMMAND HISTORY:", type = LineType.HEADER))
         if (settings.history.isEmpty()) {
-            lines.add(TerminalLine("  (no command history)", LineType.OUTPUT))
+            lines.add(TerminalLine(text = "  (no command history)", type = LineType.OUTPUT))
         } else {
             settings.history.forEachIndexed { idx, cmd ->
-                lines.add(TerminalLine("  ${idx + 1}  $cmd", LineType.OUTPUT))
+                lines.add(TerminalLine(text = "  ${idx + 1}  $cmd", type = LineType.OUTPUT))
             }
         }
         return CommandResult(outputLines = lines)
@@ -346,15 +370,15 @@ class CommandEngine(
     private suspend fun handleConfig(args: List<String>, settings: LauncherSettings): CommandResult {
         if (args.isEmpty()) {
             val lines = listOf(
-                TerminalLine("LAUNCHER CONFIGURATION:", LineType.HEADER),
-                TerminalLine("  theme          : ${settings.theme.name.lowercase()}", LineType.OUTPUT),
-                TerminalLine("  fastfetch      : ${if (settings.fastfetchOnStart) "on" else "off"}", LineType.OUTPUT),
-                TerminalLine("  prompt         : '${settings.promptString}'", LineType.OUTPUT),
-                TerminalLine("  autocomplete   : ${if (settings.autocompleteEnabled) "on" else "off"}", LineType.OUTPUT),
-                TerminalLine("  textSizeSp     : ${settings.textSizeSp}sp", LineType.OUTPUT),
-                TerminalLine("  asciiArtStyle  : ${settings.asciiArtStyle.name.lowercase()}", LineType.OUTPUT),
-                TerminalLine("--------------------------------------------------", LineType.SYSTEM),
-                TerminalLine("Usage: config set <theme|fastfetch|prompt|autocomplete|size|ascii> <value>", LineType.SYSTEM)
+                TerminalLine(text = "LAUNCHER CONFIGURATION:", type = LineType.HEADER),
+                TerminalLine(text = "  theme          : ${settings.theme.name.lowercase()}", type = LineType.OUTPUT),
+                TerminalLine(text = "  fastfetch      : ${if (settings.fastfetchOnStart) "on" else "off"}", type = LineType.OUTPUT),
+                TerminalLine(text = "  prompt         : '${settings.promptString}'", type = LineType.OUTPUT),
+                TerminalLine(text = "  autocomplete   : ${if (settings.autocompleteEnabled) "on" else "off"}", type = LineType.OUTPUT),
+                TerminalLine(text = "  textSizeSp     : ${settings.textSizeSp}sp", type = LineType.OUTPUT),
+                TerminalLine(text = "  asciiArtStyle  : ${settings.asciiArtStyle.name.lowercase()}", type = LineType.OUTPUT),
+                TerminalLine(text = "--------------------------------------------------", type = LineType.SYSTEM),
+                TerminalLine(text = "Usage: config set <theme|fastfetch|prompt|autocomplete|size|ascii> <value>", type = LineType.SYSTEM)
             )
             return CommandResult(outputLines = lines)
         }
@@ -374,56 +398,56 @@ class CommandEngine(
                     }
                     if (themeEnum != null) {
                         settingsRepository.setTheme(themeEnum)
-                        CommandResult(outputLines = listOf(TerminalLine("Theme set to ${themeEnum.name.lowercase()}", LineType.SUCCESS)))
+                        CommandResult(outputLines = listOf(TerminalLine(text = "Theme set to ${themeEnum.name.lowercase()}", type = LineType.SUCCESS)))
                     } else {
-                        CommandResult(outputLines = listOf(TerminalLine("Invalid theme. Options: green, amber, oled, mono", LineType.ERROR)), success = false)
+                        CommandResult(outputLines = listOf(TerminalLine(text = "Invalid theme. Options: green, amber, oled, mono", type = LineType.ERROR)), success = false)
                     }
                 }
                 "fastfetch", "neofetch", "infofetch" -> {
                     val enabled = value.lowercase() in listOf("on", "true", "1", "yes")
                     settingsRepository.setFastfetchOnStart(enabled)
-                    CommandResult(outputLines = listOf(TerminalLine("Startup infofetch set to ${if (enabled) "on" else "off"}", LineType.SUCCESS)))
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Startup infofetch set to ${if (enabled) "on" else "off"}", type = LineType.SUCCESS)))
                 }
                 "prompt" -> {
                     val promptStr = if (value.endsWith(" ")) value else "$value "
                     settingsRepository.setPromptString(promptStr)
-                    CommandResult(outputLines = listOf(TerminalLine("Prompt string set to '$promptStr'", LineType.SUCCESS)))
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Prompt string set to '$promptStr'", type = LineType.SUCCESS)))
                 }
                 "autocomplete" -> {
                     val enabled = value.lowercase() in listOf("on", "true", "1", "yes")
                     settingsRepository.setAutocompleteEnabled(enabled)
-                    CommandResult(outputLines = listOf(TerminalLine("Ghost auto-complete set to ${if (enabled) "on" else "off"}", LineType.SUCCESS)))
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Ghost auto-complete set to ${if (enabled) "on" else "off"}", type = LineType.SUCCESS)))
                 }
                 "size", "textsize" -> {
                     val size = value.toIntOrNull() ?: 15
                     settingsRepository.setTextSizeSp(size)
-                    CommandResult(outputLines = listOf(TerminalLine("Text size set to ${size}sp", LineType.SUCCESS)))
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Text size set to ${size}sp", type = LineType.SUCCESS)))
                 }
                 "ascii", "art" -> {
                     val style = try { AsciiArtStyle.valueOf(value.uppercase()) } catch (_: Exception) { null }
                     if (style != null) {
                         settingsRepository.setAsciiArtStyle(style)
-                        CommandResult(outputLines = listOf(TerminalLine("ASCII art style set to ${style.name.lowercase()}", LineType.SUCCESS)))
+                        CommandResult(outputLines = listOf(TerminalLine(text = "ASCII art style set to ${style.name.lowercase()}", type = LineType.SUCCESS)))
                     } else {
-                        CommandResult(outputLines = listOf(TerminalLine("Invalid style. Options: default, bugdroid, tux, retro_pc, minimal, off", LineType.ERROR)), success = false)
+                        CommandResult(outputLines = listOf(TerminalLine(text = "Invalid style. Options: default, bugdroid, tux, retro_pc, minimal, off", type = LineType.ERROR)), success = false)
                     }
                 }
-                else -> CommandResult(outputLines = listOf(TerminalLine("Unknown config key: $option", LineType.ERROR)), success = false)
+                else -> CommandResult(outputLines = listOf(TerminalLine(text = "Unknown config key: $option", type = LineType.ERROR)), success = false)
             }
         }
 
-        return CommandResult(outputLines = listOf(TerminalLine("Usage: config set <option> <value>", LineType.ERROR)), success = false)
+        return CommandResult(outputLines = listOf(TerminalLine(text = "Usage: config set <option> <value>", type = LineType.ERROR)), success = false)
     }
 
     private fun handleCalc(expression: String): CommandResult {
         if (expression.isBlank()) {
-            return CommandResult(outputLines = listOf(TerminalLine("Usage: calc <expression> (e.g. calc 15 * 4.5)", LineType.ERROR)), success = false)
+            return CommandResult(outputLines = listOf(TerminalLine(text = "Usage: calc <expression> (e.g. calc 15 * 4.5)", type = LineType.ERROR)), success = false)
         }
         return try {
             val result = evaluateMathExpression(expression)
-            CommandResult(outputLines = listOf(TerminalLine("$expression = $result", LineType.SUCCESS)))
+            CommandResult(outputLines = listOf(TerminalLine(text = "$expression = $result", type = LineType.SUCCESS)))
         } catch (e: Exception) {
-            CommandResult(outputLines = listOf(TerminalLine("Math evaluation error: ${e.message}", LineType.ERROR)), success = false)
+            CommandResult(outputLines = listOf(TerminalLine(text = "Math evaluation error: ${e.message}", type = LineType.ERROR)), success = false)
         }
     }
 
@@ -433,17 +457,18 @@ class CommandEngine(
             "flash", "flashlight", "torch" -> toggleFlashlight()
             "wifi" -> {
                 context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
-                CommandResult(outputLines = listOf(TerminalLine("Opened Wi-Fi Settings", LineType.SUCCESS)))
+                CommandResult(outputLines = listOf(TerminalLine(text = "Opened Wi-Fi Settings", type = LineType.SUCCESS)))
             }
             "bt", "bluetooth" -> {
                 context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
-                CommandResult(outputLines = listOf(TerminalLine("Opened Bluetooth Settings", LineType.SUCCESS)))
+                CommandResult(outputLines = listOf(TerminalLine(text = "Opened Bluetooth Settings", type = LineType.SUCCESS)))
             }
             "silent", "sound" -> {
                 context.startActivity(Intent(Settings.ACTION_SOUND_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
-                CommandResult(outputLines = listOf(TerminalLine("Opened Sound Settings", LineType.SUCCESS)))
+                CommandResult(outputLines = listOf(TerminalLine(text = "Opened Sound Settings", type = LineType.SUCCESS)))
             }
-            else -> CommandResult(outputLines = listOf(TerminalLine("Usage: sys <flash|wifi|bt|sound>", LineType.ERROR)), success = false)
+            "settings" -> handleSystemSettings()
+            else -> CommandResult(outputLines = listOf(TerminalLine(text = "Usage: sys <flash|wifi|bt|sound|settings>", type = LineType.ERROR)), success = false)
         }
     }
 
@@ -454,35 +479,35 @@ class CommandEngine(
             if (cameraId != null) {
                 isFlashlightOn = !isFlashlightOn
                 cameraManager.setTorchMode(cameraId, isFlashlightOn)
-                CommandResult(outputLines = listOf(TerminalLine("Flashlight turned ${if (isFlashlightOn) "ON" else "OFF"}", LineType.SUCCESS)))
+                CommandResult(outputLines = listOf(TerminalLine(text = "Flashlight turned ${if (isFlashlightOn) "ON" else "OFF"}", type = LineType.SUCCESS)))
             } else {
-                CommandResult(outputLines = listOf(TerminalLine("No camera flash hardware available", LineType.ERROR)), success = false)
+                CommandResult(outputLines = listOf(TerminalLine(text = "No camera flash hardware available", type = LineType.ERROR)), success = false)
             }
         } catch (e: Exception) {
-            CommandResult(outputLines = listOf(TerminalLine("Camera permission or hardware error: ${e.message}", LineType.ERROR)), success = false)
+            CommandResult(outputLines = listOf(TerminalLine(text = "Camera permission or hardware error: ${e.message}", type = LineType.ERROR)), success = false)
         }
     }
 
     private fun handleCall(number: String): CommandResult {
         if (number.isBlank()) {
-            return CommandResult(outputLines = listOf(TerminalLine("Usage: call <number_or_contact>", LineType.ERROR)), success = false)
+            return CommandResult(outputLines = listOf(TerminalLine(text = "Usage: call <number_or_contact>", type = LineType.ERROR)), success = false)
         }
         val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${Uri.encode(number)}")).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(intent)
-        return CommandResult(outputLines = listOf(TerminalLine("Dialing $number...", LineType.SUCCESS)))
+        return CommandResult(outputLines = listOf(TerminalLine(text = "Dialing $number...", type = LineType.SUCCESS)))
     }
 
     private fun handleSms(number: String): CommandResult {
         if (number.isBlank()) {
-            return CommandResult(outputLines = listOf(TerminalLine("Usage: sms <number>", LineType.ERROR)), success = false)
+            return CommandResult(outputLines = listOf(TerminalLine(text = "Usage: sms <number>", type = LineType.ERROR)), success = false)
         }
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("sms:${Uri.encode(number)}")).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(intent)
-        return CommandResult(outputLines = listOf(TerminalLine("Opening SMS to $number...", LineType.SUCCESS)))
+        return CommandResult(outputLines = listOf(TerminalLine(text = "Opening SMS to $number...", type = LineType.SUCCESS)))
     }
 
     private fun handleReboot(): CommandResult {
@@ -491,9 +516,9 @@ class CommandEngine(
         }
         return try {
             context.startActivity(intent)
-            CommandResult(outputLines = listOf(TerminalLine("Opened Power / Battery menu", LineType.SUCCESS)))
+            CommandResult(outputLines = listOf(TerminalLine(text = "Opened Power / Battery menu", type = LineType.SUCCESS)))
         } catch (_: Exception) {
-            CommandResult(outputLines = listOf(TerminalLine("Unable to trigger power action", LineType.ERROR)), success = false)
+            CommandResult(outputLines = listOf(TerminalLine(text = "Unable to trigger power action", type = LineType.ERROR)), success = false)
         }
     }
 
@@ -503,18 +528,18 @@ class CommandEngine(
             val launched = appRepository.launchApp(app)
             return if (launched) {
                 CommandResult(
-                    outputLines = listOf(TerminalLine("Launching ${app.label}...", LineType.SUCCESS)),
+                    outputLines = listOf(TerminalLine(text = "Launching ${app.label}...", type = LineType.SUCCESS)),
                     launchedApp = app
                 )
             } else {
-                CommandResult(outputLines = listOf(TerminalLine("Failed to launch ${app.label}", LineType.ERROR)), success = false)
+                CommandResult(outputLines = listOf(TerminalLine(text = "Failed to launch ${app.label}", type = LineType.ERROR)), success = false)
             }
         }
 
         return CommandResult(
             outputLines = listOf(
-                TerminalLine("command not found: $input", LineType.ERROR),
-                TerminalLine("Type 'help' for available commands or 'options' for GUI settings.", LineType.SYSTEM)
+                TerminalLine(text = "command not found: $input", type = LineType.ERROR),
+                TerminalLine(text = "Type 'help' for available commands or 'options' for GUI settings.", type = LineType.SYSTEM)
             ),
             success = false
         )
@@ -549,15 +574,15 @@ class CommandEngine(
         val uptime = getUptimeString()
 
         return listOf(
-            TerminalLine("TOP / SYSTEM MONITOR", LineType.HEADER),
-            TerminalLine("==================================================", LineType.SYSTEM),
-            TerminalLine("CPU Cores     : $cores cores active", LineType.OUTPUT),
-            TerminalLine("Memory (RAM)  : $ram", LineType.OUTPUT),
-            TerminalLine("Power State   : $battery", LineType.OUTPUT),
-            TerminalLine("System Uptime : $uptime", LineType.OUTPUT),
-            TerminalLine("Architecture  : ${Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown"}", LineType.OUTPUT),
-            TerminalLine("==================================================", LineType.SYSTEM),
-            TerminalLine("Tip: Run 'top memory' for detailed memory breakdown.", LineType.SYSTEM)
+            TerminalLine(text = "TOP / SYSTEM MONITOR", type = LineType.HEADER),
+            TerminalLine(text = "==================================================", type = LineType.SYSTEM),
+            TerminalLine(text = "CPU Cores     : $cores cores active", type = LineType.OUTPUT),
+            TerminalLine(text = "Memory (RAM)  : $ram", type = LineType.OUTPUT),
+            TerminalLine(text = "Power State   : $battery", type = LineType.OUTPUT),
+            TerminalLine(text = "System Uptime : $uptime", type = LineType.OUTPUT),
+            TerminalLine(text = "Architecture  : ${Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown"}", type = LineType.OUTPUT),
+            TerminalLine(text = "==================================================", type = LineType.SYSTEM),
+            TerminalLine(text = "Tip: Run 'top memory' for detailed memory breakdown.", type = LineType.SYSTEM)
         )
     }
 
@@ -578,19 +603,19 @@ class CommandEngine(
         val usedHeapMb = totalHeapMb - freeHeapMb
 
         return listOf(
-            TerminalLine("DETAILED SYSTEM MEMORY ALLOCATION", LineType.HEADER),
-            TerminalLine("==================================================", LineType.SYSTEM),
-            TerminalLine("Total RAM Physical  : ${totalMb} MB", LineType.OUTPUT),
-            TerminalLine("RAM Currently Used  : ${usedMb} MB (${usedMb * 100 / totalMb}%)", LineType.OUTPUT),
-            TerminalLine("RAM Available Free  : ${availMb} MB", LineType.OUTPUT),
-            TerminalLine("Low Memory Warning  : ${if (memInfo.lowMemory) "YES (CRITICAL)" else "NO (HEALTHY)"}", LineType.OUTPUT),
-            TerminalLine("Low Memory Threshold: ${threshMb} MB", LineType.OUTPUT),
-            TerminalLine("--------------------------------------------------", LineType.SYSTEM),
-            TerminalLine("Process Heap Max    : ${maxHeapMb} MB", LineType.OUTPUT),
-            TerminalLine("Process Heap Total  : ${totalHeapMb} MB", LineType.OUTPUT),
-            TerminalLine("Process Heap Used   : ${usedHeapMb} MB", LineType.OUTPUT),
-            TerminalLine("Process Heap Free   : ${freeHeapMb} MB", LineType.OUTPUT),
-            TerminalLine("==================================================", LineType.SYSTEM)
+            TerminalLine(text = "DETAILED SYSTEM MEMORY ALLOCATION", type = LineType.HEADER),
+            TerminalLine(text = "==================================================", type = LineType.SYSTEM),
+            TerminalLine(text = "Total RAM Physical  : ${totalMb} MB", type = LineType.OUTPUT),
+            TerminalLine(text = "RAM Currently Used  : ${usedMb} MB (${usedMb * 100 / totalMb}%)", type = LineType.OUTPUT),
+            TerminalLine(text = "RAM Available Free  : ${availMb} MB", type = LineType.OUTPUT),
+            TerminalLine(text = "Low Memory Warning  : ${if (memInfo.lowMemory) "YES (CRITICAL)" else "NO (HEALTHY)"}", type = LineType.OUTPUT),
+            TerminalLine(text = "Low Memory Threshold: ${threshMb} MB", type = LineType.OUTPUT),
+            TerminalLine(text = "--------------------------------------------------", type = LineType.SYSTEM),
+            TerminalLine(text = "Process Heap Max    : ${maxHeapMb} MB", type = LineType.OUTPUT),
+            TerminalLine(text = "Process Heap Total  : ${totalHeapMb} MB", type = LineType.OUTPUT),
+            TerminalLine(text = "Process Heap Used   : ${usedHeapMb} MB", type = LineType.OUTPUT),
+            TerminalLine(text = "Process Heap Free   : ${freeHeapMb} MB", type = LineType.OUTPUT),
+            TerminalLine(text = "==================================================", type = LineType.SYSTEM)
         )
     }
 
@@ -609,13 +634,13 @@ class CommandEngine(
         }
 
         return listOf(
-            TerminalLine("BATTERY HARDWARE STATUS", LineType.HEADER),
-            TerminalLine("==================================================", LineType.SYSTEM),
-            TerminalLine("Level       : $pct%", LineType.OUTPUT),
-            TerminalLine("Temperature : ${String.format(Locale.US, "%.1f", temp)} °C", LineType.OUTPUT),
-            TerminalLine("Health      : $health", LineType.OUTPUT),
-            TerminalLine("==================================================", LineType.SYSTEM),
-            TerminalLine("Tip: Run 'battery status' for full hardware details.", LineType.SYSTEM)
+            TerminalLine(text = "BATTERY HARDWARE STATUS", type = LineType.HEADER),
+            TerminalLine(text = "==================================================", type = LineType.SYSTEM),
+            TerminalLine(text = "Level       : $pct%", type = LineType.OUTPUT),
+            TerminalLine(text = "Temperature : ${String.format(Locale.US, "%.1f", temp)} °C", type = LineType.OUTPUT),
+            TerminalLine(text = "Health      : $health", type = LineType.OUTPUT),
+            TerminalLine(text = "==================================================", type = LineType.SYSTEM),
+            TerminalLine(text = "Tip: Run 'battery status' for full hardware details.", type = LineType.SYSTEM)
         )
     }
 
@@ -648,15 +673,15 @@ class CommandEngine(
         val tech = batteryStatus?.getStringExtra(BatteryManager.EXTRA_TECHNOLOGY) ?: "Li-ion"
 
         return listOf(
-            TerminalLine("DETAILED BATTERY & POWER METRICS", LineType.HEADER),
-            TerminalLine("==================================================", LineType.SYSTEM),
-            TerminalLine("Charge Level  : $pct%", LineType.OUTPUT),
-            TerminalLine("Power State   : $statusStr", LineType.OUTPUT),
-            TerminalLine("Power Source  : $pluggedStr", LineType.OUTPUT),
-            TerminalLine("Voltage       : ${String.format(Locale.US, "%.2f", voltage)} V", LineType.OUTPUT),
-            TerminalLine("Temperature   : ${String.format(Locale.US, "%.1f", temp)} °C", LineType.OUTPUT),
-            TerminalLine("Technology    : $tech", LineType.OUTPUT),
-            TerminalLine("==================================================", LineType.SYSTEM)
+            TerminalLine(text = "DETAILED BATTERY & POWER METRICS", type = LineType.HEADER),
+            TerminalLine(text = "==================================================", type = LineType.SYSTEM),
+            TerminalLine(text = "Charge Level  : $pct%", type = LineType.OUTPUT),
+            TerminalLine(text = "Power State   : $statusStr", type = LineType.OUTPUT),
+            TerminalLine(text = "Power Source  : $pluggedStr", type = LineType.OUTPUT),
+            TerminalLine(text = "Voltage       : ${String.format(Locale.US, "%.2f", voltage)} V", type = LineType.OUTPUT),
+            TerminalLine(text = "Temperature   : ${String.format(Locale.US, "%.1f", temp)} °C", type = LineType.OUTPUT),
+            TerminalLine(text = "Technology    : $tech", type = LineType.OUTPUT),
+            TerminalLine(text = "==================================================", type = LineType.SYSTEM)
         )
     }
 

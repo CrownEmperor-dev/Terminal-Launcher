@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
@@ -99,6 +100,14 @@ fun TerminalScreen(
         focusRequester.requestFocus()
     }
 
+    // Render Matrix Rain Easter Egg overlay if requested
+    if (uiState.isMatrixActive) {
+        MatrixRainScreen(
+            onDismiss = { viewModel.closeMatrixMode() }
+        )
+        return
+    }
+
     // Render GUI Options Dialog overlay if requested
     if (uiState.isOptionsMenuVisible) {
         OptionsMenuDialog(
@@ -137,7 +146,10 @@ fun TerminalScreen(
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                items(uiState.lines) { line ->
+                items(
+                    items = uiState.lines,
+                    key = { it.id }
+                ) { line ->
                     TerminalLineView(line = line, colorScheme = colorScheme, fontSize = fontSize)
                 }
             }
@@ -253,6 +265,8 @@ fun TerminalLineView(
             fontWeight = fontWeight,
             color = textColor
         ),
-        modifier = Modifier.padding(vertical = 1.dp)
+        modifier = Modifier
+            .graphicsLayer()
+            .padding(vertical = 1.dp)
     )
 }

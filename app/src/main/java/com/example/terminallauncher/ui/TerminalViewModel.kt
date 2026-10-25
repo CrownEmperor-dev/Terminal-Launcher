@@ -27,7 +27,8 @@ data class TerminalUiState(
     val settings: LauncherSettings = LauncherSettings(),
     val historyIndex: Int = -1,
     val isFirstRunPromptActive: Boolean = false,
-    val isOptionsMenuVisible: Boolean = false
+    val isOptionsMenuVisible: Boolean = false,
+    val isMatrixActive: Boolean = false
 )
 
 class TerminalViewModel(application: Application) : AndroidViewModel(application) {
@@ -51,8 +52,8 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                         _uiState.value = _uiState.value.copy(lines = savedBuffer)
                     } else {
                         val initialLines = mutableListOf<TerminalLine>()
-                        initialLines.add(TerminalLine("Welcome to Terminal Launcher v1.0", LineType.HEADER))
-                        initialLines.add(TerminalLine("Type 'help' for documentation, 'ls' for app list, 'options' for GUI settings.", LineType.SYSTEM))
+                        initialLines.add(TerminalLine(text = "Welcome to Terminal Launcher v1.0", type = LineType.HEADER))
+                        initialLines.add(TerminalLine(text = "Type 'help' for documentation, 'ls' for app list, 'options' for GUI settings.", type = LineType.SYSTEM))
                         val settings = _uiState.value.settings
                         if (settings.fastfetchOnStart) {
                             initialLines.addAll(commandEngine.generateInfofetchLines(settings.asciiArtStyle))
@@ -77,6 +78,10 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
     fun closeOptionsMenu() {
         _uiState.value = _uiState.value.copy(isOptionsMenuVisible = false)
+    }
+
+    fun closeMatrixMode() {
+        _uiState.value = _uiState.value.copy(isMatrixActive = false)
     }
 
     fun setTheme(theme: TerminalThemeType) {
@@ -148,12 +153,16 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun submitCommand() {
-        val input = _uiState.value.inputFieldValue.text
+        val currentText = _uiState.value.inputFieldValue.text
+        val ghostSuffix = _uiState.value.ghostSuffix
+        // Direct single-keystroke execution when ghost autocomplete is active
+        val input = if (ghostSuffix.isNotEmpty()) currentText + ghostSuffix else currentText
+
         val currentSettings = _uiState.value.settings
         val currentLines = _uiState.value.lines.toMutableList()
 
         // Append user prompt entry line
-        currentLines.add(TerminalLine("${currentSettings.promptString}$input", LineType.INPUT))
+        currentLines.add(TerminalLine(text = "${currentSettings.promptString}$input", type = LineType.INPUT))
 
         // Reset input field and history traversal
         _uiState.value = _uiState.value.copy(
@@ -171,6 +180,10 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
             if (result.openOptionsMenu) {
                 _uiState.value = _uiState.value.copy(isOptionsMenuVisible = true)
+            }
+
+            if (result.openMatrixMode) {
+                _uiState.value = _uiState.value.copy(isMatrixActive = true)
             }
 
             if (result.shouldClearBuffer) {
@@ -239,9 +252,17 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     }
 
     private fun getBuiltInCommandCompletion(input: String): String {
-        val commands = listOf("help", "options", "infofetch", "fastfetch", "neofetch", "clear", "history", "config", "top", "htop", "battery", "calc", "sys", "alias", "unalias", "open", "launch", "ls", "apps")
+        val completions = listOf(
+            "help", "options", "matrix", "infofetch", "infofetch update",
+            "fastfetch", "neofetch", "clear", "history", "config",
+            "config set theme", "config set fastfetch", "config set prompt",
+            "config set autocomplete", "config set size", "config set ascii",
+            "settings", "top", "top memory", "battery", "battery status", "battery health",
+            "calc", "sys", "sys flash", "sys wifi", "sys bt", "sys sound", "sys settings",
+            "alias", "unalias", "open", "launch", "ls", "apps"
+        )
         val inputLower = input.lowercase()
-        val match = commands.firstOrNull { it.startsWith(inputLower) && it != inputLower }
+        val match = completions.firstOrNull { it.startsWith(inputLower) && it != inputLower }
         return match?.substring(input.length) ?: ""
     }
 }
