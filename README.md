@@ -51,13 +51,16 @@ SYNOPSIS
 DESCRIPTION
        Terminal Launcher replaces standard icon grids with an ultra-responsive monospaced
        shell interface. It provides instant app launching, inline ghost completion, retro CRT
-       visual styles, hardware keyboard shortcuts, a GUI options menu, and built-in system management.
+       visual styles, hardware keyboard shortcuts, a GUI options menu, storage navigation, and built-in system management.
 
 OPTIONS & COMMANDS
        core & gui:
            options / customize Open dedicated retro GUI Options Menu overlay.
-           ls [letter|dir]    List applications or filter by starting letter (e.g. ls o).
+           matrix             Trigger full-screen Matrix Digital Rain easter egg.
+           ls [letter|dir]    List applications, storage (ls /storage), or filter (ls o).
+           cd <dir>           Navigate storage directories (e.g. cd storage0/Download).
            open <app>         Explicitly launch an application by label or package name.
+           uninstall <app>    Trigger native Android uninstallation prompt for an app.
            alias <k=v>        Define custom command shortcuts (e.g. alias yt=YouTube).
            unalias <key>      Remove a custom alias.
            clear              Clear current screen line buffer (Shortcut: Ctrl + L).
@@ -72,6 +75,7 @@ OPTIONS & COMMANDS
            config set fastfetch <on|off> Toggle startup system banner display.
            config set prompt <text>   Customize shell prompt string (default: user@mobile:~$ ).
            config set autocomplete <on|off> Toggle ghost auto-completion overlay.
+           settings                   Open native Android device system settings.
 
        system & utilities:
            infofetch [update]   System hardware specs & real-time live refresh.
@@ -119,7 +123,7 @@ KEYBOARD SHORTCUTS & NAVIGATION
   [Up / Down Arrow]      Cycle backwards & forwards through command history
   [Tab / Spacebar]       Accept inline gray ghost auto-complete suggestion
   [Ctrl + L]             Clear screen line buffer
-  [Enter]                Execute typed command / launch app
+  [Enter]                Execute typed command / launch app (or dismiss Matrix)
   [Tap Anywhere]         Refocus command input prompt
 --------------------------------------------------
 ```

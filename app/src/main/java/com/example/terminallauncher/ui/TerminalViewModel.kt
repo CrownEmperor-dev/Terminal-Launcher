@@ -123,12 +123,23 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     fun onInputChanged(newValue: TextFieldValue) {
         val text = newValue.text
         val autocomplete = _uiState.value.settings.autocompleteEnabled
+        val textLower = text.lowercase()
+
         val ghost = if (autocomplete && text.isNotBlank()) {
-            val appCompletion = appRepository.getCompletionRemaining(text)
-            if (appCompletion != null) {
-                appCompletion
+            if (textLower.startsWith("uninstall ")) {
+                val subQuery = text.substring("uninstall ".length)
+                appRepository.getCompletionRemaining(subQuery) ?: ""
+            } else if (textLower.startsWith("open ") || textLower.startsWith("launch ")) {
+                val prefix = if (textLower.startsWith("open ")) "open " else "launch "
+                val subQuery = text.substring(prefix.length)
+                appRepository.getCompletionRemaining(subQuery) ?: ""
             } else {
-                getBuiltInCommandCompletion(text)
+                val appCompletion = appRepository.getCompletionRemaining(text)
+                if (appCompletion != null) {
+                    appCompletion
+                } else {
+                    getBuiltInCommandCompletion(text)
+                }
             }
         } else {
             ""
@@ -259,7 +270,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
             "config set autocomplete", "config set size", "config set ascii",
             "settings", "top", "top memory", "battery", "battery status", "battery health",
             "calc", "sys", "sys flash", "sys wifi", "sys bt", "sys sound", "sys settings",
-            "alias", "unalias", "open", "launch", "ls", "apps"
+            "alias", "unalias", "open", "launch", "uninstall", "ls", "apps"
         )
         val inputLower = input.lowercase()
         val match = completions.firstOrNull { it.startsWith(inputLower) && it != inputLower }

@@ -7,9 +7,11 @@ import android.hardware.camera2.CameraManager
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
+import android.os.Environment
 import android.os.SystemClock
 import android.provider.Settings
 import androidx.compose.runtime.Immutable
+import java.io.File
 import java.util.Locale
 import java.util.UUID
 import kotlin.math.pow
@@ -72,6 +74,7 @@ class CommandEngine(
             "cd" -> handleCd(args)
             "apps" -> handleAppsList()
             "open", "launch" -> handleOpenApp(args.joinToString(" "))
+            "uninstall", "remove" -> handleUninstall(args.joinToString(" "))
             "alias" -> handleAlias(args, currentSettings)
             "unalias" -> handleUnalias(args, currentSettings)
             "history" -> handleHistory(currentSettings)
@@ -142,6 +145,38 @@ class CommandEngine(
         }
     }
 
+    private fun handleUninstall(appQuery: String): CommandResult {
+        if (appQuery.isBlank()) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "Usage: uninstall <app_name_or_package>", type = LineType.ERROR)),
+                success = false
+            )
+        }
+
+        val app = appRepository.findApp(appQuery)
+        if (app == null) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "App not found for uninstallation: '$appQuery'", type = LineType.ERROR)),
+                success = false
+            )
+        }
+
+        return try {
+            val intent = Intent(Intent.ACTION_DELETE, Uri.parse("package:${app.packageName}")).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            CommandResult(
+                outputLines = listOf(TerminalLine(text = "Opening uninstallation prompt for ${app.label}...", type = LineType.SUCCESS))
+            )
+        } catch (e: Exception) {
+            CommandResult(
+                outputLines = listOf(TerminalLine(text = "Unable to launch uninstaller for ${app.label}: ${e.message}", type = LineType.ERROR)),
+                success = false
+            )
+        }
+    }
+
     private fun getAsciiArtBanner(style: AsciiArtStyle): List<String> {
         return when (style) {
             AsciiArtStyle.DEFAULT -> listOf(
@@ -191,8 +226,10 @@ class CommandEngine(
         lines.add(TerminalLine(text = "CORE COMMANDS:", type = LineType.HEADER))
         lines.add(TerminalLine(text = "  options / customize GUI visual settings menu", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  matrix             Full-screen matrix digital rain easter egg", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  ls [letter|filter] List applications or filter by letter (e.g. ls o)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  ls [letter|dir]    List applications, storage (e.g. ls storage), or filter", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  cd <dir>           Change active storage directory (e.g. cd storage0/Download)", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  open <app>         Launch an app by name or package", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  uninstall <app>    Trigger native uninstallation for an app", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  alias [k=v]       Set custom command shortcut (e.g., alias yt=YouTube)", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  unalias <key>     Remove a custom alias", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  clear             Clear current terminal screen", type = LineType.OUTPUT))
@@ -221,10 +258,10 @@ class CommandEngine(
     }
 
     private fun handleLs(args: List<String>, settings: LauncherSettings): CommandResult {
-        val target = args.firstOrNull()?.replace("\"", "")?.trim() ?: currentPath
+        val targetArg = args.firstOrNull()?.replace("\"", "")?.trim() ?: currentPath
         val lines = mutableListOf<TerminalLine>()
 
-        when (target.lowercase()) {
+        when (targetArg.lowercase()) {
             "/aliases", "aliases" -> {
                 lines.add(TerminalLine(text = "CONFIGURED ALIASES:", type = LineType.HEADER))
                 if (settings.aliases.isEmpty()) {
@@ -237,12 +274,41 @@ class CommandEngine(
             }
             "/system", "system" -> {
                 lines.add(TerminalLine(text = "SYSTEM COMMANDS:", type = LineType.HEADER))
-                val sysCmds = listOf("options", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "matrix")
+                val sysCmds = listOf("options", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
                 sysCmds.forEach { lines.add(TerminalLine(text = "  $it", type = LineType.OUTPUT)) }
             }
+            "/storage", "storage" -> {
+                lines.add(TerminalLine(text = "MOUNTED STORAGE VOLUMES:", type = LineType.HEADER))
+                lines.add(TerminalLine(text = "  storage0 -> Internal Storage (${Environment.getExternalStorageDirectory().path})", type = LineType.OUTPUT))
+                val sdCard = getSdCardDirectory()
+                if (sdCard != null) {
+                    lines.add(TerminalLine(text = "  storage1 -> MicroSD Card (${sdCard.path})", type = LineType.OUTPUT))
+                } else {
+                    lines.add(TerminalLine(text = "  storage1 -> MicroSD Card (Not Mounted / No SD Card)", type = LineType.SYSTEM))
+                }
+            }
             else -> {
+                if (targetArg.startsWith("storage") || currentPath.startsWith("storage")) {
+                    val fullPath = if (targetArg.startsWith("storage")) targetArg else "$currentPath/$targetArg"
+                    val file = resolveStoragePath(fullPath)
+                    if (file.exists() && file.isDirectory) {
+                        val files = file.listFiles()?.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() })) ?: emptyList()
+                        lines.add(TerminalLine(text = "DIRECTORY: $fullPath (${files.size} items)", type = LineType.HEADER))
+                        if (files.isEmpty()) {
+                            lines.add(TerminalLine(text = "  (empty directory)", type = LineType.OUTPUT))
+                        } else {
+                            files.forEach { item ->
+                                val prefix = if (item.isDirectory) "[DIR]  " else "[FILE] "
+                                val sizeStr = if (item.isDirectory) "" else " (${item.length() / 1024} KB)"
+                                lines.add(TerminalLine(text = "  $prefix${item.name}$sizeStr", type = LineType.OUTPUT))
+                            }
+                        }
+                        return CommandResult(outputLines = lines)
+                    }
+                }
+
                 val allApps = appRepository.getApps()
-                val filterQuery = if (target != "~" && target != "/apps" && target != "apps") target.lowercase() else ""
+                val filterQuery = if (targetArg != "~" && targetArg != "/apps" && targetArg != "apps") targetArg.lowercase() else ""
 
                 val filteredApps = if (filterQuery.isNotEmpty()) {
                     allApps.filter { it.label.lowercase().startsWith(filterQuery) || it.packageName.lowercase().startsWith(filterQuery) }
@@ -274,6 +340,83 @@ class CommandEngine(
         return CommandResult(outputLines = lines)
     }
 
+    private fun handleCd(args: List<String>): CommandResult {
+        val path = args.firstOrNull()?.trim() ?: "~"
+        when {
+            path == ".." -> {
+                currentPath = when {
+                    currentPath == "~" || currentPath == "/" -> "~"
+                    currentPath == "storage0" || currentPath == "storage1" || currentPath == "/storage" -> "~"
+                    currentPath.contains("/") -> {
+                        val idx = currentPath.lastIndexOf('/')
+                        if (idx > 0) currentPath.substring(0, idx) else "storage0"
+                    }
+                    else -> "~"
+                }
+            }
+            path == "/" || path == "~" -> currentPath = "~"
+            path == "apps" || path == "/apps" -> currentPath = "/apps"
+            path == "system" || path == "/system" -> currentPath = "/system"
+            path == "aliases" || path == "/aliases" -> currentPath = "/aliases"
+            path == "storage" || path == "/storage" -> currentPath = "/storage"
+            path.startsWith("storage0") || path.startsWith("storage1") -> {
+                val file = resolveStoragePath(path)
+                if (file.exists() && file.isDirectory) {
+                    currentPath = path
+                } else {
+                    return CommandResult(outputLines = listOf(TerminalLine(text = "cd: directory not found: $path", type = LineType.ERROR)), success = false)
+                }
+            }
+            currentPath.startsWith("storage") -> {
+                val targetPath = "$currentPath/$path"
+                val file = resolveStoragePath(targetPath)
+                if (file.exists() && file.isDirectory) {
+                    currentPath = targetPath
+                } else {
+                    return CommandResult(outputLines = listOf(TerminalLine(text = "cd: no such directory: $path", type = LineType.ERROR)), success = false)
+                }
+            }
+            else -> {
+                return CommandResult(outputLines = listOf(TerminalLine(text = "cd: no such directory: $path", type = LineType.ERROR)), success = false)
+            }
+        }
+        return CommandResult(outputLines = listOf(TerminalLine(text = "Directory: $currentPath", type = LineType.SUCCESS)))
+    }
+
+    private fun resolveStoragePath(path: String): File {
+        val internalStorage = Environment.getExternalStorageDirectory()
+        val clean = path.trim()
+        return when {
+            clean == "storage0" || clean == "/storage0" -> internalStorage
+            clean.startsWith("storage0/") || clean.startsWith("/storage0/") -> {
+                val sub = clean.removePrefix("storage0/").removePrefix("/storage0/")
+                File(internalStorage, sub)
+            }
+            clean == "storage1" || clean == "/storage1" -> getSdCardDirectory() ?: internalStorage
+            clean.startsWith("storage1/") || clean.startsWith("/storage1/") -> {
+                val sd = getSdCardDirectory() ?: internalStorage
+                val sub = clean.removePrefix("storage1/").removePrefix("/storage1/")
+                File(sd, sub)
+            }
+            clean.startsWith("/") -> File(clean)
+            else -> File(internalStorage, clean)
+        }
+    }
+
+    private fun getSdCardDirectory(): File? {
+        val dirs = context.getExternalFilesDirs(null)
+        dirs.forEach { dir ->
+            if (dir != null && Environment.isExternalStorageRemovable(dir)) {
+                var current = dir
+                while (current.parentFile != null && current.parentFile?.path != "/storage") {
+                    current = current.parentFile!!
+                }
+                return current
+            }
+        }
+        return null
+    }
+
     private fun handleTop(args: List<String>): CommandResult {
         val subCommand = args.firstOrNull()?.lowercase() ?: ""
         return if (subCommand == "memory" || subCommand == "mem") {
@@ -292,25 +435,13 @@ class CommandEngine(
         }
     }
 
-    private fun handleCd(args: List<String>): CommandResult {
-        val path = args.firstOrNull() ?: "~"
-        currentPath = when (path) {
-            "/", "~" -> "~"
-            "apps", "/apps" -> "/apps"
-            "system", "/system" -> "/system"
-            "aliases", "/aliases" -> "/aliases"
-            else -> return CommandResult(outputLines = listOf(TerminalLine(text = "cd: no such directory: $path", type = LineType.ERROR)), success = false)
-        }
-        return CommandResult(outputLines = listOf(TerminalLine(text = "Changed directory to $currentPath", type = LineType.SUCCESS)))
-    }
-
     private fun handleAppsList(): CommandResult {
         return handleLs(listOf("/apps"), LauncherSettings())
     }
 
     private fun handleOpenApp(query: String): CommandResult {
         if (query.isBlank()) {
-            return CommandResult(outputLines = listOf(TerminalLine(text = "Usage: open <app_name|package>", type = LineType.ERROR)), success = false)
+            return CommandResult(outputLines = listOf(TerminalLine(text = "Usage: open <app_name_or_package>", type = LineType.ERROR)), success = false)
         }
         val app = appRepository.findApp(query)
         return if (app != null) {
