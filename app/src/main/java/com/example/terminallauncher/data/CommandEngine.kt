@@ -138,6 +138,19 @@ class CommandEngine(
         return result
     }
 
+    private fun handleTermuxSetup(): CommandResult {
+        val lines = listOf(
+            TerminalLine(text = "TERMUX INTEGRATION SETUP INSTRUCTIONS", type = LineType.HEADER),
+            TerminalLine(text = "==================================================", type = LineType.SYSTEM),
+            TerminalLine(text = "1. Open Termux on your device.", type = LineType.OUTPUT),
+            TerminalLine(text = "2. Copy and run this exact command inside Termux:", type = LineType.OUTPUT),
+            TerminalLine(text = "   echo \"allow-external-apps = true\" >> ~/.termux/termux.properties && termux-reload-settings", type = LineType.SUCCESS),
+            TerminalLine(text = "3. Ensure Termux is installed from F-Droid or GitHub (build 0.118+).", type = LineType.OUTPUT),
+            TerminalLine(text = "==================================================", type = LineType.SYSTEM)
+        )
+        return CommandResult(outputLines = lines)
+    }
+
     private fun handleTermux(args: List<String>): CommandResult {
         val termuxPackage = "com.termux"
         val pm = context.packageManager
@@ -157,6 +170,11 @@ class CommandEngine(
             )
         }
 
+        val subCmd = args.firstOrNull()?.lowercase() ?: ""
+        if (subCmd == "setup" || subCmd == "config") {
+            return handleTermuxSetup()
+        }
+
         if (args.isEmpty()) {
             val launchIntent = pm.getLaunchIntentForPackage(termuxPackage)
             if (launchIntent != null) {
@@ -169,8 +187,6 @@ class CommandEngine(
         }
 
         val fullCommand = args.joinToString(" ")
-        val subCmd = args.first().lowercase()
-
         val interactiveTools = setOf("nano", "vim", "vi", "emacs", "micro", "htop", "top", "less", "more", "man", "gdb", "python", "node", "bash", "zsh", "fish", "tmux", "screen")
         val isInteractive = interactiveTools.contains(subCmd)
 
@@ -181,28 +197,25 @@ class CommandEngine(
                 putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", fullCommand))
                 putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
                 putExtra("com.termux.RUN_COMMAND_BACKGROUND", !isInteractive)
+                putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "0")
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startService(intent)
 
             val msg = if (isInteractive) {
                 "Launching Termux ($fullCommand)..."
             } else {
-                "Executed Termux command: '$fullCommand'"
+                "Sent Termux command: '$fullCommand'"
             }
 
             CommandResult(
                 outputLines = listOf(
                     TerminalLine(text = msg, type = LineType.SUCCESS),
-                    TerminalLine(text = "Note: Ensure 'allow-external-apps = true' is set in ~/.termux/termux.properties if command is blocked by Termux.", type = LineType.SYSTEM)
+                    TerminalLine(text = "Tip: Run 'tx setup' for Termux external app setup instructions.", type = LineType.SYSTEM)
                 )
             )
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             val launchIntent = pm.getLaunchIntentForPackage(termuxPackage)
             if (launchIntent != null) {
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -210,11 +223,11 @@ class CommandEngine(
                 CommandResult(
                     outputLines = listOf(
                         TerminalLine(text = "Opened Termux terminal for '$fullCommand'.", type = LineType.SUCCESS),
-                        TerminalLine(text = "Tip: Allow external apps in Termux: echo 'allow-external-apps = true' >> ~/.termux/termux.properties", type = LineType.SYSTEM)
+                        TerminalLine(text = "Run 'tx setup' to configure automatic background command execution.", type = LineType.SYSTEM)
                     )
                 )
             } else {
-                CommandResult(outputLines = listOf(TerminalLine(text = "Failed to send command to Termux: ${e.message}", type = LineType.ERROR)), success = false)
+                CommandResult(outputLines = listOf(TerminalLine(text = "Failed to send command to Termux.", type = LineType.ERROR)), success = false)
             }
         }
     }
