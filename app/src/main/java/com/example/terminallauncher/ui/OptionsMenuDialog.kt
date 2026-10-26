@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -28,6 +29,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -200,6 +203,7 @@ fun OptionsMenuDialog(
                 }
 
                 if (settings.asciiArtStyle == AsciiArtStyle.CUSTOM) {
+                    val asciiFocusRequester = remember { FocusRequester() }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = "PASTE CUSTOM ASCII ART (asciiart.eu):",
@@ -213,8 +217,9 @@ fun OptionsMenuDialog(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(100.dp)
+                            .height(110.dp)
                             .border(1.dp, colorScheme.promptColor, RoundedCornerShape(4.dp))
+                            .clickable { asciiFocusRequester.requestFocus() }
                             .padding(8.dp)
                     ) {
                         BasicTextField(
@@ -223,6 +228,9 @@ fun OptionsMenuDialog(
                                 customAsciiInput = it
                                 onSetCustomAscii(it)
                             },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .focusRequester(asciiFocusRequester),
                             textStyle = TextStyle(
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 11.sp,
