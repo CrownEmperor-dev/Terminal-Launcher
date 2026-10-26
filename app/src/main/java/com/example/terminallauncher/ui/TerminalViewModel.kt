@@ -57,7 +57,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                         initialLines.add(TerminalLine(text = "Type 'help' for documentation, 'ls' for app list, 'options' for GUI settings.", type = LineType.SYSTEM))
                         val settings = _uiState.value.settings
                         if (settings.fastfetchOnStart) {
-                            initialLines.addAll(commandEngine.generateInfofetchLines(settings.asciiArtStyle))
+                            initialLines.addAll(commandEngine.generateInfofetchLines(settings))
                         }
                         _uiState.value = _uiState.value.copy(lines = initialLines)
                         settingsRepository.saveTerminalBuffer(initialLines)
@@ -103,6 +103,12 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setCustomAsciiArt(art: String) {
+        viewModelScope.launch {
+            settingsRepository.setCustomAsciiArt(art)
+        }
+    }
+
     fun setFastfetchOnStart(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setFastfetchOnStart(enabled)
@@ -140,6 +146,8 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                 val prefix = if (textLower.startsWith("open ")) "open " else "launch "
                 val subQuery = text.substring(prefix.length)
                 appRepository.getCompletionRemaining(subQuery) ?: ""
+            } else if (textLower.startsWith("echo ")) {
+                ""
             } else {
                 val appCompletion = appRepository.getCompletionRemaining(text)
                 if (appCompletion != null) {
@@ -286,7 +294,8 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
     private fun getBuiltInCommandCompletion(input: String): String {
         val completions = listOf(
-            "help", "options", "matrix", "infofetch", "infofetch update",
+            "help", "options", "about", "version", "time", "date", "killall", "trim",
+            "echo", "search", "google", "matrix", "infofetch", "infofetch update",
             "fastfetch", "neofetch", "clear", "history", "config",
             "config set theme", "config set fastfetch", "config set prompt",
             "config set autocomplete", "config set size", "config set ascii",

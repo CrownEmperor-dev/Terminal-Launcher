@@ -26,6 +26,7 @@ enum class AsciiArtStyle {
     TUX,
     RETRO_PC,
     MINIMAL,
+    CUSTOM,
     OFF
 }
 
@@ -38,7 +39,8 @@ data class LauncherSettings(
     val aliases: Map<String, String> = mapOf("yt" to "YouTube", "cam" to "Camera", "notes" to "Keep"),
     val history: List<String> = emptyList(),
     val textSizeSp: Int = 15,
-    val asciiArtStyle: AsciiArtStyle = AsciiArtStyle.DEFAULT
+    val asciiArtStyle: AsciiArtStyle = AsciiArtStyle.DEFAULT,
+    val customAsciiArt: String = ""
 )
 
 class SettingsRepository(private val context: Context) {
@@ -54,6 +56,7 @@ class SettingsRepository(private val context: Context) {
         val BUFFER_RAW = stringPreferencesKey("terminal_buffer_raw")
         val TEXT_SIZE_SP = intPreferencesKey("text_size_sp")
         val ASCII_ART_STYLE = stringPreferencesKey("ascii_art_style")
+        val CUSTOM_ASCII_ART = stringPreferencesKey("custom_ascii_art")
     }
 
     val settingsFlow: Flow<LauncherSettings> = context.dataStore.data.map { preferences ->
@@ -82,6 +85,7 @@ class SettingsRepository(private val context: Context) {
         } catch (_: Exception) {
             AsciiArtStyle.DEFAULT
         }
+        val customAscii = preferences[PreferencesKeys.CUSTOM_ASCII_ART] ?: ""
 
         LauncherSettings(
             theme = theme,
@@ -92,7 +96,8 @@ class SettingsRepository(private val context: Context) {
             aliases = aliasesMap,
             history = historyList,
             textSizeSp = textSize,
-            asciiArtStyle = asciiStyle
+            asciiArtStyle = asciiStyle,
+            customAsciiArt = customAscii
         )
     }
 
@@ -152,6 +157,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAsciiArtStyle(style: AsciiArtStyle) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.ASCII_ART_STYLE] = style.name
+        }
+    }
+
+    suspend fun setCustomAsciiArt(art: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.CUSTOM_ASCII_ART] = art
         }
     }
 

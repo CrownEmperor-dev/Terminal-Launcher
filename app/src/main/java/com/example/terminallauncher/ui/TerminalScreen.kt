@@ -153,6 +153,7 @@ fun TerminalScreen(
             onSetTheme = { viewModel.setTheme(it) },
             onSetTextSize = { viewModel.setTextSize(it) },
             onSetAsciiStyle = { viewModel.setAsciiStyle(it) },
+            onSetCustomAscii = { viewModel.setCustomAsciiArt(it) },
             onSetFastfetch = { viewModel.setFastfetchOnStart(it) },
             onSetAutocomplete = { viewModel.setAutocompleteEnabled(it) },
             onSetPrompt = { viewModel.setPromptString(it) }

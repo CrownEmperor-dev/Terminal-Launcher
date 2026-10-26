@@ -17,7 +17,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -49,11 +48,13 @@ fun OptionsMenuDialog(
     onSetTheme: (TerminalThemeType) -> Unit,
     onSetTextSize: (Int) -> Unit,
     onSetAsciiStyle: (AsciiArtStyle) -> Unit,
+    onSetCustomAscii: (String) -> Unit,
     onSetFastfetch: (Boolean) -> Unit,
     onSetAutocomplete: (Boolean) -> Unit,
     onSetPrompt: (String) -> Unit
 ) {
     var promptInput by remember { mutableStateOf(settings.promptString) }
+    var customAsciiInput by remember { mutableStateOf(settings.customAsciiArt) }
     val scrollState = rememberScrollState()
 
     Dialog(onDismissRequest = onDismiss) {
@@ -184,6 +185,7 @@ fun OptionsMenuDialog(
                         listOf(
                             AsciiArtStyle.RETRO_PC to "Retro PC",
                             AsciiArtStyle.MINIMAL to "Minimal",
+                            AsciiArtStyle.CUSTOM to "Custom",
                             AsciiArtStyle.OFF to "Off"
                         ).forEach { (style, label) ->
                             OptionChip(
@@ -194,6 +196,41 @@ fun OptionsMenuDialog(
                                 modifier = Modifier.weight(1f)
                             )
                         }
+                    }
+                }
+
+                if (settings.asciiArtStyle == AsciiArtStyle.CUSTOM) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "PASTE CUSTOM ASCII ART (asciiart.eu):",
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            color = colorScheme.textSecondary
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp)
+                            .border(1.dp, colorScheme.promptColor, RoundedCornerShape(4.dp))
+                            .padding(8.dp)
+                    ) {
+                        BasicTextField(
+                            value = customAsciiInput,
+                            onValueChange = {
+                                customAsciiInput = it
+                                onSetCustomAscii(it)
+                            },
+                            textStyle = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                color = colorScheme.textPrimary
+                            ),
+                            cursorBrush = SolidColor(colorScheme.promptColor),
+                            singleLine = false
+                        )
                     }
                 }
 

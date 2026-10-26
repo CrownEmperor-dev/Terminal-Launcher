@@ -31,7 +31,7 @@ Shell: TerminalLauncher v1.0
 UI Engine: Jetpack Compose
 Edge-To-Edge: Active (Transparent System Bars)
 Themes: CRT Green | Amber Phosphor | OLED Black | Monochrome
-ASCII Banners: Default | Bugdroid | Tux | Retro PC | Minimal | Off
+ASCII Banners: Default | Bugdroid | Tux | Retro PC | Minimal | Custom | Off
 Autocomplete: Inline Ghost Prediction (Single-Keystroke & Backspace Dismissal)
 --------------------------------------------------
 ```
@@ -58,6 +58,8 @@ OPTIONS & COMMANDS
        core & gui:
            options / customize Open dedicated retro GUI Options Menu overlay.
            about / version    Display app version, credits, license, and repository URL.
+           echo <text|$var>   Print text or shell variables ($USER, $PROMPT, $THEME, $VERSION, $OS).
+           search / google / g Search Google directly in default browser (e.g. search Android 15).
            time / date        Display current system time, date, and Unix epoch seconds.
            killall / trim     Trim background processes & free RAM (ideal for 4GB devices).
            matrix             Trigger full-screen Matrix Digital Rain easter egg.
@@ -76,7 +78,7 @@ OPTIONS & COMMANDS
            config                     Show current launcher preferences in shell.
            config set theme <theme>   Set palette: green, amber, oled, mono.
            config set size <sp>       Set font size (e.g., config set size 15).
-           config set ascii <style>   Set banner style: default, bugdroid, tux, retro_pc, minimal, off.
+           config set ascii <style>   Set banner style: default, bugdroid, tux, retro_pc, minimal, custom, off.
            config set fastfetch <on|off> Toggle startup system banner display.
            config set prompt <text>   Customize shell prompt string (default: user@mobile:~$ ).
            config set autocomplete <on|off> Toggle ghost auto-completion overlay.
@@ -104,7 +106,7 @@ Type `options` (or `customize`) anywhere in the terminal to launch the **GUI Opt
 
 * **Theme Color Palette**: CRT Green, Amber Phosphor, OLED Black, Monochrome.
 * **Font Size**: Small (12sp), Medium (15sp), Large (18sp).
-* **ASCII Art Banners**: Default title logo, **Bugdroid** (Android mascot), **Tux** (Linux mascot), Retro PC, Minimal, or Off.
+* **ASCII Art Banners**: Default title logo, **Bugdroid** (Android mascot), **Tux** (Linux mascot), Retro PC, Minimal, **Custom ASCII Editor** (paste from `asciiart.eu`), or Off.
 * **Toggles**: Startup Infofetch banner and Inline Ghost Autocomplete.
 * **Prompt Editor**: Live shell prompt text editing.
 * **About Card**: Displays app metadata, developer credits, MIT License, and GitHub repository URL.

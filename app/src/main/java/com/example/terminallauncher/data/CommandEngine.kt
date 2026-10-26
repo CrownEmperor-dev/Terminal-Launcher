@@ -72,6 +72,8 @@ class CommandEngine(
             "about", "version" -> handleAbout()
             "time", "date" -> handleTime()
             "killall", "trim" -> handleKillall()
+            "echo" -> handleEcho(args.joinToString(" "), currentSettings)
+            "search", "google", "g" -> handleSearch(args.joinToString(" "))
             "options", "customize", "preferences" -> CommandResult(
                 outputLines = listOf(TerminalLine(text = "Opening GUI Options Menu...", type = LineType.SUCCESS)),
                 openOptionsMenu = true
@@ -103,7 +105,7 @@ class CommandEngine(
         }
     }
 
-    fun generateInfofetchLines(asciiStyle: AsciiArtStyle = AsciiArtStyle.DEFAULT): List<TerminalLine> {
+    fun generateInfofetchLines(settings: LauncherSettings): List<TerminalLine> {
         val osVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
         val model = "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}"
         val cpuArch = Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown"
@@ -111,7 +113,7 @@ class CommandEngine(
         val batInfo = getBatteryStatusInfo()
         val uptime = getUptimeString()
 
-        val asciiArt = getAsciiArtBanner(asciiStyle)
+        val asciiArt = getAsciiArtBanner(settings.asciiArtStyle, settings)
 
         val infoDetails = listOf(
             "OS: $osVersion",
@@ -137,11 +139,50 @@ class CommandEngine(
 
     private fun handleInfofetch(args: List<String>, settings: LauncherSettings): CommandResult {
         val isUpdate = args.firstOrNull()?.lowercase() == "update"
-        val lines = generateInfofetchLines(settings.asciiArtStyle).toMutableList()
+        val lines = generateInfofetchLines(settings).toMutableList()
         if (isUpdate) {
             lines.add(0, TerminalLine(text = "[REFRESHED REAL-TIME SYSTEM INFORMATION]", type = LineType.SUCCESS))
         }
         return CommandResult(outputLines = lines)
+    }
+
+    private fun handleEcho(argText: String, settings: LauncherSettings): CommandResult {
+        if (argText.isBlank()) {
+            return CommandResult(outputLines = listOf(TerminalLine(text = "", type = LineType.OUTPUT)))
+        }
+
+        var text = argText.trim()
+        if ((text.startsWith("\"") && text.endsWith("\"")) || (text.startsWith("'") && text.endsWith("'"))) {
+            text = text.substring(1, text.length - 1)
+        }
+
+        val userStr = settings.promptString.split("@").firstOrNull() ?: "user"
+        val expandedText = text
+            .replace("\$USER", userStr)
+            .replace("\$PROMPT", settings.promptString)
+            .replace("\$THEME", settings.theme.name.lowercase())
+            .replace("\$VERSION", "v1.0.0")
+            .replace("\$OS", "Android ${Build.VERSION.RELEASE}")
+            .replace("\$MODEL", "${Build.MANUFACTURER} ${Build.MODEL}")
+
+        return CommandResult(outputLines = listOf(TerminalLine(text = expandedText, type = LineType.OUTPUT)))
+    }
+
+    private fun handleSearch(query: String): CommandResult {
+        if (query.isBlank()) {
+            return CommandResult(outputLines = listOf(TerminalLine(text = "Usage: search <query> or google <query>", type = LineType.ERROR)), success = false)
+        }
+
+        val searchUrl = "https://www.google.com/search?q=${Uri.encode(query)}"
+        return try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(searchUrl)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            CommandResult(outputLines = listOf(TerminalLine(text = "Searching Google for '$query'...", type = LineType.SUCCESS)))
+        } catch (e: Exception) {
+            CommandResult(outputLines = listOf(TerminalLine(text = "Unable to launch web search: ${e.message}", type = LineType.ERROR)), success = false)
+        }
     }
 
     private fun handleAbout(): CommandResult {
@@ -260,7 +301,7 @@ class CommandEngine(
         }
     }
 
-    private fun getAsciiArtBanner(style: AsciiArtStyle): List<String> {
+    private fun getAsciiArtBanner(style: AsciiArtStyle, settings: LauncherSettings): List<String> {
         return when (style) {
             AsciiArtStyle.DEFAULT -> listOf(
                 "  _____                   _             _ ",
@@ -298,6 +339,13 @@ class CommandEngine(
             AsciiArtStyle.MINIMAL -> listOf(
                 " [ TERMINAL LAUNCHER ] "
             )
+            AsciiArtStyle.CUSTOM -> {
+                if (settings.customAsciiArt.isBlank()) {
+                    listOf(" [ CUSTOM ASCII ART - PASTE IN OPTIONS ] ")
+                } else {
+                    settings.customAsciiArt.split("\n")
+                }
+            }
             AsciiArtStyle.OFF -> emptyList()
         }
     }
@@ -309,6 +357,8 @@ class CommandEngine(
         lines.add(TerminalLine(text = "CORE COMMANDS:", type = LineType.HEADER))
         lines.add(TerminalLine(text = "  options / customize GUI visual settings menu", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  about / version    App details, license, and repository URL", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  echo <text|\$var>   Print string or shell variables", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  search <query>     Search Google in web browser (or 'google' / 'g')", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  time / date        Display system date, time, and epoch", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  killall / trim     Trim background tasks & free RAM", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  matrix             Full-screen matrix digital rain easter egg", type = LineType.OUTPUT))
@@ -361,7 +411,7 @@ class CommandEngine(
             }
             "/system", "system" -> {
                 lines.add(TerminalLine(text = "SYSTEM COMMANDS:", type = LineType.HEADER))
-                val sysCmds = listOf("options", "about", "time", "killall", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
+                val sysCmds = listOf("options", "about", "time", "killall", "echo", "search", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
                 sysCmds.forEach { lines.add(TerminalLine(text = "  $it", type = LineType.OUTPUT)) }
             }
             "/storage", "storage" -> {
@@ -647,7 +697,7 @@ class CommandEngine(
                         settingsRepository.setAsciiArtStyle(style)
                         CommandResult(outputLines = listOf(TerminalLine(text = "ASCII art style set to ${style.name.lowercase()}", type = LineType.SUCCESS)))
                     } else {
-                        CommandResult(outputLines = listOf(TerminalLine(text = "Invalid style. Options: default, bugdroid, tux, retro_pc, minimal, off", type = LineType.ERROR)), success = false)
+                        CommandResult(outputLines = listOf(TerminalLine(text = "Invalid style. Options: default, bugdroid, tux, retro_pc, minimal, custom, off", type = LineType.ERROR)), success = false)
                     }
                 }
                 else -> CommandResult(outputLines = listOf(TerminalLine(text = "Unknown config key: $option", type = LineType.ERROR)), success = false)
