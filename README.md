@@ -32,7 +32,7 @@ UI Engine: Jetpack Compose
 Edge-To-Edge: Active (Transparent System Bars)
 Themes: CRT Green | Amber Phosphor | OLED Black | Monochrome
 ASCII Banners: Default | Bugdroid | Tux | Retro PC | Minimal | Off
-Autocomplete: Inline Ghost Prediction
+Autocomplete: Inline Ghost Prediction (Single-Keystroke & Backspace Dismissal)
 --------------------------------------------------
 ```
 
@@ -47,6 +47,7 @@ NAME
 SYNOPSIS
        [command] [arguments]
        <app_name_or_alias>
+       <web_url>
 
 DESCRIPTION
        Terminal Launcher replaces standard icon grids with an ultra-responsive monospaced
@@ -56,6 +57,9 @@ DESCRIPTION
 OPTIONS & COMMANDS
        core & gui:
            options / customize Open dedicated retro GUI Options Menu overlay.
+           about / version    Display app version, credits, license, and repository URL.
+           time / date        Display current system time, date, and Unix epoch seconds.
+           killall / trim     Trim background processes & free RAM (ideal for 4GB devices).
            matrix             Trigger full-screen Matrix Digital Rain easter egg.
            ls [letter|dir]    List applications, storage (ls /storage), or filter (ls o).
            cd <dir>           Navigate storage directories (e.g. cd storage0/Download).
@@ -66,6 +70,7 @@ OPTIONS & COMMANDS
            clear              Clear current screen line buffer (Shortcut: Ctrl + L).
            history            Display command execution history.
            help / man         Display command manual and usage documentation.
+           <web_url>          Typing any URL (e.g. github.com, https://google.com) opens default browser.
 
        config & preferences:
            config                     Show current launcher preferences in shell.
@@ -83,7 +88,10 @@ OPTIONS & COMMANDS
            battery [status]     Power state, temperature, voltage, and health metrics.
            calc <expression>    Evaluate inline mathematical equations (e.g. calc (15*4)/3).
            sys flash            Toggle flashlight / camera torch hardware.
-           sys wifi / bt / sound Open system settings panels directly.
+           sys ringer <s|v|n>   Set ringer mode: silent, vibrate, normal.
+           sys rotation         Toggle auto-rotation lock.
+           sys gps / hotspot    Open Location / Hotspot settings.
+           sys settings <page>  Open settings page (e.g. sys settings display, sys settings app spotify).
            call <number>        Launch phone dialer or direct call intent.
            sms <number>         Launch SMS messaging.
 ```
@@ -99,6 +107,7 @@ Type `options` (or `customize`) anywhere in the terminal to launch the **GUI Opt
 * **ASCII Art Banners**: Default title logo, **Bugdroid** (Android mascot), **Tux** (Linux mascot), Retro PC, Minimal, or Off.
 * **Toggles**: Startup Infofetch banner and Inline Ghost Autocomplete.
 * **Prompt Editor**: Live shell prompt text editing.
+* **About Card**: Displays app metadata, developer credits, MIT License, and GitHub repository URL.
 
 ---
 
@@ -122,6 +131,7 @@ KEYBOARD SHORTCUTS & NAVIGATION
 --------------------------------------------------
   [Up / Down Arrow]      Cycle backwards & forwards through command history
   [Tab / Spacebar]       Accept inline gray ghost auto-complete suggestion
+  [Backspace]            Dismiss/suppress current ghost autocomplete prediction
   [Ctrl + L]             Clear screen line buffer
   [Enter]                Execute typed command / launch app (or dismiss Matrix)
   [Tap Anywhere]         Refocus command input prompt
