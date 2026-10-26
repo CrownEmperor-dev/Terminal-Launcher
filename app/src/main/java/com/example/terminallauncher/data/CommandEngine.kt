@@ -88,6 +88,7 @@ class CommandEngine(
             "cd" -> handleCd(args)
             "apps" -> handleAppsList()
             "open", "launch" -> handleOpenApp(args.joinToString(" "))
+            "install" -> handleInstall(args.joinToString(" "))
             "uninstall", "remove" -> handleUninstall(args.joinToString(" "))
             "alias" -> handleAlias(args, currentSettings)
             "unalias" -> handleUnalias(args, currentSettings)
@@ -136,6 +137,57 @@ class CommandEngine(
         infoDetails.forEach { result.add(TerminalLine(text = it, type = LineType.OUTPUT)) }
         result.add(TerminalLine(text = "--------------------------------------------------", type = LineType.SYSTEM))
         return result
+    }
+
+    private fun handleInstall(query: String): CommandResult {
+        if (query.isBlank()) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "Usage: install <app_name_or_package>", type = LineType.ERROR)),
+                success = false
+            )
+        }
+
+        val cleanQuery = query.trim()
+        val isPackageName = cleanQuery.contains(".") && !cleanQuery.contains(" ")
+
+        val marketUriString = if (isPackageName) {
+            "market://details?id=$cleanQuery"
+        } else {
+            "market://search?q=${Uri.encode(cleanQuery)}&c=apps"
+        }
+
+        val webUrl = if (isPackageName) {
+            "https://play.google.com/store/apps/details?id=$cleanQuery"
+        } else {
+            "https://play.google.com/store/search?q=${Uri.encode(cleanQuery)}&c=apps"
+        }
+
+        return try {
+            val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse(marketUriString)).apply {
+                setPackage("com.android.vending")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(marketIntent)
+            CommandResult(outputLines = listOf(TerminalLine(text = "Opening Google Play Store for '$cleanQuery'...", type = LineType.SUCCESS)))
+        } catch (_: Exception) {
+            try {
+                val genericMarketIntent = Intent(Intent.ACTION_VIEW, Uri.parse(marketUriString)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(genericMarketIntent)
+                CommandResult(outputLines = listOf(TerminalLine(text = "Opening App Store for '$cleanQuery'...", type = LineType.SUCCESS)))
+            } catch (_: Exception) {
+                try {
+                    val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUrl)).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(webIntent)
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Opening Play Store web page for '$cleanQuery'...", type = LineType.SUCCESS)))
+                } catch (e: Exception) {
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Unable to open store for '$cleanQuery': ${e.message}", type = LineType.ERROR)), success = false)
+                }
+            }
+        }
     }
 
     private fun handleTermuxSetup(): CommandResult {
@@ -454,6 +506,7 @@ class CommandEngine(
         lines.add(TerminalLine(text = "  about / version    App details, license, and repository URL", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  echo <text|\$var>   Print string or shell variables", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  search <query>     Search Google in web browser (or 'google' / 'g')", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  install <query>    Search & install apps from Google Play Store", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  tx <command>       Execute command or script via Termux (or 'termux')", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  time / date        Display system date, time, and epoch", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  killall / trim     Trim background tasks & free RAM", type = LineType.OUTPUT))
@@ -507,7 +560,7 @@ class CommandEngine(
             }
             "/system", "system" -> {
                 lines.add(TerminalLine(text = "SYSTEM COMMANDS:", type = LineType.HEADER))
-                val sysCmds = listOf("options", "about", "time", "killall", "echo", "search", "termux", "tx", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
+                val sysCmds = listOf("options", "about", "time", "killall", "echo", "search", "install", "termux", "tx", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
                 sysCmds.forEach { lines.add(TerminalLine(text = "  $it", type = LineType.OUTPUT)) }
             }
             "/storage", "storage" -> {
