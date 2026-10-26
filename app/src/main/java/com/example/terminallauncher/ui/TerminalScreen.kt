@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -47,7 +48,9 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -73,6 +76,8 @@ fun TerminalScreen(
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
     val context = LocalContext.current
+    @Suppress("DEPRECATION")
+    val clipboardManager = LocalClipboardManager.current
 
     // First-run runtime permissions check
     val permissionsToRequest = remember {
@@ -176,18 +181,22 @@ fun TerminalScreen(
             .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 20.dp)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Output Line Buffer
-            LazyColumn(
-                state = listState,
+            // Output Line Buffer - Wrapped in SelectionContainer for highlighting & copying!
+            SelectionContainer(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                items(
-                    items = uiState.lines,
-                    key = { it.id }
-                ) { line ->
-                    TerminalLineView(line = line, colorScheme = colorScheme, fontSize = fontSize)
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(
+                        items = uiState.lines,
+                        key = { it.id }
+                    ) { line ->
+                        TerminalLineView(line = line, colorScheme = colorScheme, fontSize = fontSize)
+                    }
                 }
             }
 
@@ -236,6 +245,17 @@ fun TerminalScreen(
                                 if (event.isCtrlPressed && (event.key == Key.L)) {
                                     viewModel.clearScreen()
                                     true
+                                } else if (event.isCtrlPressed && (event.key == Key.V)) {
+                                    val clipText = clipboardManager.getText()?.text
+                                    if (!clipText.isNullOrEmpty()) {
+                                        viewModel.pasteText(clipText)
+                                        true
+                                    } else false
+                                } else if (event.isCtrlPressed && (event.key == Key.C)) {
+                                    if (uiState.inputFieldValue.text.isNotEmpty()) {
+                                        clipboardManager.setText(AnnotatedString(uiState.inputFieldValue.text))
+                                        true
+                                    } else false
                                 } else when (event.key) {
                                     Key.DirectionUp -> {
                                         viewModel.navigateHistoryUp()

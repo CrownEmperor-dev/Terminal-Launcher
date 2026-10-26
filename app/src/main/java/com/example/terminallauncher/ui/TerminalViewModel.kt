@@ -178,6 +178,22 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun pasteText(pasted: String) {
+        val current = _uiState.value.inputFieldValue
+        val text = current.text
+        val selection = current.selection
+        val newText = if (selection.collapsed) {
+            val idx = selection.start.coerceIn(0, text.length)
+            text.substring(0, idx) + pasted + text.substring(idx)
+        } else {
+            val start = selection.min.coerceIn(0, text.length)
+            val end = selection.max.coerceIn(0, text.length)
+            text.substring(0, start) + pasted + text.substring(end)
+        }
+        val newSelectionIndex = (selection.min + pasted.length).coerceIn(0, newText.length)
+        onInputChanged(TextFieldValue(newText, selection = TextRange(newSelectionIndex)))
+    }
+
     fun submitCommand() {
         val currentText = _uiState.value.inputFieldValue.text
         val ghostSuffix = _uiState.value.ghostSuffix

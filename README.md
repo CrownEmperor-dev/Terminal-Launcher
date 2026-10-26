@@ -33,6 +33,8 @@ Edge-To-Edge: Active (Transparent System Bars)
 Themes: CRT Green | Amber Phosphor | OLED Black | Monochrome
 ASCII Banners: Default | Bugdroid | Tux | Retro PC | Minimal | Custom | Off
 Autocomplete: Inline Ghost Prediction (Single-Keystroke & Backspace Dismissal)
+Termux Integration: Active (`tx <command>` / `termux <command>`)
+Text Selection: Highlight & Copy Output Buffer / Clipboard Paste (Ctrl+C / Ctrl+V)
 --------------------------------------------------
 ```
 
@@ -52,7 +54,7 @@ SYNOPSIS
 DESCRIPTION
        Terminal Launcher replaces standard icon grids with an ultra-responsive monospaced
        shell interface. It provides instant app launching, inline ghost completion, retro CRT
-       visual styles, hardware keyboard shortcuts, a GUI options menu, storage navigation, and built-in system management.
+       visual styles, hardware keyboard shortcuts, text selection/copy-paste, a GUI options menu, storage navigation, Termux integration, and built-in system management.
 
 OPTIONS & COMMANDS
        core & gui:
@@ -60,6 +62,7 @@ OPTIONS & COMMANDS
            about / version    Display app version, credits, license, and repository URL.
            echo <text|$var>   Print text or shell variables ($USER, $PROMPT, $THEME, $VERSION, $OS).
            search / google / g Search Google directly in default browser (e.g. search Android 15).
+           tx / termux <cmd>  Execute Linux commands, scripts, or package managers via Termux.
            time / date        Display current system time, date, and Unix epoch seconds.
            killall / trim     Trim background processes & free RAM (ideal for 4GB devices).
            matrix             Trigger full-screen Matrix Digital Rain easter egg.
@@ -113,6 +116,18 @@ Type `options` (or `customize`) anywhere in the terminal to launch the **GUI Opt
 
 ---
 
+## 🐧 `user@mobile:~$ tx help`
+
+Terminal Launcher seamlessly interfaces with Termux (`com.termux`) via `com.termux.RUN_COMMAND`:
+
+* **Interactive CLI Programs** (`tx nano file.txt`, `tx vim`, `tx htop`): Opens Termux in the foreground directly into the active editor/tool session.
+* **Background Shell Commands** (`tx pkg update`, `tx python script.py`, `tx git status`, `tx curl ...`): Executes in the background and renders execution status lines.
+* **Ghost Autocomplete for Termux**: Automatic ghost suggestions for `pkg`, `python`, `pip`, `git`, `nano`, `vim`, `curl`, `wget`, `bash`, `ssh`, `htop`, etc.
+
+*Note: Ensure `allow-external-apps = true` is set in Termux (`~/.termux/termux.properties`) to enable external command execution.*
+
+---
+
 ## 🎨 `user@mobile:~$ config set theme`
 
 Terminal Launcher supports 4 retro color schemes:
@@ -134,7 +149,10 @@ KEYBOARD SHORTCUTS & NAVIGATION
   [Up / Down Arrow]      Cycle backwards & forwards through command history
   [Tab / Spacebar]       Accept inline gray ghost auto-complete suggestion
   [Backspace]            Dismiss/suppress current ghost autocomplete prediction
+  [Ctrl + C]             Copy active prompt text to clipboard
+  [Ctrl + V]             Paste clipboard text into command input prompt
   [Ctrl + L]             Clear screen line buffer
+  [Long Press Buffer]    Highlight, select, and copy terminal output lines
   [Enter]                Execute typed command / launch app (or dismiss Matrix)
   [Tap Anywhere]         Refocus command input prompt
 --------------------------------------------------

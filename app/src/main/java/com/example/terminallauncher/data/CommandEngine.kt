@@ -74,6 +74,7 @@ class CommandEngine(
             "killall", "trim" -> handleKillall()
             "echo" -> handleEcho(args.joinToString(" "), currentSettings)
             "search", "google", "g" -> handleSearch(args.joinToString(" "))
+            "termux", "tx" -> handleTermux(args)
             "options", "customize", "preferences" -> CommandResult(
                 outputLines = listOf(TerminalLine(text = "Opening GUI Options Menu...", type = LineType.SUCCESS)),
                 openOptionsMenu = true
@@ -135,6 +136,87 @@ class CommandEngine(
         infoDetails.forEach { result.add(TerminalLine(text = it, type = LineType.OUTPUT)) }
         result.add(TerminalLine(text = "--------------------------------------------------", type = LineType.SYSTEM))
         return result
+    }
+
+    private fun handleTermux(args: List<String>): CommandResult {
+        val termuxPackage = "com.termux"
+        val pm = context.packageManager
+        val isInstalled = try {
+            pm.getLaunchIntentForPackage(termuxPackage) != null
+        } catch (_: Exception) {
+            false
+        }
+
+        if (!isInstalled) {
+            return CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "Termux application is not installed on this device.", type = LineType.ERROR),
+                    TerminalLine(text = "Install Termux from F-Droid or GitHub to enable Termux commands.", type = LineType.SYSTEM)
+                ),
+                success = false
+            )
+        }
+
+        if (args.isEmpty()) {
+            val launchIntent = pm.getLaunchIntentForPackage(termuxPackage)
+            if (launchIntent != null) {
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(launchIntent)
+                return CommandResult(outputLines = listOf(TerminalLine(text = "Opening Termux terminal...", type = LineType.SUCCESS)))
+            } else {
+                return CommandResult(outputLines = listOf(TerminalLine(text = "Unable to launch Termux.", type = LineType.ERROR)), success = false)
+            }
+        }
+
+        val fullCommand = args.joinToString(" ")
+        val subCmd = args.first().lowercase()
+
+        val interactiveTools = setOf("nano", "vim", "vi", "emacs", "micro", "htop", "top", "less", "more", "man", "gdb", "python", "node", "bash", "zsh", "fish", "tmux", "screen")
+        val isInteractive = interactiveTools.contains(subCmd)
+
+        return try {
+            val intent = Intent("com.termux.RUN_COMMAND").apply {
+                setClassName("com.termux", "com.termux.app.RunCommandService")
+                putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash")
+                putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", fullCommand))
+                putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
+                putExtra("com.termux.RUN_COMMAND_BACKGROUND", !isInteractive)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+
+            val msg = if (isInteractive) {
+                "Launching Termux ($fullCommand)..."
+            } else {
+                "Executed Termux command: '$fullCommand'"
+            }
+
+            CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = msg, type = LineType.SUCCESS),
+                    TerminalLine(text = "Note: Ensure 'allow-external-apps = true' is set in ~/.termux/termux.properties if command is blocked by Termux.", type = LineType.SYSTEM)
+                )
+            )
+        } catch (e: Exception) {
+            val launchIntent = pm.getLaunchIntentForPackage(termuxPackage)
+            if (launchIntent != null) {
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(launchIntent)
+                CommandResult(
+                    outputLines = listOf(
+                        TerminalLine(text = "Opened Termux terminal for '$fullCommand'.", type = LineType.SUCCESS),
+                        TerminalLine(text = "Tip: Allow external apps in Termux: echo 'allow-external-apps = true' >> ~/.termux/termux.properties", type = LineType.SYSTEM)
+                    )
+                )
+            } else {
+                CommandResult(outputLines = listOf(TerminalLine(text = "Failed to send command to Termux: ${e.message}", type = LineType.ERROR)), success = false)
+            }
+        }
     }
 
     private fun handleInfofetch(args: List<String>, settings: LauncherSettings): CommandResult {
@@ -359,6 +441,7 @@ class CommandEngine(
         lines.add(TerminalLine(text = "  about / version    App details, license, and repository URL", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  echo <text|\$var>   Print string or shell variables", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  search <query>     Search Google in web browser (or 'google' / 'g')", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  tx <command>       Execute command or script via Termux (or 'termux')", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  time / date        Display system date, time, and epoch", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  killall / trim     Trim background tasks & free RAM", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  matrix             Full-screen matrix digital rain easter egg", type = LineType.OUTPUT))
@@ -411,7 +494,7 @@ class CommandEngine(
             }
             "/system", "system" -> {
                 lines.add(TerminalLine(text = "SYSTEM COMMANDS:", type = LineType.HEADER))
-                val sysCmds = listOf("options", "about", "time", "killall", "echo", "search", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
+                val sysCmds = listOf("options", "about", "time", "killall", "echo", "search", "termux", "tx", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
                 sysCmds.forEach { lines.add(TerminalLine(text = "  $it", type = LineType.OUTPUT)) }
             }
             "/storage", "storage" -> {
