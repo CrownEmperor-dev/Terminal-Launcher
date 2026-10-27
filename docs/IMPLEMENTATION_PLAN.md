@@ -12,7 +12,13 @@
 
 Any new feature requests, commands, or project phases will be placed at the top of this queue for execution.
 
-*No active phase in queue. Current version: **v1.2.0 (Build 4)**. Ready for next incoming feature requests!*
+### Waydroid / Physical Keyboard Support: Configurable Virtual Keyboard Auto-Show Behavior
+- **Problem**: When starting the launcher in Waydroid or on devices with hardware keyboards, the virtual/soft keyboard automatically pops up on app launch, which is intrusive and undesirable.
+- **Goal**: Disable automatic virtual keyboard popup on launch, or make auto-keyboard focus configurable (`config set autokeyboard <on|off>`), so that the virtual keyboard only appears when the user explicitly clicks or touches the screen/input field.
+- **Proposed Technical Solutions**:
+  - Add a DataStore setting for `auto_show_keyboard` (defaulting to `true` or configurable via command/GUI).
+  - Control focus request on initial `TerminalScreen` launch based on the `auto_show_keyboard` setting.
+  - Support tap/touch on terminal screen/input area to explicitly trigger soft keyboard visibility (`WindowInsetsControllerCompat` / `SoftwareKeyboardController.show()`).
 
 ---
 
