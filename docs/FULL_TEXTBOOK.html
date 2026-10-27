@@ -1,0 +1,1927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>The Art of Android Shells - Terminal Launcher Developer Manual</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({startOnLoad:true, theme:'dark'});</script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600;700&family=Inter:wght@300;400;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.6;
+            color: #E0E0E0;
+            background-color: #0A0D0A;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        h1, h2, h3, h4 {
+            color: #00FF66;
+            font-weight: 700;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            page-break-after: avoid;
+        }
+
+        h1 {
+            font-size: 2.2em;
+            border-bottom: 2px solid #00FF66;
+            padding-bottom: 8px;
+            page-break-before: always;
+        }
+
+        h1:first-of-type {
+            page-break-before: avoid;
+        }
+
+        h2 {
+            font-size: 1.6em;
+            color: #FFB000;
+            border-bottom: 1px solid #333;
+            padding-bottom: 4px;
+        }
+
+        h3 {
+            font-size: 1.3em;
+            color: #00E5FF;
+        }
+
+        a {
+            color: #00FF66;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        code {
+            font-family: 'Fira Code', monospace;
+            background-color: #121812;
+            color: #00FF66;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        pre {
+            background-color: #121812;
+            border: 1px solid #00FF66;
+            border-radius: 6px;
+            padding: 16px;
+            overflow-x: auto;
+            page-break-inside: avoid;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+            color: #E0E0E0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            page-break-inside: avoid;
+        }
+
+        th, td {
+            border: 1px solid #222;
+            padding: 10px 14px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #121812;
+            color: #00FF66;
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background-color: #0F140F;
+        }
+
+        blockquote {
+            border-left: 4px solid #FFB000;
+            margin: 0;
+            padding-left: 16px;
+            color: #BBB;
+            background-color: #12100C;
+            padding: 12px 16px;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .mermaid {
+            background-color: #0A0D0A;
+            padding: 16px;
+            border-radius: 6px;
+            text-align: center;
+            margin: 20px 0;
+            page-break-inside: avoid;
+        }
+
+        @media print {
+            body {
+                background-color: #FFFFFF !important;
+                color: #111111 !important;
+                max-width: 100% !important;
+                padding: 0 !important;
+            }
+
+            h1 {
+                color: #008833 !important;
+                border-bottom: 2px solid #008833 !important;
+            }
+
+            h2 {
+                color: #BB6600 !important;
+                border-bottom: 1px solid #DDD !important;
+            }
+
+            h3 {
+                color: #007799 !important;
+            }
+
+            code {
+                background-color: #F4F4F4 !important;
+                color: #006622 !important;
+                border: 1px solid #DDD;
+            }
+
+            pre {
+                background-color: #F8F8F8 !important;
+                border: 1px solid #CCC !important;
+                color: #111 !important;
+            }
+
+            th {
+                background-color: #EEE !important;
+                color: #111 !important;
+            }
+
+            blockquote {
+                background-color: #FFF9EF !important;
+                border-left-color: #DD8800 !important;
+                color: #333 !important;
+            }
+
+            a {
+                color: #005522 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1 id="the-art-of-android-shells-building-terminal-launcher-from-scratch">📚 The Art of Android Shells: Building Terminal Launcher from Scratch</h1>
+<p><em>A Complete Developer’s Textbook &amp; Reference Manual</em></p>
+<hr />
+<h1 id="the-art-of-android-shells-building-terminal-launcher-from-scratch_1">📚 The Art of Android Shells: Building Terminal Launcher from Scratch</h1>
+<p><em>A Complete Developer’s Textbook &amp; Reference Manual</em></p>
+<hr />
+<h2 id="textbook-table-of-contents-chapter-structure">📑 Textbook Table of Contents &amp; Chapter Structure</h2>
+<h3 id="chapter-1-android-system-architecture-home-screen-launcher-mechanics"><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_1.md">Chapter 1: Android System Architecture &amp; Home Screen Launcher Mechanics</a></h3>
+<ul>
+<li><strong>1.1</strong>: What happens when an Android phone boots up?</li>
+<li><strong>1.2</strong>: System Intent Resolvers &amp; <code>CATEGORY.HOME</code> (<a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/app/src/main/AndroidManifest.xml#L27-L33">AndroidManifest.xml</a>)</li>
+<li><strong>1.3</strong>: Activity Launch Modes (<code>singleInstance</code>, <code>excludeFromRecents</code>, <code>stateNotNeeded</code>)</li>
+<li><strong>1.4</strong>: Window Soft Input Management (<code>adjustResize</code> vs <code>adjustPan</code> for hardware &amp; software keyboards)</li>
+</ul>
+<h3 id="chapter-2-modern-android-build-system-version-catalogs"><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_2.md">Chapter 2: Modern Android Build System &amp; Version Catalogs</a></h3>
+<ul>
+<li><strong>2.1</strong>: Anatomy of Gradle KTS (<a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/app/build.gradle.kts">build.gradle.kts</a> vs <code>settings.gradle.kts</code>)</li>
+<li><strong>2.2</strong>: Version Catalog (<a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/gradle/libs.versions.toml">gradle/libs.versions.toml</a>) and BOM (Bill of Materials) Management</li>
+<li><strong>2.3</strong>: Target SDK 37, Min SDK 26 (Android 8.0 Oreo), and R8 ProGuard Optimization</li>
+<li><strong>2.4</strong>: Version Numbering Policy (<code>v1.1.0</code> - Major/Minor/Patch increment strategy)</li>
+</ul>
+<h3 id="chapter-3-architecture-patterns-the-mvvm-paradigm"><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_3.md">Chapter 3: Architecture Patterns &amp; The MVVM Paradigm</a></h3>
+<ul>
+<li><strong>3.1</strong>: Why Model-View-ViewModel (MVVM)?</li>
+<li><strong>3.2</strong>: Unidirectional Data Flow (UDF) in Reactive Android</li>
+<li><strong>3.3</strong>: Separation of Concerns: View vs ViewModel vs Repositories vs Command Engines</li>
+</ul>
+<h3 id="chapter-4-querying-system-applications-disambiguation-algorithms"><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_4.md">Chapter 4: Querying System Applications &amp; Disambiguation Algorithms</a></h3>
+<ul>
+<li><strong>4.1</strong>: Querying <code>PackageManager</code> with <code>Intent.ACTION_MAIN</code> &amp; <code>CATEGORY_LAUNCHER</code> (<a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/app/src/main/java/com/example/terminallauncher/data/AppRepository.kt">AppRepository.kt</a>)</li>
+<li><strong>4.2</strong>: RAM Optimization Strategies (Zero Icon Overhead &amp; Lazy Loading)</li>
+<li><strong>4.3</strong>: Duplicate App Name Auto-Disambiguation Algorithm (<code>calculator.google</code> vs <code>calculator.sec</code>)</li>
+<li><strong>4.4</strong>: Acronym &amp; Prefix Matching for Lightning App Launching (<code>findApp</code>)</li>
+</ul>
+<h3 id="chapter-5-asynchronous-persistence-with-jetpack-datastore"><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_5.md">Chapter 5: Asynchronous Persistence with Jetpack DataStore</a></h3>
+<ul>
+<li><strong>5.1</strong>: Why SharedPreferences are deprecated &amp; why DataStore Preferences win (<a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/app/src/main/java/com/example/terminallauncher/data/SettingsRepository.kt">SettingsRepository.kt</a>)</li>
+<li><strong>5.2</strong>: Managing Reactive State Flows (<code>Flow&lt;LauncherSettings&gt;</code>)</li>
+<li><strong>5.3</strong>: Persisting Themes, Text Sizes, Prompt Strings, Custom ASCII Banners, and Command Buffer History</li>
+</ul>
+<h3 id="chapter-6-the-command-interpreter-engine-operations"><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_6.md">Chapter 6: The Command Interpreter &amp; Engine Operations</a></h3>
+<ul>
+<li><strong>6.1</strong>: Command Input Tokenization &amp; Alias Resolution (<a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/app/src/main/java/com/example/terminallauncher/data/CommandEngine.kt">CommandEngine.kt</a>)</li>
+<li><strong>6.2</strong>: Core Shell Utilities (<code>help</code>, <code>about</code>, <code>time</code>, <code>date</code>, <code>killall</code>, <code>echo</code> with <code>$USER</code>/<code>$PROMPT</code> expansion)</li>
+<li><strong>6.3</strong>: Web Integration &amp; Play Store Deep Links (<code>search</code>, <code>install</code>, <code>market://</code> intents)</li>
+<li><strong>6.4</strong>: File Systems &amp; Storage Traversal (<code>ls /storage</code>, <code>storage0</code>, <code>storage1</code>, <code>cd</code>, <code>cat</code>/<code>read</code>)</li>
+<li><strong>6.5</strong>: Hardware Toggles &amp; Sub-System Page Navigation (<code>sys flash</code>, <code>sys ringer</code>, <code>sys settings</code>)</li>
+<li><strong>6.6</strong>: Audio Synthesis: Real-Time 8-Bit PCM Square Wave Synthesizer (<code>AudioTrack</code>)</li>
+<li><strong>6.7</strong>: Native Email Intent Dispatching (<code>email</code> for Proton Mail &amp; Gmail)</li>
+</ul>
+<h3 id="chapter-7-reactive-ui-high-performance-rendering-with-jetpack-compose"><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_7.md">Chapter 7: Reactive UI &amp; High-Performance Rendering with Jetpack Compose</a></h3>
+<ul>
+<li><strong>7.1</strong>: Declarative UI vs Imperative XML Views (<a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/app/src/main/java/com/example/terminallauncher/ui/TerminalScreen.kt">TerminalScreen.kt</a>)</li>
+<li><strong>7.2</strong>: Screen Layout &amp; Edge-to-Edge Bar Insets (<code>statusBarsPadding</code>, <code>imePadding</code>)</li>
+<li><strong>7.3</strong>: The Output Terminal Buffer: <code>LazyColumn</code> &amp; <code>SelectionContainer</code> Text Highlighting</li>
+<li><strong>7.4</strong>: Hardware Keyboard Interception (<code>onPreviewKeyEvent</code> for Tab, Backspace, Arrows, Ctrl+C, Ctrl+V)</li>
+<li><strong>7.5</strong>: Modern GUI Dialog Overlays (<a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/app/src/main/java/com/example/terminallauncher/ui/OptionsMenuDialog.kt">OptionsMenuDialog.kt</a> &amp; <code>MatrixRainScreen.kt</code>)</li>
+<li><strong>7.6</strong>: 120Hz Refresh Rate Acceleration (<code>Modifier.graphicsLayer</code> &amp; <code>@Immutable</code> UI State)</li>
+</ul>
+<h3 id="chapter-8-system-events-dynamic-broadcast-receivers"><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_8.md">Chapter 8: System Events &amp; Dynamic Broadcast Receivers</a></h3>
+<ul>
+<li><strong>8.1</strong>: Listening to <code>PACKAGE_ADDED</code> and <code>PACKAGE_REMOVED</code> in Compose (<code>DisposableEffect</code>)</li>
+<li><strong>8.2</strong>: Dynamic Permission Request Lifecycle (<code>ActivityResultContracts.RequestMultiplePermissions</code>)</li>
+</ul>
+<h3 id="chapter-9-automated-testing-compilation-deployment-workflow"><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_9.md">Chapter 9: Automated Testing, Compilation &amp; Deployment Workflow</a></h3>
+<ul>
+<li><strong>9.1</strong>: Unit Testing with JUnit 4 &amp; Coroutine Test Harnesses</li>
+<li><strong>9.2</strong>: Command Line Build Commands (<code>assembleDebug</code>, <code>testDebugUnitTest</code>)</li>
+<li><strong>9.3</strong>: Deploying &amp; Debugging via ADB (<code>adb install</code>)</li>
+</ul>
+<hr />
+<h2 id="complete-textbook-reference-links">🎓 Complete Textbook Reference Links</h2>
+<ol>
+<li><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_1.md">Chapter 1: Android System Architecture &amp; Home Screen Launcher Mechanics</a></li>
+<li><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_2.md">Chapter 2: Modern Android Build System &amp; Version Catalogs</a></li>
+<li><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_3.md">Chapter 3: Architecture Patterns &amp; The MVVM Paradigm</a></li>
+<li><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_4.md">Chapter 4: Querying System Applications &amp; Disambiguation Algorithms</a></li>
+<li><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_5.md">Chapter 5: Asynchronous Persistence with Jetpack DataStore</a></li>
+<li><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_6.md">Chapter 6: The Command Interpreter &amp; Engine Operations</a></li>
+<li><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_7.md">Chapter 7: Reactive UI &amp; High-Performance Rendering with Jetpack Compose</a></li>
+<li><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_8.md">Chapter 8: System Events &amp; Dynamic Broadcast Receivers</a></li>
+<li><a href="file:///home/mohammed/StudioProjects/Terminal-Launcher/docs/CHAPTER_9.md">Chapter 9: Automated Testing, Compilation &amp; Deployment Workflow</a></li>
+</ol>
+<div style="page-break-after: always;"></div>
+
+<h1 id="chapter-1-android-system-architecture-home-screen-launcher-mechanics_1">📖 Chapter 1: Android System Architecture &amp; Home Screen Launcher Mechanics</h1>
+<hr />
+<h2 id="chapter-overview-learning-objectives">🎯 Chapter Overview &amp; Learning Objectives</h2>
+<p>Welcome to <strong>Chapter 1</strong> of <em>The Art of Android Shells: Building Terminal Launcher from Scratch</em>.</p>
+<p>In this chapter, you will learn the fundamental mechanics that turn a standard Android application into an OS-level <strong>Home Screen Launcher</strong>. Before writing UI code or command interpreters, it is vital to understand how the Android operating system discovers, launches, and manages home screen applications at the system architecture level.</p>
+<p>By the end of this chapter, you will understand:
+1. The exact boot sequence of the Android operating system from power-on to the launcher screen.
+2. How the system Intent Resolver works, and why <code>&lt;category android:name="android.intent.category.HOME" /&gt;</code> in [AndroidManifest.xml] registers an app as a launcher.
+3. Why specific Activity launch modes (<code>singleInstance</code>, <code>excludeFromRecents</code>, <code>stateNotNeeded</code>) are essential for launcher stability, memory footprint, and task stack navigation.
+4. How window soft input modes (<code>adjustResize</code> vs <code>adjustPan</code>) interact with virtual IME keyboards and physical hardware keyboards (e.g., Clicks Communicator, Unihertz Titan, BlackBerry).</p>
+<hr />
+<h2 id="11-what-happens-when-an-android-phone-boots-up">1.1 What Happens When an Android Phone Boots Up?</h2>
+<p>To understand how Terminal Launcher takes over the Android home screen, we must examine what happens when you press the power button on an Android mobile device.</p>
+<pre class="mermaid">sequenceDiagram
+    autonumber
+    actor User
+    participant Bootloader
+    participant LinuxKernel as Linux Kernel
+    participant InitProcess as init Process (PID 1)
+    participant Zygote as Zygote Process
+    participant SystemServer as System Server (AMS &amp; PMS)
+    participant Launcher as Terminal Launcher (MainActivity)
+
+    User-&gt;&gt;Bootloader: Power On
+    Bootloader-&gt;&gt;LinuxKernel: Load &amp; Execute Kernel
+    LinuxKernel-&gt;&gt;InitProcess: Spawn init (PID 1)
+    InitProcess-&gt;&gt;Zygote: Start Zygote (Preloads Android Framework &amp; ART)
+    Zygote-&gt;&gt;SystemServer: Fork System Server
+    Note over SystemServer: Starts ActivityManagerService (AMS) &amp;&lt;br/&gt;PackageManagerService (PMS)
+    SystemServer-&gt;&gt;SystemServer: PMS Scans Packages &amp; Intent Filters
+    SystemServer-&gt;&gt;SystemServer: AMS constructs ACTION_MAIN + CATEGORY_HOME Intent
+    alt Preferred Launcher Set
+        SystemServer-&gt;&gt;Launcher: Launch Terminal Launcher (singleInstance)
+    else No Default Set
+        SystemServer-&gt;&gt;User: Display System Home Resolver Dialog
+    end
+</pre>
+<h3 id="the-5-stages-of-the-android-boot-sequence">The 5 Stages of the Android Boot Sequence:</h3>
+<ol>
+<li><strong>Bootloader &amp; Kernel Initialization</strong>: The device bootloader initializes hardware RAM, loads the Linux kernel into memory, and passes control to the kernel.</li>
+<li><strong>The <code>init</code> Process (PID 1)</strong>: The kernel mounts root file systems and executes the primary native daemon: <code>/system/bin/init</code>.</li>
+<li><strong>The Zygote Process</strong>: <code>init</code> starts <strong>Zygote</strong>, the primary process responsible for initializing the Android Runtime (ART) and preloading core Java/Kotlin framework libraries into RAM.</li>
+<li><strong>The System Server</strong>: Zygote forks the <strong>System Server</strong>, which initializes low-level OS services, including:</li>
+<li><strong>PackageManagerService (PMS)</strong>: Scans all installed APKs, parses their <code>AndroidManifest.xml</code> files, and builds a system registry of available activities, permissions, and intent filters.</li>
+<li><strong>ActivityManagerService (AMS) / ActivityTaskManagerService (ATMS)</strong>: Manages application lifecycles, task stacks, and activity transitions.</li>
+<li><strong>Home Activity Launch</strong>: Once core system services are ready, AMS construct a broad implicit intent:
+   <code>kotlin
+   val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+       addCategory(Intent.CATEGORY_HOME)
+   }</code>
+   AMS queries PMS via this <code>homeIntent</code> to retrieve all activities that claim to be home screens. If a user has selected <strong>Terminal Launcher</strong> as their default launcher, AMS boots <code>MainActivity</code> directly into the foreground.</li>
+</ol>
+<hr />
+<h2 id="12-system-intent-resolvers-categoryhome">1.2 System Intent Resolvers &amp; <code>CATEGORY.HOME</code></h2>
+<p>An Android application specifies its capabilities and entry points to the OS through <code>&lt;intent-filter&gt;</code> declarations in its [AndroidManifest.xml].</p>
+<p>Let's examine the entry point declaration for Terminal Launcher in [AndroidManifest.xml]:</p>
+<pre><code class="language-xml">&lt;activity
+    android:name=&quot;.MainActivity&quot;
+    android:exported=&quot;true&quot;
+    android:label=&quot;@string/app_name&quot;
+    android:launchMode=&quot;singleInstance&quot;
+    android:excludeFromRecents=&quot;true&quot;
+    android:stateNotNeeded=&quot;true&quot;
+    android:theme=&quot;@style/Theme.TerminalLauncher&quot;
+    android:windowSoftInputMode=&quot;adjustResize&quot;&gt;
+    &lt;intent-filter&gt;
+        &lt;action android:name=&quot;android.intent.action.MAIN&quot; /&gt;
+
+        &lt;category android:name=&quot;android.intent.category.HOME&quot; /&gt;
+        &lt;category android:name=&quot;android.intent.category.DEFAULT&quot; /&gt;
+        &lt;category android:name=&quot;android.intent.category.LAUNCHER&quot; /&gt;
+    &lt;/intent-filter&gt;
+&lt;/activity&gt;
+</code></pre>
+<h3 id="deconstructing-the-intent-filter-tags">Deconstructing the Intent Filter Tags:</h3>
+<ul>
+<li><code>&lt;action android:name="android.intent.action.MAIN" /&gt;</code>:
+  Identifies <code>MainActivity</code> as the primary entry point of the application package without requiring specific data payloads.</li>
+<li><code>&lt;category android:name="android.intent.category.HOME" /&gt;</code> <strong>(CRITICAL)</strong>:
+  Registers the activity with <code>PackageManagerService</code> as a <strong>Home Screen Replacement</strong>. When the system Home button is pressed or the Home gesture is performed, AMS dispatches an intent targeting <code>CATEGORY_HOME</code>. Without this tag, the OS will never list your app in Settings -&gt; Default Apps -&gt; Home App.</li>
+<li><code>&lt;category android:name="android.intent.category.DEFAULT" /&gt;</code>:
+  Allows the activity to resolve implicit intents dispatched by AMS and third-party apps without requiring explicit component class names.</li>
+<li><code>&lt;category android:name="android.intent.category.LAUNCHER" /&gt;</code>:
+  Instructs standard Android launchers to display an icon for Terminal Launcher in their application drawers. This allows users to launch Terminal Launcher like a normal app before setting it as their default home launcher.</li>
+</ul>
+<hr />
+<h2 id="13-activity-launch-modes-for-launchers">1.3 Activity Launch Modes for Launchers</h2>
+<p>Standard Android applications typically use the default <code>standard</code> or <code>singleTop</code> launch modes. However, a Home Screen Launcher serves as the <strong>root anchor</strong> of the Android user interface task graph. If configured incorrectly, pressing the Home button could create duplicate launcher instances, bloat RAM, or corrupt back-stack navigation.</p>
+<p>Terminal Launcher configures three special Activity attributes in [AndroidManifest.xml]:</p>
+<pre><code class="language-xml">android:launchMode=&quot;singleInstance&quot;
+android:excludeFromRecents=&quot;true&quot;
+android:stateNotNeeded=&quot;true&quot;
+</code></pre>
+<h3 id="deep-dive-into-launcher-activity-attributes">Deep Dive into Launcher Activity Attributes:</h3>
+<h3 id="1-androidlaunchmodesingleinstance">1. <code>android:launchMode="singleInstance"</code></h3>
+<ul>
+<li><strong>What it does</strong>: Forces the OS to launch <code>MainActivity</code> into its own isolated Task Stack. No other Activities can ever be launched into or pushed onto this task stack.</li>
+<li><strong>Why it matters for a launcher</strong>: When a user is inside Spotify, YouTube, or Settings and swipes up to go Home, the system must <strong>bring the existing Home task to the front</strong> rather than pushing a new instance of <code>MainActivity</code> onto Spotify's task stack. <code>singleInstance</code> guarantees that exactly <strong>one</strong> instance of Terminal Launcher exists in RAM across the entire OS lifecycle.</li>
+</ul>
+<h3 id="2-androidexcludefromrecentstrue">2. <code>android:excludeFromRecents="true"</code></h3>
+<ul>
+<li><strong>What it does</strong>: Prevents <code>MainActivity</code> from appearing in the Android Overview / Recent Apps multi-tasking list (swiping up and holding).</li>
+<li><strong>Why it matters for a launcher</strong>: A home screen is the permanent desktop canvas of the device—it is not a transient background task. Listing the Home Launcher inside the Recents switcher would allow users to accidentally swipe away and "kill" their home screen, leading to jarring black screens while AMS re-spawns the launcher.</li>
+</ul>
+<h3 id="3-androidstatenotneededtrue">3. <code>android:stateNotNeeded="true"</code></h3>
+<ul>
+<li><strong>What it does</strong>: Informs Android OS that <code>MainActivity</code> does not require its saved instance state (<code>SavedInstanceState</code> bundle) to be preserved if killed by the Low Memory Killer (LMK) daemon.</li>
+<li><strong>Why it matters for a launcher</strong>: If the phone runs low on memory while playing a graphics-heavy game, Android may terminate background processes. When the user returns home, <code>stateNotNeeded="true"</code> tells ART to execute a fast, clean boot of <code>MainActivity</code> without attempting to deserialize stale instance states from storage, minimizing home button latency.</li>
+</ul>
+<hr />
+<h2 id="14-window-soft-input-management-adjustresize-vs-adjustpan">1.4 Window Soft Input Management (<code>adjustResize</code> vs <code>adjustPan</code>)</h2>
+<p>Terminal Launcher is built for both software touch screen devices and physical hardware keyboard devices (such as the Clicks Communicator, Unihertz Titan / Titan Pocket, and BlackBerry KeyONE). </p>
+<p>Managing how the virtual keyboard (IME - Input Method Editor) interacts with the terminal window layout is specified in [AndroidManifest.xml]:</p>
+<pre><code class="language-xml">android:windowSoftInputMode=&quot;adjustResize&quot;
+</code></pre>
+<p>And initialized alongside edge-to-edge system bar configuration in [MainActivity.kt]:</p>
+<pre><code class="language-kotlin">class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // Transparent system bars blending edge-to-edge with terminal themes
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT)
+        )
+
+        setContent {
+            TerminalLauncherTheme {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    TerminalScreen()
+                }
+            }
+        }
+    }
+}
+</code></pre>
+<h3 id="adjustresize-vs-adjustpan-the-architectural-choice"><code>adjustResize</code> vs <code>adjustPan</code>: The Architectural Choice</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;"><code>adjustPan</code></th>
+<th style="text-align: left;"><code>adjustResize</code> (Chosen)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Window Behavior</strong></td>
+<td style="text-align: left;">Shifts the entire application window upwards, sliding top content off-screen.</td>
+<td style="text-align: left;">Shrinks the application viewport bounds to fit the remaining visible screen space.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Terminal Output Buffer Impact</strong></td>
+<td style="text-align: left;"><strong>Bad</strong>: Scrolls earlier command history out of view off the top edge of the physical display.</td>
+<td style="text-align: left;"><strong>Ideal</strong>: Resizes the <code>LazyColumn</code> output viewport. The top buffer stays visible and scrollable!</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Input Field Docking</strong></td>
+<td style="text-align: left;">Pushes the input line up, but obstructs top header lines and ASCII banners.</td>
+<td style="text-align: left;">Dynamically docks the prompt input line directly above the active software/hardware keyboard using IME insets.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Hardware Keyboards</strong></td>
+<td style="text-align: left;">Inefficient window pan recalculations when toggling physical key states.</td>
+<td style="text-align: left;">Seamless zero-height inset calculations when physical keyboards are detected.</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-text">  +-----------------------+          +-----------------------+
+  |  user@mobile:~$ help  |          |  user@mobile:~$ help  |
+  |  Available commands:  |          |  Available commands:  |
+  |    ls   open   config |          |    ls   open   config |
+  |                       |          |  -------------------  |
+  |  user@mobile:~$ _     |          |  user@mobile:~$ _     |
+  +-----------------------+          +-----------------------+
+  |  [ Q W E R T Y UI P ] |          | [ Physical Keyboard ] |
+  |  [ A S D F G H J K ]  |          | (Hardware / Unihertz) |
+  +-----------------------+          +-----------------------+
+     Software IME Inset                  Hardware Keyboard
+    (Viewport Resized)                  (Full Viewport Available)
+</code></pre>
+<p>By pairing <code>android:windowSoftInputMode="adjustResize"</code> with Jetpack Compose's <code>imePadding()</code>, Terminal Launcher maintains a smooth terminal output scroll buffer that adjusts dynamically regardless of whether the user is typing on a touch keyboard or a tactile hardware keyboard.</p>
+<hr />
+<h2 id="summary-key-takeaways">📝 Summary &amp; Key Takeaways</h2>
+<ol>
+<li><strong>Boot Sequence</strong>: Android boots from <code>init</code> to <code>Zygote</code> to <code>System Server</code>. <code>ActivityManagerService</code> uses <code>CATEGORY_HOME</code> implicit intents to launch the default home application.</li>
+<li><strong>Intent Resolution</strong>: <code>&lt;category android:name="android.intent.category.HOME" /&gt;</code> in [AndroidManifest.xml] registers the app with <code>PackageManagerService</code> as a home launcher.</li>
+<li><strong>Task Architecture</strong>: </li>
+<li><code>launchMode="singleInstance"</code> ensures only one launcher task exists in RAM.</li>
+<li><code>excludeFromRecents="true"</code> keeps the launcher off the multi-tasking recent apps list.</li>
+<li><code>stateNotNeeded="true"</code> guarantees fast boot recovery without stale state restoration.</li>
+<li><strong>Window Mechanics</strong>: <code>adjustResize</code> enables Compose UI to adjust viewport bounds dynamically when software or hardware keyboards are active.</li>
+</ol>
+<hr />
+<h2 id="chapter-1-self-assessment-exercises">❓ Chapter 1 Self-Assessment Exercises</h2>
+<ol>
+<li>What happens if you remove <code>&lt;category android:name="android.intent.category.HOME" /&gt;</code> from [AndroidManifest.xml]?</li>
+<li><em>Answer</em>: The app will compile and launch normally as a standard app, but Android OS will not recognize it as a home screen replacement, and it will not appear in the "Default Home App" system settings menu.</li>
+<li>Why should a Home Screen launcher <strong>never</strong> use <code>launchMode="standard"</code>?</li>
+<li><em>Answer</em>: Using <code>standard</code> would spawn a new instance of <code>MainActivity</code> every time the user taps the Home button, cluttering memory and breaking task navigation.</li>
+<li>Why is <code>adjustResize</code> superior to <code>adjustPan</code> for terminal-style UIs?</li>
+<li><em>Answer</em>: <code>adjustResize</code> shrinks the composable layout viewport so the output scroll buffer (<code>LazyColumn</code>) remains scrollable and visible above the soft keyboard, whereas <code>adjustPan</code> shifts the entire screen content off the top edge.</li>
+</ol>
+<hr />
+<p>👉 <strong>Next Step</strong>: Proceed to <strong>Chapter 2: Modern Android Build System &amp; Version Catalogs</strong> to explore <code>build.gradle.kts</code>, Version Catalogs (<code>libs.versions.toml</code>), SDK target configuration, and R8 ProGuard optimizations!</p>
+<div style="page-break-after: always;"></div>
+
+<h1 id="chapter-2-modern-android-build-system-version-catalogs_1">📖 Chapter 2: Modern Android Build System &amp; Version Catalogs</h1>
+<hr />
+<h2 id="chapter-overview-learning-objectives_1">🎯 Chapter Overview &amp; Learning Objectives</h2>
+<p>Welcome to <strong>Chapter 2</strong> of <em>The Art of Android Shells: Building Terminal Launcher from Scratch</em>.</p>
+<p>In this chapter, you will master the modern Android build system powered by <strong>Gradle Kotlin DSL (<code>.gradle.kts</code>)</strong>, <strong>Gradle Version Catalogs (<code>libs.versions.toml</code>)</strong>, and <strong>Jetpack Compose Bill of Materials (BOM)</strong>. Understanding build management is essential for maintaining clean dependencies, optimizing compile times, enforcing target SDK compliance, and producing lightweight, production-ready APK binaries.</p>
+<p>By the end of this chapter, you will understand:
+1. The three-tier structure of Gradle configuration files ([settings.gradle.kts], root [build.gradle.kts], and module [app/build.gradle.kts]).
+2. How to manage dependencies centrally using Gradle Version Catalogs ([gradle/libs.versions.toml]) and the Compose BOM.
+3. The architectural significance of Target SDK 37, Min SDK 26, and AGP 9.4.1 R8 code optimization.
+4. Semantic versioning strategy (<code>versionCode</code> vs <code>versionName</code>) for Google Play Store deployments.</p>
+<hr />
+<h2 id="21-anatomy-of-gradle-kts-kotlin-dsl">2.1 Anatomy of Gradle KTS (Kotlin DSL)</h2>
+<p>Modern Android development has migrated from legacy Groovy scripts (<code>.gradle</code>) to type-safe <strong>Kotlin DSL (<code>.gradle.kts</code>)</strong>. Kotlin DSL provides compile-time auto-completion, refactoring support, and instant script error checking right inside Android Studio.</p>
+<p>Terminal Launcher uses a modular three-tier Gradle script architecture:</p>
+<pre><code class="language-text">Terminal-Launcher/
+├── settings.gradle.kts           # Global Repository &amp; Module Management
+├── build.gradle.kts              # Root Project Configuration &amp; Plugin Declarations
+├── app/
+│   └── build.gradle.kts          # App Module Build &amp; Android Plugin Settings
+└── gradle/
+    └── libs.versions.toml        # Central Version Catalog
+</code></pre>
+<h3 id="1-global-module-repository-resolution-settingsgradlekts">1. Global Module &amp; Repository Resolution ([settings.gradle.kts])</h3>
+<p>[settings.gradle.kts] initializes the build graph, defines software repositories, and includes sub-modules:</p>
+<pre><code class="language-kotlin">pluginManagement {
+    repositories {
+        google {
+            content {
+                includeGroupByRegex(&quot;com\\.android.*&quot;)
+                includeGroupByRegex(&quot;com\\.google.*&quot;)
+                includeGroupByRegex(&quot;androidx.*&quot;)
+            }
+        }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = &quot;Terminal Launcher&quot;
+include(&quot;:app&quot;)
+</code></pre>
+<h4 id="key-architecture-concepts-in-settingsgradlekts">Key Architecture Concepts in <code>settings.gradle.kts</code>:</h4>
+<ul>
+<li><strong><code>RepositoriesMode.FAIL_ON_PROJECT_REPOS</code></strong>: Enforces central repository definition. If an individual module (<code>:app</code>) tries to define its own repositories, the build fails immediately. This prevents rogue third-party dependencies from being injected into individual modules.</li>
+<li><strong><code>pluginManagement.google.content</code> regex filter</strong>: Optimizes build performance by restricting Gradle's network search—telling Gradle to fetch <code>androidx.*</code> and <code>com.android.*</code> strictly from Google's Maven repository rather than querying <code>mavenCentral()</code> unnecessarily.</li>
+</ul>
+<hr />
+<h3 id="2-root-project-build-file-buildgradlekts">2. Root Project Build File ([build.gradle.kts])</h3>
+<p>The root [build.gradle.kts] declares top-level plugins with <code>apply false</code>:</p>
+<pre><code class="language-kotlin">// Top-level build file where you can add configuration options common to all sub-projects/modules.
+plugins {
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.kotlin.compose) apply false
+}
+</code></pre>
+<p>By applying plugins with <code>apply false</code> at the root level, Gradle pre-downloads and loads the Android Application plugin and Kotlin Compose compiler plugin into the build classpath without executing them in the root context. Sub-modules can then apply them on demand without version duplication.</p>
+<hr />
+<h3 id="3-module-build-script-appbuildgradlekts">3. Module Build Script ([app/build.gradle.kts])</h3>
+<p>The <code>:app</code> module script defines application IDs, SDK targets, build types, and project dependencies:</p>
+<pre><code class="language-kotlin">plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.compose)
+}
+
+android {
+    namespace = &quot;com.example.terminallauncher&quot;
+    compileSdk {
+        version = release(37)
+    }
+
+    defaultConfig {
+        applicationId = &quot;com.example.terminallauncher&quot;
+        minSdk = 26
+        targetSdk = 37
+        versionCode = 2
+        versionName = &quot;1.1.0&quot;
+
+        testInstrumentationRunner = &quot;androidx.test.runner.AndroidJUnitRunner&quot;
+    }
+    // ...
+}
+</code></pre>
+<hr />
+<h2 id="22-version-catalogs-bom-management">2.2 Version Catalogs &amp; BOM Management</h2>
+<p>Managing dependencies across Android projects historically suffered from "dependency hell"—where mismatched versions of Compose libraries caused runtime crashes. Modern Gradle solves this using <strong>Version Catalogs (<code>libs.versions.toml</code>)</strong> and <strong>Bill of Materials (BOM)</strong>.</p>
+<h3 id="the-version-catalog-gradlelibsversionstoml">The Version Catalog ([gradle/libs.versions.toml])</h3>
+<p>The <code>.toml</code> (Tom's Obvious Minimal Language) file provides a single source of truth for all project versions:</p>
+<pre><code class="language-toml">[versions]
+agp = &quot;9.4.1&quot;
+coreKtx = &quot;1.19.1&quot;
+junit = &quot;4.13.2&quot;
+junitVersion = &quot;1.3.0&quot;
+espressoCore = &quot;3.7.0&quot;
+lifecycleRuntimeKtx = &quot;2.11.0&quot;
+activityCompose = &quot;1.13.0&quot;
+kotlin = &quot;2.2.10&quot;
+composeBom = &quot;2026.02.01&quot;
+dataStore = &quot;1.1.3&quot;
+
+[libraries]
+androidx-core-ktx = { group = &quot;androidx.core&quot;, name = &quot;core-ktx&quot;, version.ref = &quot;coreKtx&quot; }
+androidx-lifecycle-runtime-ktx = { group = &quot;androidx.lifecycle&quot;, name = &quot;lifecycle-runtime-ktx&quot;, version.ref = &quot;lifecycleRuntimeKtx&quot; }
+androidx-datastore-preferences = { group = &quot;androidx.datastore&quot;, name = &quot;datastore-preferences&quot;, version.ref = &quot;dataStore&quot; }
+androidx-activity-compose = { group = &quot;androidx.activity&quot;, name = &quot;activity-compose&quot;, version.ref = &quot;activityCompose&quot; }
+
+# Compose BOM platform
+androidx-compose-bom = { group = &quot;androidx.compose&quot;, name = &quot;compose-bom&quot;, version.ref = &quot;composeBom&quot; }
+androidx-compose-ui = { group = &quot;androidx.compose.ui&quot;, name = &quot;ui&quot; }
+androidx-compose-material3 = { group = &quot;androidx.compose.material3&quot;, name = &quot;material3&quot; }
+
+[plugins]
+android-application = { id = &quot;com.android.application&quot;, version.ref = &quot;agp&quot; }
+kotlin-compose = { id = &quot;org.jetbrains.kotlin.plugin.compose&quot;, version.ref = &quot;kotlin&quot; }
+</code></pre>
+<h3 id="type-safe-accessors-in-kotlin-dsl">Type-Safe Accessors in Kotlin DSL</h3>
+<p>Gradle automatically converts hyphenated TOML keys into type-safe dot-notation accessors in Kotlin DSL:</p>
+<ul>
+<li><code>androidx-core-ktx</code> $\rightarrow$ <code>libs.androidx.core.ktx</code></li>
+<li><code>androidx-compose-material3</code> $\rightarrow$ <code>libs.androidx.compose.material3</code></li>
+</ul>
+<hr />
+<h3 id="jetpack-compose-bill-of-materials-bom">Jetpack Compose Bill of Materials (BOM)</h3>
+<p>In [app/build.gradle.kts], Compose dependencies are declared using the Compose BOM:</p>
+<pre><code class="language-kotlin">dependencies {
+    // Import the Compose BOM
+    implementation(platform(libs.androidx.compose.bom))
+
+    // Notice no version numbers are specified below!
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.datastore.preferences)
+}
+</code></pre>
+<pre class="mermaid">graph TD
+    BOM[Compose BOM 2026.02.01] --&gt;|Defines Version| UI[androidx.compose.ui]
+    BOM --&gt;|Defines Version| Material3[androidx.compose.material3]
+    BOM --&gt;|Defines Version| Graphics[androidx.compose.ui.graphics]
+    BOM --&gt;|Defines Version| Tooling[androidx.compose.ui.tooling]
+
+    style BOM fill:#00FF66,stroke:#0A0D0A,color:#000
+</pre>
+<h4 id="why-use-a-bom">Why Use a BOM?</h4>
+<p>Without a BOM, developer teams must manually align individual versions of <code>compose.ui</code>, <code>material3</code>, and <code>ui-tooling</code>. If <code>material3</code> requires a newer internal Compose UI foundation than <code>compose.ui</code>, the app crashes at runtime. The BOM acts as a synchronized release platform: declaring <code>implementation(platform(libs.androidx.compose.bom))</code> forces all Compose libraries to use tested, fully compatible version matrices!</p>
+<hr />
+<h2 id="23-sdk-targets-r8-code-optimization">2.3 SDK Targets &amp; R8 Code Optimization</h2>
+<p>The Android block in [app/build.gradle.kts] specifies SDK target compatibility and release optimization:</p>
+<pre><code class="language-kotlin">android {
+    namespace = &quot;com.example.terminallauncher&quot;
+    compileSdk {
+        version = release(37)
+    }
+
+    defaultConfig {
+        applicationId = &quot;com.example.terminallauncher&quot;
+        minSdk = 26
+        targetSdk = 37
+        versionCode = 2
+        versionName = &quot;1.1.0&quot;
+    }
+
+    buildTypes {
+        release {
+            optimization {
+                enable = true
+                packageScope = setOf(&quot;androidx.**&quot;, &quot;kotlin.**&quot;, &quot;kotlinx.**&quot;)
+            }
+        }
+    }
+}
+</code></pre>
+<h3 id="sdk-target-breakdown">SDK Target Breakdown:</h3>
+<ol>
+<li><strong><code>minSdk = 26</code> (Android 8.0 Oreo)</strong>:</li>
+<li>Provides baseline support for ~99% of active Android devices worldwide.</li>
+<li>Guarantees native OS support for Notification Channels, Adaptive Launcher Icons, Core Library Desugaring (Java 8+ APIs), and Jetpack DataStore file I/O operations.</li>
+<li><strong><code>targetSdk = 37</code> &amp; <code>compileSdk = 37</code></strong>:</li>
+<li>Ensures Terminal Launcher compiles against the latest Android APIs and runtime behaviors (e.g. forced Edge-to-Edge display, updated predictive back gesture callbacks, and modern permission models).</li>
+</ol>
+<hr />
+<h3 id="r8-proguard-code-optimization-in-agp-941">R8 ProGuard Code Optimization in AGP 9.4.1+</h3>
+<p>When building a release APK (<code>./gradlew app:assembleRelease</code>), Android Gradle Plugin uses <strong>R8</strong> (Android's next-generation code shrinker and optimizer):</p>
+<pre><code class="language-kotlin">buildTypes {
+    release {
+        optimization {
+            enable = true
+            packageScope = setOf(&quot;androidx.**&quot;, &quot;kotlin.**&quot;, &quot;kotlinx.**&quot;)
+        }
+    }
+}
+</code></pre>
+<pre class="mermaid">flowchart LR
+    A[Compiled Kotlin Bytecode] --&gt; B[R8 Optimizer]
+    B --&gt; C[Tree Shaking: Strip Unused Methods]
+    B --&gt; D[Name Obfuscation: Rename Classes/Methods]
+    B --&gt; E[Dead Code Elimination]
+    C &amp; D &amp; E --&gt; F[Optimized Minimal DEX Binary]
+
+    style B fill:#FFB000,stroke:#0D0B08,color:#000
+</pre>
+<h4 id="r8s-3-pillars-of-binary-shrinking">R8's 3 Pillars of Binary Shrinking:</h4>
+<ol>
+<li><strong>Tree Shaking</strong>: Analyzes entry points (<code>MainActivity</code>) and walks the invocation tree. Any library class or function never called in code is stripped from the DEX file.</li>
+<li><strong>Dead-Code Elimination</strong>: Removes unused conditional branches, unused loggers, and debug instructions.</li>
+<li><strong>Name Obfuscation</strong>: Renames long package names and internal methods to short identifiers (<code>a</code>, <code>b</code>, <code>c</code>), reducing file size and protecting against reverse-engineering.</li>
+</ol>
+<hr />
+<h2 id="24-version-numbering-play-store-release-policy">2.4 Version Numbering &amp; Play Store Release Policy</h2>
+<p>Android enforces two distinct version identifiers inside [app/build.gradle.kts]:</p>
+<pre><code class="language-kotlin">versionCode = 2
+versionName = &quot;1.1.0&quot;
+</code></pre>
+<h3 id="versioncode-vs-versionname"><code>versionCode</code> vs <code>versionName</code></h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Identifier</th>
+<th style="text-align: left;">Format</th>
+<th style="text-align: left;">Audience</th>
+<th style="text-align: left;">Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong><code>versionCode</code></strong></td>
+<td style="text-align: left;">Positive Integer (<code>1, 2, 3...</code>)</td>
+<td style="text-align: left;">Android OS &amp; Google Play Store</td>
+<td style="text-align: left;">A monotonically increasing integer. Google Play requires every new APK upload to have a strictly higher <code>versionCode</code> than the previous build to trigger app updates on user devices.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong><code>versionName</code></strong></td>
+<td style="text-align: left;">String (<code>"1.1.0"</code>)</td>
+<td style="text-align: left;">Human Users</td>
+<td style="text-align: left;">Displayed in <code>about</code> command output and app settings (<code>v1.1.0</code>). Follows Semantic Versioning.</td>
+</tr>
+</tbody>
+</table>
+<h3 id="semantic-versioning-semver-strategy-vmajorminorpatch">Semantic Versioning (SemVer) Strategy (<code>vMAJOR.MINOR.PATCH</code>):</h3>
+<p>Terminal Launcher adopts standard Semantic Versioning (<code>v1.1.0</code>):</p>
+<ul>
+<li><strong>MAJOR (1.x.x)</strong>: Incremented on major UI redesigns or breaking architecture overhauls (e.g. migrating from View system to Jetpack Compose).</li>
+<li><strong>MINOR (x.1.x)</strong>: Incremented when new shell commands, themes, ASCII banners, or hardware integrations are added (e.g. adding <code>infofetch</code>, 8-bit audio synthesizer, or Termux integration).</li>
+<li><strong>PATCH (x.x.1)</strong>: Incremented for hotfixes, memory leak resolutions, or minor bug fixes.</li>
+</ul>
+<hr />
+<h2 id="summary-key-takeaways_1">📝 Summary &amp; Key Takeaways</h2>
+<ol>
+<li><strong>Gradle KTS</strong>: Provides a type-safe Kotlin environment across <code>settings.gradle.kts</code>, root <code>build.gradle.kts</code>, and <code>app/build.gradle.kts</code>.</li>
+<li><strong>Version Catalogs</strong>: <code>gradle/libs.versions.toml</code> centralizes version numbers and plugins, eliminating dependency fragmentation.</li>
+<li><strong>Compose BOM</strong>: Standardizes version matrices across all Compose UI artifacts without manual version management.</li>
+<li><strong>Build Optimization</strong>: Target SDK 37 keeps the app compliant with modern Android OS runtime policies, while AGP 9.4.1 R8 optimization strips unused bytecode to keep the launcher APK lightweight.</li>
+</ol>
+<hr />
+<h2 id="chapter-2-self-assessment-exercises">❓ Chapter 2 Self-Assessment Exercises</h2>
+<ol>
+<li>Why does <code>settings.gradle.kts</code> configure <code>RepositoriesMode.FAIL_ON_PROJECT_REPOS</code>?</li>
+<li><em>Answer</em>: To prevent individual sub-modules from defining custom repositories, ensuring all dependencies originate strictly from approved central repositories like Google Maven and Maven Central.</li>
+<li>What happens if you add a new Compose library without specifying a version while using the Compose BOM?</li>
+<li><em>Answer</em>: Gradle automatically resolves the version to match the BOM version manifest defined in <code>libs.versions.toml</code>.</li>
+<li>What is the difference between <code>versionCode</code> and <code>versionName</code>?</li>
+<li><em>Answer</em>: <code>versionCode</code> is an internal integer used by Google Play and the Android OS to check for updates, whereas <code>versionName</code> is a user-facing semantic version string (e.g., <code>"1.1.0"</code>).</li>
+</ol>
+<hr />
+<p>👉 <strong>Next Step</strong>: Proceed to [Chapter 3: Architecture Patterns &amp; The MVVM Paradigm] to explore Unidirectional Data Flow (UDF), ViewModels, and state persistence!</p>
+<div style="page-break-after: always;"></div>
+
+<h1 id="chapter-3-architecture-patterns-the-mvvm-paradigm_1">📖 Chapter 3: Architecture Patterns &amp; The MVVM Paradigm</h1>
+<hr />
+<h2 id="chapter-overview-learning-objectives_2">🎯 Chapter Overview &amp; Learning Objectives</h2>
+<p>Welcome to <strong>Chapter 3</strong> of <em>The Art of Android Shells: Building Terminal Launcher from Scratch</em>.</p>
+<p>In this chapter, you will learn how to structure a production-grade, reactive Android application using <strong>Model-View-ViewModel (MVVM)</strong> architecture, <strong>Unidirectional Data Flow (UDF)</strong>, and <strong>Clean Architecture Separation of Concerns</strong>. As applications grow in complexity, mixing UI rendering with business logic leads to unmaintainable, bug-ridden code. By decoupling components into clear architectural layers, Terminal Launcher achieves high performance, predictable state management, and effortless unit testing.</p>
+<p>By the end of this chapter, you will understand:
+1. Why modern Android development mandates MVVM over legacy "God Activity" monoliths.
+2. How Unidirectional Data Flow (UDF) operates using <code>StateFlow</code>, <code>collectAsState()</code>, and immutable data classes.
+3. The distinct responsibilities of the View, ViewModel, Repositories, and Command Engine layers in Terminal Launcher.</p>
+<hr />
+<h2 id="31-why-model-view-viewmodel-mvvm">3.1 Why Model-View-ViewModel (MVVM)?</h2>
+<p>In early Android development, developers placed UI drawing, network requests, database access, and event handling directly inside <code>Activity</code> classes. These were known as <strong>"God Activities"</strong>—massive 3,000-line files that crashed whenever the device rotated or experienced low memory pressure.</p>
+<pre class="mermaid">graph TD
+    subgraph Legacy Anti-Pattern: Monolithic Activity
+        Activity[God Activity] --&gt; UI[UI Views &amp; Layouts]
+        Activity --&gt; Logic[Business &amp; Command Logic]
+        Activity --&gt; Storage[Database &amp; File I/O]
+    end
+
+    style Activity fill:#FF4444,stroke:#000,color:#FFF
+</pre>
+<h3 id="the-mvvm-solution">The MVVM Solution:</h3>
+<p><strong>Model-View-ViewModel (MVVM)</strong> divides application responsibilities into three distinct roles:</p>
+<pre class="mermaid">graph LR
+    View[View: TerminalScreen] --&gt;|User Actions / Events| ViewModel[ViewModel: TerminalViewModel]
+    ViewModel --&gt;|StateFlow Updates| View
+    ViewModel --&gt;|Calls Domain / Repositories| Model[Model Layer: Repositories &amp; Engine]
+    Model --&gt;|Flow Data Streams| ViewModel
+
+    style View fill:#00FF66,stroke:#0A0D0A,color:#000
+    style ViewModel fill:#FFB000,stroke:#0D0B08,color:#000
+    style Model fill:#00E5FF,stroke:#0A0D0A,color:#000
+</pre>
+<ol>
+<li><strong>View</strong>: Pure, declarative UI components ([TerminalScreen.kt]). Renders whatever state it receives from the ViewModel and delegates user interactions (key taps, text changes) directly to the ViewModel.</li>
+<li><strong>ViewModel</strong>: The UI state manager ([TerminalViewModel.kt]). Survives configuration changes (screen rotations, multi-window splits) without destroying in-memory UI state or re-executing ongoing coroutines.</li>
+<li><strong>Model</strong>: The data and domain layer ([SettingsRepository.kt], [AppRepository.kt], and [CommandEngine.kt]). Manages persistent storage, system app querying, and command execution algorithms.</li>
+</ol>
+<hr />
+<h2 id="32-unidirectional-data-flow-udf-in-reactive-android">3.2 Unidirectional Data Flow (UDF) in Reactive Android</h2>
+<p>Terminal Launcher adopts <strong>Unidirectional Data Flow (UDF)</strong> to manage terminal state predictably. In UDF, data flows in <strong>one direction</strong>:</p>
+<ul>
+<li><strong>State</strong> flows <strong>DOWN</strong> from the ViewModel to the Compose UI View via <code>StateFlow</code>.</li>
+<li><strong>Events</strong> flow <strong>UP</strong> from the Compose UI View to the ViewModel via function callbacks.</li>
+</ul>
+<pre class="mermaid">sequenceDiagram
+    autonumber
+    actor User
+    participant View as TerminalScreen (Compose UI)
+    participant VM as TerminalViewModel
+    participant Repo as SettingsRepository &amp; Engine
+
+    User-&gt;&gt;View: Types 'config set theme amber' &amp; presses Enter
+    View-&gt;&gt;VM: submitCommand()
+    Note over VM: Appends command to line buffer &amp; clears input prompt
+    VM-&gt;&gt;View: Emit updated TerminalUiState (Immediate UI Response)
+    VM-&gt;&gt;Repo: execute('config set theme amber')
+    Repo-&gt;&gt;Repo: Persists amber theme in DataStore
+    Repo--&gt;&gt;VM: Emit updated LauncherSettings
+    VM-&gt;&gt;View: Emit updated TerminalUiState (Theme Color Shifted)
+</pre>
+<h3 id="immutable-ui-state-representation">Immutable UI State Representation</h3>
+<p>Terminal Launcher defines its entire UI state inside a single, immutable Kotlin data class in [TerminalViewModel.kt]:</p>
+<pre><code class="language-kotlin">data class TerminalUiState(
+    val lines: List&lt;TerminalLine&gt; = emptyList(),
+    val inputFieldValue: TextFieldValue = TextFieldValue(&quot;&quot;),
+    val ghostSuffix: String = &quot;&quot;,
+    val settings: LauncherSettings = LauncherSettings(),
+    val historyIndex: Int = -1,
+    val isFirstRunPromptActive: Boolean = false,
+    val isOptionsMenuVisible: Boolean = false,
+    val isMatrixActive: Boolean = false
+)
+</code></pre>
+<h4 id="why-immutability-matters-in-jetpack-compose">Why Immutability Matters in Jetpack Compose:</h4>
+<ol>
+<li><strong>Thread Safety</strong>: Immutable objects cannot be modified concurrently by multiple threads, eliminating race conditions when background coroutines update terminal state.</li>
+<li><strong>Recomposition Optimization</strong>: Jetpack Compose checks object references. When <code>_uiState.value</code> is updated using <code>.copy()</code>, Compose skips re-rendering composables whose individual state inputs have not changed!</li>
+</ol>
+<hr />
+<h2 id="33-separation-of-concerns-the-4-core-layers">3.3 Separation of Concerns: The 4 Core Layers</h2>
+<p>Terminal Launcher breaks down its architecture into 4 isolated layers:</p>
+<pre class="mermaid">graph TD
+    subgraph 1. View Layer (Jetpack Compose UI)
+        TS[TerminalScreen.kt]
+        OM[OptionsMenuDialog.kt]
+        MR[MatrixRainScreen.kt]
+    end
+
+    subgraph 2. ViewModel Layer (State Holder)
+        VM[TerminalViewModel.kt]
+    end
+
+    subgraph 3. Domain Layer (Command Execution Engine)
+        CE[CommandEngine.kt]
+    end
+
+    subgraph 4. Data Layer (Repositories &amp; Persistence)
+        AR[AppRepository.kt]
+        SR[SettingsRepository.kt]
+        DS[(DataStore Preferences)]
+        PM[(Android PackageManager)]
+    end
+
+    TS --&gt;|Collects StateFlow| VM
+    OM --&gt;|Triggers Callbacks| VM
+    VM --&gt;|Executes Commands| CE
+    CE --&gt;|Queries Apps| AR
+    CE --&gt;|Reads/Writes Config| SR
+    VM --&gt;|Subscribes to Flows| SR
+    AR --&gt;|Queries| PM
+    SR --&gt;|Persists| DS
+
+    style TS fill:#00FF66,stroke:#0A0D0A,color:#000
+    style VM fill:#FFB000,stroke:#0D0B08,color:#000
+    style CE fill:#FF5555,stroke:#000,color:#FFF
+    style AR fill:#00E5FF,stroke:#0A0D0A,color:#000
+    style SR fill:#00E5FF,stroke:#0A0D0A,color:#000
+</pre>
+<hr />
+<h3 id="layer-1-the-ui-view-layer-terminalscreenkt">Layer 1: The UI View Layer ([TerminalScreen.kt])</h3>
+<p>The UI layer is written entirely in declarative Jetpack Compose. It collects state using <code>collectAsState()</code> and contains <strong>zero business or storage logic</strong>:</p>
+<pre><code class="language-kotlin">@Composable
+fun TerminalScreen(
+    viewModel: TerminalViewModel = viewModel()
+) {
+    // Collect reactive UI state from ViewModel
+    val uiState by viewModel.uiState.collectAsState()
+    val colorScheme = remember(uiState.settings.theme) { 
+        getTerminalColorScheme(uiState.settings.theme) 
+    }
+
+    // ... Render UI elements based strictly on uiState
+}
+</code></pre>
+<hr />
+<h3 id="layer-2-the-viewmodel-state-holder-terminalviewmodelkt">Layer 2: The ViewModel State Holder ([TerminalViewModel.kt])</h3>
+<p>The ViewModel inherits from <code>AndroidViewModel(application)</code>. It exposes a read-only <code>StateFlow&lt;TerminalUiState&gt;</code> while maintaining a private mutable state flow <code>_uiState</code>:</p>
+<pre><code class="language-kotlin">class TerminalViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val appRepository = AppRepository(application)
+    private val settingsRepository = SettingsRepository(application)
+    private val commandEngine = CommandEngine(application, appRepository, settingsRepository)
+
+    // Private backing state flow for internal mutations
+    private val _uiState = MutableStateFlow(TerminalUiState())
+
+    // Public immutable state flow exposed to Compose UI
+    val uiState: StateFlow&lt;TerminalUiState&gt; = _uiState.asStateFlow()
+
+    fun submitCommand() {
+        val currentText = _uiState.value.inputFieldValue.text
+        val ghostSuffix = _uiState.value.ghostSuffix
+        val input = if (ghostSuffix.isNotEmpty()) currentText + ghostSuffix else currentText
+
+        // Emit updated line buffer immediately to UI
+        val updatedLines = _uiState.value.lines.toMutableList().apply {
+            add(TerminalLine(text = &quot;${_uiState.value.settings.promptString}$input&quot;, type = LineType.INPUT))
+        }
+        _uiState.value = _uiState.value.copy(
+            inputFieldValue = TextFieldValue(&quot;&quot;),
+            ghostSuffix = &quot;&quot;,
+            lines = updatedLines
+        )
+
+        // Execute command asynchronously in viewModelScope
+        viewModelScope.launch {
+            val result = commandEngine.execute(input, _uiState.value.settings)
+            // Handle command result output...
+        }
+    }
+}
+</code></pre>
+<hr />
+<h3 id="layer-3-the-domain-layer-commandenginekt">Layer 3: The Domain Layer ([CommandEngine.kt])</h3>
+<p><code>CommandEngine</code> acts as the domain interpreter. It is decoupled from Android UI code—taking input command strings, parsing arguments, calling repositories, and returning structured <code>CommandResult</code> objects:</p>
+<pre><code class="language-kotlin">data class CommandResult(
+    val outputLines: List&lt;TerminalLine&gt; = emptyList(),
+    val shouldClearBuffer: Boolean = false,
+    val openOptionsMenu: Boolean = false,
+    val openMatrixMode: Boolean = false
+)
+</code></pre>
+<hr />
+<h3 id="layer-4-the-data-layer-settingsrepositorykt-apprepositorykt">Layer 4: The Data Layer ([SettingsRepository.kt] &amp; [AppRepository.kt])</h3>
+<p>The data layer handles data access:
+* <strong>[AppRepository.kt]</strong>: Queries <code>PackageManager</code> for installed launcher applications, handles duplicate app disambiguation, and manages launch intents.
+* <strong>[SettingsRepository.kt]</strong>: Manages asynchronous, non-blocking persistence using Jetpack DataStore Preferences, exposing reactive streams like <code>Flow&lt;LauncherSettings&gt;</code> and <code>Flow&lt;List&lt;TerminalLine&gt;&gt;</code>.</p>
+<hr />
+<h2 id="summary-key-takeaways_2">📝 Summary &amp; Key Takeaways</h2>
+<ol>
+<li><strong>MVVM Pattern</strong>: Decouples UI composables ([TerminalScreen.kt]) from state management ([TerminalViewModel.kt]) and persistence ([SettingsRepository.kt]).</li>
+<li><strong>Unidirectional Data Flow (UDF)</strong>: State flows DOWN from ViewModel to Compose UI via <code>StateFlow</code>; events flow UP from Compose UI to ViewModel via function calls.</li>
+<li><strong>Immutability</strong>: <code>TerminalUiState</code> is an immutable data class updated via <code>.copy()</code>, ensuring thread safety and efficient Jetpack Compose recomposition skips.</li>
+<li><strong>Clean Architecture</strong>: <code>CommandEngine</code> acts as an isolated domain interpreter, transforming raw text strings into <code>CommandResult</code> payloads.</li>
+</ol>
+<hr />
+<h2 id="chapter-3-self-assessment-exercises">❓ Chapter 3 Self-Assessment Exercises</h2>
+<ol>
+<li>What is the benefit of inheriting from <code>AndroidViewModel</code> instead of standard <code>ViewModel</code> in [TerminalViewModel.kt]?</li>
+<li><em>Answer</em>: <code>AndroidViewModel</code> provides a safe reference to the application <code>Context</code>, which is required to query system services (<code>PackageManager</code>) and open Jetpack DataStore files without leaking <code>Activity</code> contexts.</li>
+<li>What happens if a background thread attempts to modify <code>TerminalUiState</code> directly without creating a new copy via <code>.copy()</code>?</li>
+<li><em>Answer</em>: In Kotlin, data class properties in <code>TerminalUiState</code> are declared with <code>val</code> (read-only), preventing direct mutation and ensuring strict compile-time state safety.</li>
+<li>Why does <code>TerminalViewModel</code> expose <code>val uiState: StateFlow&lt;TerminalUiState&gt;</code> instead of <code>MutableStateFlow</code> to composables?</li>
+<li><em>Answer</em>: Exposing read-only <code>StateFlow</code> enforces UDF by preventing UI composables from directly modifying state—forcing all state changes to pass through validated ViewModel functions.</li>
+</ol>
+<hr />
+<p>👉 <strong>Next Step</strong>: Proceed to [Chapter 4: Querying System Applications &amp; Disambiguation Algorithms] to explore <code>PackageManager</code> querying, zero-icon memory optimization, and auto-disambiguation!</p>
+<div style="page-break-after: always;"></div>
+
+<h1 id="chapter-4-querying-system-applications-disambiguation-algorithms_1">📖 Chapter 4: Querying System Applications &amp; Disambiguation Algorithms</h1>
+<hr />
+<h2 id="chapter-overview-learning-objectives_3">🎯 Chapter Overview &amp; Learning Objectives</h2>
+<p>Welcome to <strong>Chapter 4</strong> of <em>The Art of Android Shells: Building Terminal Launcher from Scratch</em>.</p>
+<p>In this chapter, you will master the mechanics of querying system-installed applications, optimizing RAM usage for low-spec Android hardware, and resolving app name collisions using Terminal Launcher's <strong>Auto-Disambiguation</strong> and <strong>6-Step Search Matching Algorithms</strong>. While traditional launchers rely on heavy graphical icon grids that consume vast amounts of memory, Terminal Launcher uses a lightweight, string-indexed repository to launch any application in milliseconds.</p>
+<p>By the end of this chapter, you will understand:
+1. How to query <code>PackageManager</code> using <code>ACTION_MAIN</code> and <code>CATEGORY_LAUNCHER</code> across Android API levels (including Android 13+ TIRAMISU flags).
+2. How Package Visibility permissions (<code>QUERY_ALL_PACKAGES</code>) work in Android 11+ (API 30+).
+3. Why the "Zero Icon Overhead" strategy reduces launcher RAM footprint from ~120MB down to &lt;15MB.
+4. How the Auto-Disambiguation Algorithm eliminates collisions when multiple apps share identical names (e.g., <code>calculator.google</code> vs <code>calculator.sec</code>).
+5. How the 6-Step Search Matching Algorithm resolves exact names, prefixes, package IDs, and multi-word acronyms (e.g., <code>gc</code> $\rightarrow$ <code>Google Chrome</code>).</p>
+<hr />
+<h2 id="41-querying-packagemanager-package-visibility">4.1 Querying <code>PackageManager</code> &amp; Package Visibility</h2>
+<p>To display and launch installed applications, a launcher must query Android's <code>PackageManagerService</code>.</p>
+<h3 id="1-package-visibility-permissions-in-android-11-api-30">1. Package Visibility Permissions in Android 11+ (API 30+)</h3>
+<p>Starting in Android 11 (API level 30), Android introduced <strong>Package Visibility</strong> restrictions to prevent privacy leaks. Apps cannot see other installed applications unless explicitly granted permission in [AndroidManifest.xml]:</p>
+<pre><code class="language-xml">&lt;uses-permission 
+    android:name=&quot;android.permission.QUERY_ALL_PACKAGES&quot; 
+    tools:ignore=&quot;QueryAllPackagesPermission&quot; /&gt;
+</code></pre>
+<p>For Home Screen Launchers, <code>QUERY_ALL_PACKAGES</code> is an essential, policy-compliant permission because a launcher's core function is listing all installed user applications.</p>
+<hr />
+<h3 id="2-querying-launcher-intent-activities-apprepositorykt">2. Querying Launcher Intent Activities ([AppRepository.kt])</h3>
+<p>[AppRepository.kt] constructs an implicit intent seeking all activities marked with <code>ACTION_MAIN</code> and <code>CATEGORY_LAUNCHER</code>:</p>
+<pre><code class="language-kotlin">fun refreshApps(): List&lt;AppModel&gt; {
+    val pm = context.packageManager
+    val mainIntent = Intent(Intent.ACTION_MAIN, null).apply {
+        addCategory(Intent.CATEGORY_LAUNCHER)
+    }
+
+    // Handles Android 13 (API 33 TIRAMISU) flag requirements safely
+    val resolveInfos: List&lt;ResolveInfo&gt; = if (Build.VERSION.SDK_INT &gt;= Build.VERSION_CODES.TIRAMISU) {
+        pm.queryIntentActivities(mainIntent, PackageManager.ResolveInfoFlags.of(0))
+    } else {
+        @Suppress(&quot;DEPRECATION&quot;)
+        pm.queryIntentActivities(mainIntent, 0)
+    }
+
+    cachedApps = resolveInfos.mapNotNull { resolveInfo -&gt;
+        val label = resolveInfo.loadLabel(pm).toString().trim()
+        val packageName = resolveInfo.activityInfo.packageName
+        val className = resolveInfo.activityInfo.name
+
+        // Exclude self and empty labels
+        if (label.isNotEmpty() &amp;&amp; packageName != context.packageName) {
+            AppModel(
+                label = label,
+                packageName = packageName,
+                className = className,
+                icon = null // Loaded lazily if needed
+            )
+        } else {
+            null
+        }
+    }.distinctBy { it.packageName }.sortedBy { it.label.lowercase() }
+
+    generateAutoAliases()
+    return cachedApps
+}
+</code></pre>
+<pre class="mermaid">flowchart TD
+    A[refreshApps Invoked] --&gt; B[Construct Intent: ACTION_MAIN + CATEGORY_LAUNCHER]
+    B --&gt; C{Android 13+ API 33?}
+    C -- Yes --&gt; D[queryIntentActivities with ResolveInfoFlags.of 0]
+    C -- No --&gt; E[queryIntentActivities with int flag 0]
+    D &amp; E --&gt; F[Map ResolveInfo to AppModel]
+    F --&gt; G[Filter Out Terminal Launcher Self &amp; Empty Labels]
+    G --&gt; H[Deduplicate by Package Name &amp; Sort Alphabetically]
+    H --&gt; I[Execute generateAutoAliases]
+    I --&gt; J[Return Cached App List]
+</pre>
+<hr />
+<h2 id="42-ram-optimization-zero-icon-overhead-strategy">4.2 RAM Optimization: Zero Icon Overhead Strategy</h2>
+<p>Traditional Android launchers (such as Nova Launcher or Pixel Launcher) render bitmap icon grids for every installed app.</p>
+<h3 id="the-memory-problem-with-graphical-launchers">The Memory Problem with Graphical Launchers:</h3>
+<p>When an Android phone has 150 apps installed:
+* Each app icon is an uncompressed high-DPI ARGB_8888 bitmap ($192 \times 192$ pixels $\times 4$ bytes $\approx 147 \text{ KB}$ per icon).
+* Preloading 150 icons into memory consumes ~22 MB of raw Bitmap RAM.
+* Storing icon view trees and graphics caches pushes launcher RAM overhead to <strong>100MB – 150MB</strong>.</p>
+<h3 id="terminal-launchers-zero-icon-overhead-design">Terminal Launcher's "Zero Icon Overhead" Design:</h3>
+<p>Terminal Launcher defines [AppModel.kt] with an explicit <code>null</code> default icon pointer:</p>
+<pre><code class="language-kotlin">data class AppModel(
+    val label: String,
+    val packageName: String,
+    val className: String,
+    val icon: Drawable? = null
+)
+</code></pre>
+<p>By storing only lightweight UTF-8 string labels and package names, Terminal Launcher indexes hundreds of installed apps in memory while keeping total application heap footprint under <strong>15 MB RAM</strong>! This enables lightning-fast performance even on budget devices with 2GB–4GB of total system RAM.</p>
+<hr />
+<h2 id="43-duplicate-app-name-auto-disambiguation-algorithm">4.3 Duplicate App Name Auto-Disambiguation Algorithm</h2>
+<p>On real-world Android devices, OEM manufacturer software (Samsung, Xiaomi, Google) frequently results in duplicate application labels.</p>
+<h3 id="the-collision-problem">The Collision Problem:</h3>
+<ul>
+<li>A phone may have <strong>Google Calculator</strong> (<code>com.google.android.calculator</code>) and <strong>Samsung Calculator</strong> (<code>com.sec.android.app.popupcalculator</code>), both labeled simply as <strong>"Calculator"</strong>.</li>
+<li>Typing <code>open calculator</code> creates ambiguity: which app should the shell open?</li>
+</ul>
+<p>Terminal Launcher solves this collision automatically in [AppRepository.kt]:</p>
+<pre><code class="language-kotlin">private fun generateAutoAliases() {
+    val aliases = mutableMapOf&lt;String, AppModel&gt;()
+    val groupedByLabel = cachedApps.groupBy { it.label.lowercase() }
+
+    // Identify label collisions (size &gt; 1)
+    groupedByLabel.filter { it.value.size &gt; 1 }.forEach { (lowercasedLabel, appList) -&gt;
+        val cleanBaseLabel = lowercasedLabel.replace(&quot; &quot;, &quot;&quot;)
+
+        appList.forEachIndexed { idx, app -&gt;
+            val pkgLower = app.packageName.lowercase()
+
+            // Check for known OEM / brand identifiers
+            val knownBrand = listOf(&quot;google&quot;, &quot;blackberry&quot;, &quot;samsung&quot;, &quot;xiaomi&quot;, &quot;huawei&quot;, &quot;sony&quot;, &quot;lg&quot;, &quot;motorola&quot;, &quot;oneplus&quot;, &quot;microsoft&quot;, &quot;sec&quot;)
+                .firstOrNull { pkgLower.contains(it) }
+
+            val pkgParts = app.packageName.split(&quot;.&quot;).filter { it.isNotEmpty() }
+            val lastPart = pkgParts.lastOrNull() ?: (idx + 1).toString()
+            val genericWords = setOf(&quot;app&quot;, &quot;apps&quot;, &quot;android&quot;, &quot;mobile&quot;, &quot;client&quot;, &quot;ui&quot;)
+
+            val suffix = when {
+                knownBrand != null -&gt; knownBrand
+                pkgParts.size &gt;= 2 &amp;&amp; !genericWords.contains(pkgParts[pkgParts.size - 2].lowercase()) -&gt; pkgParts[pkgParts.size - 2].lowercase()
+                else -&gt; lastPart.lowercase()
+            }
+
+            var aliasKey = &quot;$cleanBaseLabel.$suffix&quot;
+            if (aliases.containsKey(aliasKey)) {
+                aliasKey = &quot;$cleanBaseLabel.${lastPart.lowercase()}&quot;
+            }
+            if (aliases.containsKey(aliasKey)) {
+                aliasKey = &quot;$cleanBaseLabel.${idx + 1}&quot;
+            }
+            aliases[aliasKey] = app
+        }
+    }
+    autoAliases = aliases
+}
+</code></pre>
+<h3 id="auto-disambiguation-output-example">Auto-Disambiguation Output Example:</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Installed App Label</th>
+<th style="text-align: left;">Package Name</th>
+<th style="text-align: left;">Generated Disambiguation Alias</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>Calculator</strong></td>
+<td style="text-align: left;"><code>com.google.android.calculator</code></td>
+<td style="text-align: left;"><code>calculator.google</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Calculator</strong></td>
+<td style="text-align: left;"><code>com.sec.android.app.popupcalculator</code></td>
+<td style="text-align: left;"><code>calculator.sec</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Files</strong></td>
+<td style="text-align: left;"><code>com.google.android.apps.n primitive.files</code></td>
+<td style="text-align: left;"><code>files.google</code></td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Files</strong></td>
+<td style="text-align: left;"><code>com.blackberry.files</code></td>
+<td style="text-align: left;"><code>files.blackberry</code></td>
+</tr>
+</tbody>
+</table>
+<p>Users can now launch specific duplicate apps without ambiguity by typing <code>calculator.google</code> or <code>calculator.sec</code>!</p>
+<hr />
+<h2 id="44-the-6-step-search-matching-algorithm-findapp">4.4 The 6-Step Search Matching Algorithm (<code>findApp</code>)</h2>
+<p>When a user types a query into the terminal prompt, <code>findApp</code> in [AppRepository.kt] executes a 6-step search pipeline to find the best match:</p>
+<pre><code class="language-kotlin">fun findApp(query: String): AppModel? {
+    val apps = getApps()
+    val q = query.trim().lowercase()
+    if (q.isEmpty()) return null
+
+    // 1. Check auto-generated disambiguation aliases (e.g. calculator.google)
+    autoAliases[q]?.let { return it }
+
+    // 2. Exact package name match (e.g. com.spotify.music)
+    apps.firstOrNull { it.packageName.lowercase() == q }?.let { return it }
+
+    // 3. Exact label match (e.g. spotify)
+    apps.firstOrNull { it.label.lowercase() == q }?.let { return it }
+
+    // 4. Prefix label match (e.g. spot -&gt; Spotify)
+    apps.firstOrNull { it.label.lowercase().startsWith(q) }?.let { return it }
+
+    // 5. Word-boundary or acronym match (e.g. yt -&gt; YouTube, gc -&gt; Google Chrome)
+    apps.firstOrNull { matchesAcronym(it.label, q) }?.let { return it }
+
+    // 6. Substring match (e.g. tube -&gt; YouTube)
+    apps.firstOrNull { it.label.lowercase().contains(q) }?.let { return it }
+
+    return null
+}
+</code></pre>
+<h3 id="acronym-matching-sub-algorithm">Acronym Matching Sub-Algorithm:</h3>
+<p>The word-boundary acronym matcher splits app labels by whitespace and checks word initials:</p>
+<pre><code class="language-kotlin">private fun matchesAcronym(label: String, query: String): Boolean {
+    val words = label.split(Regex(&quot;\\s+&quot;)).filter { it.isNotEmpty() }
+    if (words.size &lt; 2) return false
+    val initials = words.map { it.first().lowercaseChar() }.joinToString(&quot;&quot;)
+    return initials.startsWith(query) || initials == query
+}
+</code></pre>
+<ul>
+<li>Query <code>gc</code> $\rightarrow$ Matches <strong>"Google Chrome"</strong> (<code>G</code>oogle <code>C</code>hrome).</li>
+<li>Query <code>ps</code> $\rightarrow$ Matches <strong>"Play Store"</strong> (<code>P</code>lay <code>S</code>tore).</li>
+<li>Query <code>kn</code> $\rightarrow$ Matches <strong>"Keep Notes"</strong> (<code>K</code>eep <code>N</code>otes).</li>
+</ul>
+<hr />
+<h2 id="summary-key-takeaways_3">📝 Summary &amp; Key Takeaways</h2>
+<ol>
+<li><strong>Package Visibility</strong>: <code>QUERY_ALL_PACKAGES</code> permission in [AndroidManifest.xml] is required on API 30+ for launchers to query all installed apps.</li>
+<li><strong>Zero Icon Overhead</strong>: Setting default app icons to <code>null</code> keeps memory consumption under 15 MB RAM.</li>
+<li><strong>Auto-Disambiguation Algorithm</strong>: Automatically resolves duplicate app labels by deriving brand suffixes (<code>calculator.google</code> vs <code>calculator.sec</code>).</li>
+<li><strong>6-Step Search Algorithm</strong>: Sequentially checks disambiguation aliases, package IDs, exact labels, prefixes, multi-word acronyms, and substrings for fast app launching.</li>
+</ol>
+<hr />
+<h2 id="chapter-4-self-assessment-exercises">❓ Chapter 4 Self-Assessment Exercises</h2>
+<ol>
+<li>What happens if an application on Android 13 tries to call <code>queryIntentActivities()</code> without declaring <code>QUERY_ALL_PACKAGES</code> in its manifest?</li>
+<li><em>Answer</em>: On API 30+, <code>PackageManager</code> will filter out almost all installed third-party applications, returning an empty list.</li>
+<li>How does <code>matchesAcronym()</code> allow users to launch "Google Maps" with 2 keystrokes?</li>
+<li><em>Answer</em>: <code>matchesAcronym()</code> splits "Google Maps" into words <code>["Google", "Maps"]</code>, extracts initials <code>"gm"</code>, and matches the user query <code>"gm"</code>.</li>
+<li>Why are resolved apps deduplicated by <code>packageName</code> inside <code>refreshApps()</code>?</li>
+<li><em>Answer</em>: Some apps register multiple main activity launcher intent filters in their manifest; deduplicating by package name prevents duplicate entries in <code>cachedApps</code>.</li>
+</ol>
+<hr />
+<p>👉 <strong>Next Step</strong>: Proceed to [Chapter 5: Asynchronous Persistence with Jetpack DataStore] to learn how reactive preferences, custom themes, and command buffer history are stored asynchronously!</p>
+<div style="page-break-after: always;"></div>
+
+<h1 id="chapter-5-asynchronous-persistence-with-jetpack-datastore_1">📖 Chapter 5: Asynchronous Persistence with Jetpack DataStore</h1>
+<hr />
+<h2 id="21-chapter-overview-learning-objectives">2.1 Chapter Overview &amp; Learning Objectives</h2>
+<p>Welcome to <strong>Chapter 5</strong> of <em>The Art of Android Shells: Building Terminal Launcher from Scratch</em>.</p>
+<p>In this chapter, you will master modern, asynchronous data persistence in Android using <strong>Jetpack DataStore Preferences</strong>. Legacy storage solutions like <code>SharedPreferences</code> are plagued by synchronous I/O operations on the main UI thread, risking Application Not Responding (ANR) dialogs. Jetpack DataStore solves these issues by leveraging Kotlin Coroutines and <code>Flow</code> to deliver transactional, thread-safe, non-blocking storage operations.</p>
+<p>By the end of this chapter, you will understand:
+1. Why <code>SharedPreferences</code> are deprecated and how DataStore Preferences guarantee safety.
+2. How to model and observe reactive settings streams (<code>Flow&lt;LauncherSettings&gt;</code>) in [SettingsRepository.kt].
+3. How custom string delimiters (<code>\u0000</code> and <code>\u0001</code>) serialize complex terminal line buffers into lightweight preference strings.</p>
+<hr />
+<h2 id="51-why-sharedpreferences-are-deprecated-vs-datastore-preferences">5.1 Why SharedPreferences are Deprecated vs DataStore Preferences</h2>
+<p>For over a decade, Android developers used <code>SharedPreferences</code> to persist key-value pairs. However, <code>SharedPreferences</code> possessed major architectural flaws:</p>
+<pre class="mermaid">graph TD
+    subgraph Legacy SharedPreferences Anti-Pattern
+        SP[SharedPreferences] --&gt;|Synchronous apply/commit| MainThread[UI Main Thread Blocked]
+        SP --&gt;|No Type Safety| CastErrors[ClassCastException]
+        SP --&gt;|Uncaught I/O Errors| ANR[ANR Crashes]
+    end
+
+    subgraph Modern Jetpack DataStore Solution
+        DS[DataStore Preferences] --&gt;|Coroutines &amp; Dispatchers.IO| BackgroundThread[Non-Blocking I/O]
+        DS --&gt;|Reactive Streams| StateFlow[Flow&lt;T&gt; State Machine]
+        DS --&gt;|Transactional Edits| SafePersistence[Atomic Disk Writes]
+    end
+
+    style SP fill:#FF4444,stroke:#000,color:#FFF
+    style DS fill:#00FF66,stroke:#0A0D0A,color:#000
+</pre>
+<h3 id="comparative-breakdown">Comparative Breakdown:</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align: left;">Feature</th>
+<th style="text-align: left;"><code>SharedPreferences</code> (Legacy)</th>
+<th style="text-align: left;"><code>Jetpack DataStore Preferences</code> (Modern)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;"><strong>I/O Execution</strong></td>
+<td style="text-align: left;">Synchronous disk reads block the UI Main Thread.</td>
+<td style="text-align: left;">Asynchronous disk reads backed by Kotlin <code>Dispatchers.IO</code>.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Error Handling</strong></td>
+<td style="text-align: left;">Throws uncaught runtime parsing exceptions.</td>
+<td style="text-align: left;">Catches <code>IOException</code> safely via Flow operators.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Data Reactivity</strong></td>
+<td style="text-align: left;">Requires manual <code>OnSharedPreferenceChangeListener</code> unregistering.</td>
+<td style="text-align: left;">Emits reactive <code>Flow&lt;T&gt;</code> streams that automatically close on scope cancellation.</td>
+</tr>
+<tr>
+<td style="text-align: left;"><strong>Transactional Consistency</strong></td>
+<td style="text-align: left;"><code>commit()</code> blocks UI thread; <code>apply()</code> lacks error callbacks.</td>
+<td style="text-align: left;"><code>dataStore.edit { ... }</code> applies atomic, transactional disk writes.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="52-managing-reactive-state-flows-in-settingsrepository">5.2 Managing Reactive State Flows in <code>SettingsRepository</code></h2>
+<p>In Terminal Launcher, [SettingsRepository.kt] initializes a single context DataStore instance using <code>preferencesDataStore</code>:</p>
+<pre><code class="language-kotlin">private val Context.dataStore: DataStore&lt;Preferences&gt; by preferencesDataStore(name = &quot;launcher_settings&quot;)
+</code></pre>
+<h3 id="datastore-key-definitions">DataStore Key Definitions</h3>
+<p>Keys are explicitly typed inside <code>PreferencesKeys</code>:</p>
+<pre><code class="language-kotlin">private object PreferencesKeys {
+    val THEME = stringPreferencesKey(&quot;terminal_theme&quot;)
+    val PROMPT_STRING = stringPreferencesKey(&quot;prompt_string&quot;)
+    val FASTFETCH_ON_START = booleanPreferencesKey(&quot;fastfetch_on_start&quot;)
+    val AUTOCOMPLETE_ENABLED = booleanPreferencesKey(&quot;autocomplete_enabled&quot;)
+    val FIRST_RUN_COMPLETED = booleanPreferencesKey(&quot;first_run_completed&quot;)
+    val ALIASES_RAW = stringPreferencesKey(&quot;aliases_raw&quot;)
+    val HISTORY_RAW = stringPreferencesKey(&quot;history_raw&quot;)
+    val BUFFER_RAW = stringPreferencesKey(&quot;terminal_buffer_raw&quot;)
+    val TEXT_SIZE_SP = intPreferencesKey(&quot;text_size_sp&quot;)
+    val ASCII_ART_STYLE = stringPreferencesKey(&quot;ascii_art_style&quot;)
+    val CUSTOM_ASCII_ART = stringPreferencesKey(&quot;custom_ascii_art&quot;)
+}
+</code></pre>
+<hr />
+<h3 id="exposing-settingsflow-to-the-viewmodel">Exposing <code>settingsFlow</code> to the ViewModel</h3>
+<p>The <code>settingsFlow</code> maps raw DataStore keys into an immutable <code>LauncherSettings</code> domain model:</p>
+<pre><code class="language-kotlin">val settingsFlow: Flow&lt;LauncherSettings&gt; = context.dataStore.data.map { preferences -&gt;
+    val themeName = preferences[PreferencesKeys.THEME] ?: TerminalThemeType.CRT_GREEN.name
+    val theme = try {
+        TerminalThemeType.valueOf(themeName)
+    } catch (_: Exception) {
+        TerminalThemeType.CRT_GREEN
+    }
+
+    val prompt = preferences[PreferencesKeys.PROMPT_STRING] ?: &quot;user@mobile:~$ &quot;
+    val fastfetch = preferences[PreferencesKeys.FASTFETCH_ON_START] ?: true
+    val autocomplete = preferences[PreferencesKeys.AUTOCOMPLETE_ENABLED] ?: true
+    val textSize = preferences[PreferencesKeys.TEXT_SIZE_SP] ?: 15
+
+    LauncherSettings(
+        theme = theme,
+        promptString = prompt,
+        fastfetchOnStart = fastfetch,
+        autocompleteEnabled = autocomplete,
+        textSizeSp = textSize
+    )
+}
+</code></pre>
+<p>Whenever the user changes a setting in the GUI Options Menu or types <code>config set theme amber</code>, <code>SettingsRepository</code> mutates the preference asynchronously. The <code>settingsFlow</code> automatically emits the new <code>LauncherSettings</code> object to <code>TerminalViewModel</code>, instantly shifting the UI theme!</p>
+<hr />
+<h2 id="53-custom-delimiter-serialization-for-terminal-buffer-history">5.3 Custom Delimiter Serialization for Terminal Buffer History</h2>
+<p>A terminal shell must preserve its output history across app restarts so users don't lose previous command outputs when leaving the launcher.</p>
+<h3 id="serialization-strategy">Serialization Strategy:</h3>
+<p>To store a list of <code>TerminalLine</code> objects without importing heavy JSON libraries (like Gson or Jackson), <code>SettingsRepository</code> uses lightweight custom ASCII character delimiters:
+* <strong><code>\u0000</code> (NULL byte)</strong>: Delimits separate <code>TerminalLine</code> items.
+* <strong><code>\u0001</code> (START OF HEADING byte)</strong>: Delimits line metadata (<code>LineType</code> enum vs <code>text</code>).</p>
+<pre><code class="language-kotlin">private fun serializeBuffer(lines: List&lt;TerminalLine&gt;): String {
+    // Keep only the last 100 terminal output lines to conserve disk space
+    return lines.takeLast(100).joinToString(&quot;\u0000&quot;) { &quot;${it.type.name}\u0001${it.text}&quot; }
+}
+
+private fun parseBuffer(raw: String): List&lt;TerminalLine&gt; {
+    if (raw.isBlank()) return emptyList()
+    return raw.split(&quot;\u0000&quot;).mapNotNull { entry -&gt;
+        val parts = entry.split(&quot;\u0001&quot;, limit = 2)
+        if (parts.size == 2) {
+            val type = try { LineType.valueOf(parts[0]) } catch (_: Exception) { LineType.OUTPUT }
+            TerminalLine(text = parts[1], type = type)
+        } else null
+    }
+}
+</code></pre>
+<pre><code class="language-text">Raw Preference String Representation:
+HEADER\u0001Welcome to Terminal Launcher\u0000INPUT\u0001user@mobile:~$ help\u0000OUTPUT\u0001Available commands: ls, cd, open
+</code></pre>
+<p>By leveraging custom delimiters, Terminal Launcher serializes and deserializes terminal buffers in <strong>under 1 millisecond</strong> without JSON parsing overhead.</p>
+<hr />
+<h2 id="summary-key-takeaways_4">📝 Summary &amp; Key Takeaways</h2>
+<ol>
+<li><strong>Jetpack DataStore</strong>: Eliminates main-thread I/O bottlenecks and ANR risks inherent to <code>SharedPreferences</code>.</li>
+<li><strong>Reactive Flow Streams</strong>: <code>settingsFlow</code> and <code>bufferFlow</code> emit reactive updates directly to <code>TerminalViewModel</code>.</li>
+<li><strong>Custom Delimiters</strong>: Custom ASCII control characters (<code>\u0000</code> and <code>\u0001</code>) serialize complex terminal objects into compact strings with zero third-party JSON library overhead.</li>
+</ol>
+<hr />
+<h2 id="chapter-5-self-assessment-exercises">❓ Chapter 5 Self-Assessment Exercises</h2>
+<ol>
+<li>Why should <code>Context.dataStore</code> be declared as a top-level property delegate in [SettingsRepository.kt]?</li>
+<li><em>Answer</em>: Declaring <code>dataStore</code> as a single context delegate guarantees that exactly one DataStore file handle exists for <code>launcher_settings</code>, preventing <code>IllegalStateException</code> file locking errors.</li>
+<li>What limits the terminal output line buffer in <code>serializeBuffer()</code>?</li>
+<li><em>Answer</em>: <code>lines.takeLast(100)</code> restricts stored lines to the 100 most recent entries, preventing preferences file bloat over months of continuous terminal usage.</li>
+</ol>
+<hr />
+<p>👉 <strong>Next Step</strong>: Proceed to [Chapter 6: The Command Interpreter &amp; Engine Operations] to explore tokenization, 8-bit PCM audio synthesis, and Termux integration!</p>
+<div style="page-break-after: always;"></div>
+
+<h1 id="chapter-6-the-command-interpreter-engine-operations_1">📖 Chapter 6: The Command Interpreter &amp; Engine Operations</h1>
+<hr />
+<h2 id="chapter-overview-learning-objectives_4">🎯 Chapter Overview &amp; Learning Objectives</h2>
+<p>Welcome to <strong>Chapter 6</strong> of <em>The Art of Android Shells: Building Terminal Launcher from Scratch</em>.</p>
+<p>In this chapter, you will explore the heart of Terminal Launcher: the <strong>Command Engine ([CommandEngine.kt])</strong>. <code>CommandEngine</code> parses string inputs from the prompt, tokenizes arguments, expands shell environment variables (<code>$USER</code>, <code>$PROMPT</code>), traverses file storage (<code>ls</code>, <code>cd</code>, <code>cat</code>), and dispatches native Android Intents for calls, emails, web searches, Play Store installs, hardware toggles, real-time 8-bit PCM audio synthesis, and Linux Termux execution.</p>
+<p>By the end of this chapter, you will understand:
+1. Command tokenization, alias resolution, and <code>$VAR</code> string expansion.
+2. File system and external storage traversal (<code>ls /storage</code>, <code>cd</code>, <code>cat/read</code>).
+3. Hardware toggles (<code>sys flash</code>, <code>sys ringer</code>) and native intent dispatching.
+4. Real-time 8-bit square-wave PCM audio synthesis using Android's low-level <code>AudioTrack</code> API.
+5. Termux background command service dispatching (<code>com.termux.RUN_COMMAND</code>).</p>
+<hr />
+<h2 id="61-command-tokenization-alias-resolution">6.1 Command Tokenization &amp; Alias Resolution</h2>
+<p>When a user submits a string (e.g. <code>yt</code> or <code>echo "Hello $USER"</code>), [CommandEngine.kt] processes the input in three steps:</p>
+<pre class="mermaid">flowchart TD
+    A[Raw Input String] --&gt; B[Trim &amp; Check Web URL / Alias]
+    B --&gt; C[Resolve Custom Alias: yt -&gt; YouTube]
+    C --&gt; D[Tokenize by Whitespace Regex: split]
+    D --&gt; E[Extract Command Token &amp; Arguments]
+    E --&gt; F[When Match Engine Router]
+
+    style A fill:#00FF66,stroke:#0A0D0A,color:#000
+    style F fill:#FFB000,stroke:#0D0B08,color:#000
+</pre>
+<h3 id="1-alias-resolution">1. Alias Resolution:</h3>
+<p>Before tokenization, <code>CommandEngine</code> checks <code>currentSettings.aliases</code>:</p>
+<pre><code class="language-kotlin">val resolvedCommand = currentSettings.aliases[trimmed.lowercase()] ?: trimmed
+val tokens = resolvedCommand.split(Regex(&quot;\\s+&quot;))
+val cmd = tokens.first().lowercase()
+val args = tokens.drop(1)
+</code></pre>
+<p>If the user typed <code>yt</code>, the engine resolves <code>yt</code> $\rightarrow$ <code>YouTube</code>.</p>
+<h3 id="2-variable-expansion-in-echo">2. Variable Expansion in <code>echo</code>:</h3>
+<p>The <code>handleEcho</code> function expands shell environment variables dynamically:</p>
+<pre><code class="language-kotlin">val userStr = settings.promptString.split(&quot;@&quot;).firstOrNull() ?: &quot;user&quot;
+val expandedText = text
+    .replace(&quot;\$USER&quot;, userStr)
+    .replace(&quot;\$PROMPT&quot;, settings.promptString)
+    .replace(&quot;\$THEME&quot;, settings.theme.name.lowercase())
+    .replace(&quot;\$VERSION&quot;, &quot;v1.1.0&quot;)
+    .replace(&quot;\$OS&quot;, &quot;Android ${Build.VERSION.RELEASE}&quot;)
+</code></pre>
+<ul>
+<li>Command: <code>echo "Operating System: $OS"</code> $\rightarrow$ Output: <code>Operating System: Android 15</code></li>
+</ul>
+<hr />
+<h2 id="62-file-system-storage-traversal-ls-cd-cat">6.2 File System Storage Traversal (<code>ls</code>, <code>cd</code>, <code>cat</code>)</h2>
+<p>Terminal Launcher allows developers and power users to navigate device storage directly inside the terminal interface.</p>
+<pre><code class="language-kotlin">private fun handleCat(filePath: String): CommandResult {
+    if (filePath.isBlank()) {
+        return CommandResult(
+            outputLines = listOf(TerminalLine(text = &quot;Usage: cat &lt;file_path&gt;&quot;, type = LineType.ERROR)),
+            success = false
+        )
+    }
+
+    val targetFile = resolveStoragePath(filePath)
+    if (!targetFile.exists()) {
+        return CommandResult(
+            outputLines = listOf(TerminalLine(text = &quot;cat: file not found: '$filePath'&quot;, type = LineType.ERROR)),
+            success = false
+        )
+    }
+
+    return try {
+        val allLines = targetFile.readLines(Charsets.UTF_8)
+        val linesToDisplay = allLines.take(100) // Buffer limit
+        val output = mutableListOf&lt;TerminalLine&gt;()
+        output.add(TerminalLine(text = &quot;=== CONTENT: ${targetFile.name} ===&quot;, type = LineType.HEADER))
+        linesToDisplay.forEach { output.add(TerminalLine(text = it, type = LineType.OUTPUT)) }
+        CommandResult(outputLines = output)
+    } catch (e: Exception) {
+        CommandResult(outputLines = listOf(TerminalLine(text = &quot;Error reading file: ${e.message}&quot;, type = LineType.ERROR)))
+    }
+}
+</code></pre>
+<ul>
+<li><code>ls /storage</code>: Displays available storage mounts (<code>storage0</code> $\rightarrow$ primary internal storage; <code>storage1</code> $\rightarrow$ external SD card).</li>
+<li><code>cd storage0/Download</code>: Changes active directory path state.</li>
+<li><code>cat /read notes.txt</code>: Displays file text lines inside the terminal scroll buffer.</li>
+</ul>
+<hr />
+<h2 id="63-real-time-8-bit-pcm-chiptune-audio-synthesis-audiotrack">6.3 Real-Time 8-Bit PCM Chiptune Audio Synthesis (<code>AudioTrack</code>)</h2>
+<p>To demonstrate real-time hardware interaction without external MP3/WAV assets, <code>handle8BitTune()</code> in [CommandEngine.kt] synthesizes a retro square-wave audio chiptune in memory using Android's native <code>AudioTrack</code> API.</p>
+<h3 id="square-wave-synthesis-physics">Square Wave Synthesis Physics:</h3>
+<p>A square wave generates classic 8-bit NES/GameBoy audio. At a sample rate of $22,050 \text{ Hz}$, a tone of frequency $f$ has a wave period $P = \frac{\text{SampleRate}}{f}$. The PCM sample value toggles between $+8000$ and $-8000$:</p>
+<p>$$\text{Sample}[i] = \begin{cases} +8000 &amp; \text{if } (i \bmod P) &lt; \frac{P}{2} \ -8000 &amp; \text{otherwise} \end{cases}$$</p>
+<pre><code class="language-kotlin">val sampleRate = 22050
+val melody = listOf(
+    261.63 to 150, // C4
+    329.63 to 150, // E4
+    392.00 to 150, // G4
+    523.25 to 300  // C5
+)
+
+val audioTrack = AudioTrack.Builder()
+    .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME).build())
+    .setAudioFormat(AudioFormat.Builder().setSampleRate(sampleRate).setEncoding(AudioFormat.ENCODING_PCM_16BIT).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
+    .setBufferSizeInBytes(4096)
+    .setTransferMode(AudioTrack.MODE_STREAM)
+    .build()
+
+audioTrack.play()
+
+// Synthesize PCM samples on background thread
+Thread {
+    for ((freq, durationMs) in melody) {
+        val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
+        val sample = ShortArray(numSamples)
+        val period = sampleRate / freq
+        for (i in 0 until numSamples) {
+            sample[i] = if ((i % period) &lt; (period / 2)) 8000 else -8000
+        }
+        audioTrack.write(sample, 0, sample.size)
+    }
+    audioTrack.stop()
+    audioTrack.release()
+}.start()
+</code></pre>
+<p>This 8-bit synthesizer produces retro audio with <strong>0 MB storage footprint</strong> and <strong>0 external audio asset files</strong>!</p>
+<hr />
+<h2 id="64-termux-integration-comtermuxrun_command">6.4 Termux Integration (<code>com.termux.RUN_COMMAND</code>)</h2>
+<p>Terminal Launcher integrates natively with the <strong>Termux Linux environment</strong>. Power users can execute shell scripts, Python scripts, or package managers directly from Terminal Launcher using the <code>tx &lt;command&gt;</code> or <code>termux &lt;command&gt;</code> shortcut.</p>
+<pre><code class="language-kotlin">val intent = Intent(&quot;com.termux.RUN_COMMAND&quot;).apply {
+    setClassName(&quot;com.termux&quot;, &quot;com.termux.app.RunCommandService&quot;)
+    putExtra(&quot;com.termux.RUN_COMMAND_PATH&quot;, &quot;/data/data/com.termux/files/usr/bin/bash&quot;)
+    putExtra(&quot;com.termux.RUN_COMMAND_ARGUMENTS&quot;, arrayOf(&quot;-c&quot;, fullCommand))
+    putExtra(&quot;com.termux.RUN_COMMAND_WORKDIR&quot;, &quot;/data/data/com.termux/files/home&quot;)
+    putExtra(&quot;com.termux.RUN_COMMAND_BACKGROUND&quot;, !isInteractive)
+    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+}
+context.startService(intent)
+</code></pre>
+<ul>
+<li>Background execution: Command <code>tx pkg update</code> runs silently in Termux's background service.</li>
+<li>Interactive execution: Commands like <code>tx htop</code>, <code>tx vim</code>, or <code>tx python</code> automatically open Termux in foreground session mode.</li>
+</ul>
+<hr />
+<h2 id="summary-key-takeaways_5">📝 Summary &amp; Key Takeaways</h2>
+<ol>
+<li><strong>Tokenization &amp; Routing</strong>: <code>CommandEngine</code> tokenizes inputs, resolves custom user aliases, and replaces shell variables (<code>$USER</code>, <code>$PROMPT</code>, <code>$OS</code>).</li>
+<li><strong>Storage Traversal</strong>: Built-in <code>ls</code>, <code>cd</code>, and <code>cat</code> commands allow file browsing and reading directly inside the terminal viewport.</li>
+<li><strong>8-Bit Synthesis</strong>: Synthesizes square-wave PCM audio directly to <code>AudioTrack</code> with zero external media files.</li>
+<li><strong>Termux Service</strong>: Inter-process communication (IPC) via <code>com.termux.RUN_COMMAND</code> enables execution of full Linux commands.</li>
+</ol>
+<hr />
+<h2 id="chapter-6-self-assessment-exercises">❓ Chapter 6 Self-Assessment Exercises</h2>
+<ol>
+<li>How does <code>CommandEngine</code> determine whether an input is a URL (e.g. <code>github.com</code>) versus a shell command?</li>
+<li><em>Answer</em>: <code>isWebUrl()</code> checks for URL schemes (<code>https://</code>) or common domain extensions (<code>.com</code>, <code>.org</code>, <code>.net</code>, <code>.io</code>), dispatching a web browser intent if matched.</li>
+<li>Why is square wave synthesis preferred over sine wave synthesis for retro 8-bit audio?</li>
+<li><em>Answer</em>: Square waves produce odd harmonics that replicate classic 1980s 8-bit sound chips (N2A03 in NES, GameBoy APU) and require simple integer comparison logic (<code>i % period &lt; period / 2</code>).</li>
+</ol>
+<hr />
+<p>👉 <strong>Next Step</strong>: Proceed to [Chapter 7: Reactive UI &amp; High-Performance Rendering with Jetpack Compose] to learn about Compose layouts, IME insets, and key event handling!</p>
+<div style="page-break-after: always;"></div>
+
+<h1 id="chapter-7-reactive-ui-high-performance-rendering-with-jetpack-compose_1">📖 Chapter 7: Reactive UI &amp; High-Performance Rendering with Jetpack Compose</h1>
+<hr />
+<h2 id="chapter-overview-learning-objectives_5">🎯 Chapter Overview &amp; Learning Objectives</h2>
+<p>Welcome to <strong>Chapter 7</strong> of <em>The Art of Android Shells: Building Terminal Launcher from Scratch</em>.</p>
+<p>In this chapter, you will master high-performance UI rendering using <strong>Jetpack Compose</strong>. Unlike legacy XML layouts that suffer from deep view hierarchy inflation, Compose uses declarative Kotlin functions to draw reactive, 120Hz-accelerated interfaces. You will learn how Terminal Launcher handles edge-to-edge window insets (<code>imePadding()</code>), hardware keyboard event interception (<code>onPreviewKeyEvent</code>), text output selection/copy-paste, overlay dialogs, and Matrix Digital Rain animations.</p>
+<p>By the end of this chapter, you will understand:
+1. Why declarative Compose beats imperative XML layout inflation.
+2. How to manage edge-to-edge system bar insets (<code>statusBarsPadding()</code>, <code>navigationBarsPadding()</code>, <code>imePadding()</code>).
+3. How <code>LazyColumn</code> and <code>SelectionContainer</code> enable text highlighting and copying across the terminal buffer.
+4. Hardware keyboard event interception (<code>onPreviewKeyEvent</code> for Tab, Backspace, Arrows, Ctrl+C, Ctrl+V).
+5. Overlay dialogs ([OptionsMenuDialog.kt]) and Matrix Rain Canvas rendering ([MatrixRainScreen.kt]).</p>
+<hr />
+<h2 id="71-declarative-compose-vs-imperative-xml-views">7.1 Declarative Compose vs Imperative XML Views</h2>
+<p>In legacy Android View development (<code>res/layout/activity_main.xml</code>), updating a view required imperative DOM-like calls (<code>findViewById()</code>, <code>setText()</code>, <code>setVisibility()</code>). This created state synchronization bugs when views failed to reflect underlying data models.</p>
+<pre class="mermaid">graph TD
+    subgraph Legacy Imperative XML
+        Data1[Data Changed] --&gt;|Manual Call| FindView[findViewById]
+        FindView --&gt;|Mutate View| XML[XML View Tree]
+    end
+
+    subgraph Modern Declarative Compose
+        Data2[State Flow Mutated] --&gt;|Auto Recomposition| Composable[TerminalScreen Composable]
+        Composable --&gt;|Re-renders Delta| Screen[Screen Canvas]
+    end
+
+    style XML fill:#FF4444,stroke:#000,color:#FFF
+    style Composable fill:#00FF66,stroke:#0A0D0A,color:#000
+</pre>
+<p>Jetpack Compose transforms data directly into UI: <code>UI = f(State)</code>. When <code>uiState</code> changes, Compose automatically re-executes affected composable functions while skipping unchanged nodes.</p>
+<hr />
+<h2 id="72-edge-to-edge-bar-insets-layout-padding">7.2 Edge-to-Edge Bar Insets &amp; Layout Padding</h2>
+<p>Terminal Launcher extends edge-to-edge behind the Android status bar and navigation bar. To prevent system bars or the virtual keyboard from obscuring the terminal output or active prompt line, [TerminalScreen.kt] applies window insets:</p>
+<pre><code class="language-kotlin">Box(
+    modifier = Modifier
+        .fillMaxSize()
+        .background(colorScheme.background)
+        .statusBarsPadding()      // Pushes content below status bar
+        .navigationBarsPadding()  // Pushes content above navigation bar
+        .imePadding()             // Dynamically resizes layout when soft keyboard opens
+        .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 20.dp)
+)
+</code></pre>
+<p><code>imePadding()</code> dynamically shrinks the <code>LazyColumn</code> height when the IME keyboard appears, ensuring the prompt input line remains pinned directly above the top edge of the keyboard!</p>
+<hr />
+<h2 id="73-output-terminal-buffer-lazycolumn-selectioncontainer">7.3 Output Terminal Buffer: <code>LazyColumn</code> &amp; <code>SelectionContainer</code></h2>
+<p>The output terminal buffer must efficiently render hundreds of lines of text while supporting user text selection and clipboard copying.</p>
+<pre><code class="language-kotlin">SelectionContainer(
+    modifier = Modifier
+        .weight(1f)
+        .fillMaxWidth()
+) {
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize()
+    ) {
+        items(
+            items = uiState.lines,
+            key = { it.id } // Unique key for high-performance diffing
+        ) { line -&gt;
+            TerminalLineView(line = line, colorScheme = colorScheme, fontSize = fontSize)
+        }
+    }
+}
+</code></pre>
+<pre class="mermaid">flowchart TD
+    A[New Terminal Line Added] --&gt; B[LazyColumn Appends Item Key]
+    B --&gt; C[Compose Diffing Engine Checks Key]
+    C --&gt; D[Renders Only Visible Terminal Lines]
+    D --&gt; E[SelectionContainer Enables Long-Press Highlight &amp; Copy]
+</pre>
+<h3 id="key-optimizations">Key Optimizations:</h3>
+<ol>
+<li><strong><code>LazyColumn</code> Recycler</strong>: Only draws terminal lines currently visible in the viewport. Lines scrolled off-screen are recycled with zero overhead.</li>
+<li><strong><code>items(key = { it.id })</code></strong>: Provides a stable unique ID (<code>UUID</code>) for each terminal line. Compose uses this key to perform $O(1)$ list diffing without re-rendering previous lines when new output lines arrive.</li>
+<li><strong><code>SelectionContainer</code></strong>: Wraps the <code>LazyColumn</code>, giving users standard Android text selection handles to highlight and copy output text (or run Ctrl+C).</li>
+</ol>
+<hr />
+<h2 id="74-hardware-keyboard-event-interception-onpreviewkeyevent">7.4 Hardware Keyboard Event Interception (<code>onPreviewKeyEvent</code>)</h2>
+<p>Terminal Launcher is optimized for hardware keyboard devices (such as the <em>Clicks Communicator</em>, <em>Unihertz Titan</em>, and <em>BlackBerry KeyONE</em>).</p>
+<p>In [TerminalScreen.kt], <code>onPreviewKeyEvent</code> intercepts keypresses <strong>before</strong> they reach the <code>BasicTextField</code> input:</p>
+<pre><code class="language-kotlin">BasicTextField(
+    value = uiState.inputFieldValue,
+    onValueChange = { viewModel.onInputChanged(it) },
+    modifier = Modifier
+        .fillMaxWidth()
+        .focusRequester(focusRequester)
+        .onPreviewKeyEvent { event -&gt;
+            if (event.isCtrlPressed &amp;&amp; (event.key == Key.L)) {
+                viewModel.clearScreen() // Ctrl + L -&gt; Clear screen
+                true
+            } else if (event.isCtrlPressed &amp;&amp; (event.key == Key.V)) {
+                val clipText = clipboardManager.getText()?.text
+                if (!clipText.isNullOrEmpty()) {
+                    viewModel.pasteText(clipText) // Ctrl + V -&gt; Paste clipboard
+                    true
+                } else false
+            } else if (event.isCtrlPressed &amp;&amp; (event.key == Key.C)) {
+                if (uiState.inputFieldValue.text.isNotEmpty()) {
+                    clipboardManager.setText(AnnotatedString(uiState.inputFieldValue.text)) // Ctrl + C -&gt; Copy
+                    true
+                } else false
+            } else when (event.key) {
+                Key.DirectionUp -&gt; {
+                    viewModel.navigateHistoryUp() // Up Arrow -&gt; Previous command history
+                    true
+                }
+                Key.DirectionDown -&gt; {
+                    viewModel.navigateHistoryDown() // Down Arrow -&gt; Next command history
+                    true
+                }
+                Key.Tab -&gt; {
+                    if (uiState.ghostSuffix.isNotEmpty()) {
+                        viewModel.acceptGhostCompletion() // Tab -&gt; Accept ghost completion
+                        true
+                    } else false
+                }
+                Key.Backspace -&gt; {
+                    if (uiState.ghostSuffix.isNotEmpty()) {
+                        viewModel.dismissGhostCompletion() // Backspace -&gt; Dismiss ghost prediction
+                        true
+                    } else false
+                }
+                else -&gt; false
+            }
+        }
+)
+</code></pre>
+<hr />
+<h2 id="75-gui-options-dialog-matrix-rain-canvas-rendering">7.5 GUI Options Dialog &amp; Matrix Rain Canvas Rendering</h2>
+<h3 id="1-gui-options-menu-dialog-optionsmenudialogkt">1. GUI Options Menu Dialog ([OptionsMenuDialog.kt])</h3>
+<p>When the user types <code>options</code> or <code>customize</code>, <code>TerminalViewModel</code> sets <code>isOptionsMenuVisible = true</code>, rendering a retro retro-styled Compose <code>Dialog</code>:</p>
+<ul>
+<li>Allows single-tap palette selection (CRT Green, Amber, OLED, Mono).</li>
+<li>Font size adjustment (12sp, 15sp, 18sp).</li>
+<li>ASCII Banner switching (Bugdroid, Tux, Retro PC, Minimal, Custom Editor).</li>
+<li>Fastfetch &amp; Ghost Autocomplete switches.</li>
+</ul>
+<hr />
+<h3 id="2-matrix-digital-rain-easter-egg-matrixrainscreenkt">2. Matrix Digital Rain Easter Egg ([MatrixRainScreen.kt])</h3>
+<p>Typing <code>matrix</code> triggers a full-screen, custom-rendered Matrix Digital Rain animation built using Compose <code>Canvas</code> and <code>rememberInfiniteTransition</code>:</p>
+<pre><code class="language-kotlin">val infiniteTransition = rememberInfiniteTransition(label = &quot;matrix_rain&quot;)
+val animationProgress by infiniteTransition.animateFloat(
+    initialValue = 0f,
+    targetValue = 100f,
+    animationSpec = InfiniteRepeatableSpec(animation = tween(durationMillis = 5000, easing = LinearEasing))
+)
+
+Canvas(modifier = Modifier.fillMaxSize()) {
+    for (i in 0 until columnCount) {
+        val x = i * columnWidth
+        val dropStep = (drops[i] + animationProgress.toInt()) % 30
+        val y = dropStep * 48f
+
+        // Draw white lead character glow
+        drawContext.canvas.nativeCanvas.drawText(leadChar, x, y, whitePaint)
+
+        // Draw trailing phosphor green Matrix character
+        drawContext.canvas.nativeCanvas.drawText(trailChar, x, y - 48f, greenPaint)
+    }
+}
+</code></pre>
+<p>Tapping anywhere on the screen or pressing <code>Enter</code> dismisses the Matrix rain and returns the user to the active terminal shell!</p>
+<hr />
+<h2 id="summary-key-takeaways_6">📝 Summary &amp; Key Takeaways</h2>
+<ol>
+<li><strong>Declarative Compose</strong>: Replaces legacy XML view inflation with reactive <code>UI = f(State)</code> functions.</li>
+<li><strong>Window Insets</strong>: <code>imePadding()</code> keeps the command prompt docked above the virtual keyboard without clipping top buffer content.</li>
+<li><strong>Lazy Buffer Rendering</strong>: <code>LazyColumn</code> with stable item keys (<code>UUID</code>) renders hundreds of terminal lines efficiently.</li>
+<li><strong>Keyboard Shortcuts</strong>: <code>onPreviewKeyEvent</code> captures Tab, Backspace, Arrow Up/Down, Ctrl+C, Ctrl+V, and Ctrl+L before the text field processes them.</li>
+</ol>
+<hr />
+<h2 id="chapter-7-self-assessment-exercises">❓ Chapter 7 Self-Assessment Exercises</h2>
+<ol>
+<li>What is the role of <code>Modifier.graphicsLayer()</code> in <code>TerminalLineView</code> in [TerminalScreen.kt]?</li>
+<li><em>Answer</em>: <code>graphicsLayer()</code> promotes the composable to a dedicated hardware display list layer, enabling 120Hz GPU-accelerated rendering and preventing full parent recomposition during fast scrolling.</li>
+<li>Why is <code>SelectionContainer</code> wrapped around <code>LazyColumn</code>?</li>
+<li><em>Answer</em>: To provide native OS long-press selection handles across terminal output lines so users can copy text.</li>
+</ol>
+<hr />
+<p>👉 <strong>Next Step</strong>: Proceed to [Chapter 8: System Events &amp; Dynamic Broadcast Receivers] to explore lifecycle-aware event handling and runtime permission contracts!</p>
+<div style="page-break-after: always;"></div>
+
+<h1 id="chapter-8-system-events-dynamic-broadcast-receivers_1">📖 Chapter 8: System Events &amp; Dynamic Broadcast Receivers</h1>
+<hr />
+<h2 id="chapter-overview-learning-objectives_6">🎯 Chapter Overview &amp; Learning Objectives</h2>
+<p>Welcome to <strong>Chapter 8</strong> of <em>The Art of Android Shells: Building Terminal Launcher from Scratch</em>.</p>
+<p>In this chapter, you will learn how a Home Screen Launcher responds to system-level Android events in real-time. A launcher must detect when the user installs or uninstalls applications so its app index updates immediately without requiring a manually triggered refresh. Furthermore, you will learn how to handle modern Android runtime permission requests using Jetpack Compose <code>ActivityResultContracts</code>.</p>
+<p>By the end of this chapter, you will understand:
+1. How to listen for system-wide broadcast events (<code>PACKAGE_ADDED</code>, <code>PACKAGE_REMOVED</code>) inside Jetpack Compose using <code>DisposableEffect</code>.
+2. How to clean up broadcast receivers safely on composable disposal to prevent Context memory leaks.
+3. How to execute runtime permission checks using <code>ActivityResultContracts.RequestMultiplePermissions</code>.</p>
+<hr />
+<h2 id="81-listening-to-package-events-with-disposableeffect">8.1 Listening to Package Events with <code>DisposableEffect</code></h2>
+<p>When a user downloads a new app from the Google Play Store or uninstalls an existing application, the Android system dispatches implicit system broadcasts: <code>Intent.ACTION_PACKAGE_ADDED</code> and <code>Intent.ACTION_PACKAGE_REMOVED</code>.</p>
+<p>In [TerminalScreen.kt], Terminal Launcher registers a dynamic <code>BroadcastReceiver</code> bound to the lifecycle of the <code>TerminalScreen</code> composable via <code>DisposableEffect</code>:</p>
+<pre><code class="language-kotlin">// Dynamic Package Event BroadcastReceiver (Detect app installs &amp; uninstalls)
+DisposableEffect(context) {
+    val receiver = object : BroadcastReceiver() {
+        override fun onReceive(ctx: Context?, intent: Intent?) {
+            val action = intent?.action ?: return
+            val pkgName = intent.data?.schemeSpecificPart ?: return
+            when (action) {
+                Intent.ACTION_PACKAGE_REMOVED -&gt; viewModel.onPackageEvent(pkgName, isRemoved = true)
+                Intent.ACTION_PACKAGE_ADDED -&gt; viewModel.onPackageEvent(pkgName, isRemoved = false)
+            }
+        }
+    }
+
+    val filter = IntentFilter().apply {
+        addAction(Intent.ACTION_PACKAGE_ADDED)
+        addAction(Intent.ACTION_PACKAGE_REMOVED)
+        addDataScheme(&quot;package&quot;) // CRITICAL: Package events require the &quot;package&quot; data scheme!
+    }
+    context.registerReceiver(receiver, filter)
+
+    // Automatically unregister receiver when the composable leaves the composition
+    onDispose {
+        try {
+            context.unregisterReceiver(receiver)
+        } catch (_: Exception) {}
+    }
+}
+</code></pre>
+<pre class="mermaid">sequenceDiagram
+    autonumber
+    actor System as Android OS
+    participant Receiver as BroadcastReceiver (DisposableEffect)
+    participant VM as TerminalViewModel
+    participant Repo as AppRepository
+
+    System-&gt;&gt;Receiver: Broadcast ACTION_PACKAGE_ADDED (e.g. com.spotify.music)
+    Receiver-&gt;&gt;VM: onPackageEvent('com.spotify.music', isRemoved = false)
+    VM-&gt;&gt;Repo: refreshApps()
+    Repo-&gt;&gt;Repo: Rescans PackageManager &amp; regenerates auto-aliases
+    VM-&gt;&gt;VM: Appends '[NEW APP INSTALLED]: com.spotify.music' line to terminal buffer
+    VM--&gt;&gt;System: UI displays new app alert &amp; updates auto-complete dictionary!
+</pre>
+<h3 id="why-disposableeffect-is-essential">Why <code>DisposableEffect</code> is Essential:</h3>
+<p>If a developer registers a <code>BroadcastReceiver</code> inside a standard composable function without <code>DisposableEffect</code>, two critical bugs occur:
+1. Every recomposition re-registers duplicate instances of the receiver, causing multiple duplicate event triggers.
+2. When the user navigates away, the receiver remains registered in Android's <code>ActivityManager</code>, leaking memory.</p>
+<p><code>DisposableEffect</code> guarantees that <code>registerReceiver</code> is called <strong>once</strong> when entering the composition, and <code>onDispose { unregisterReceiver }</code> cleans up the receiver when leaving!</p>
+<hr />
+<h2 id="82-dynamic-permission-requests-in-compose">8.2 Dynamic Permission Requests in Compose</h2>
+<p>Terminal Launcher offers commands like <code>sys flash</code> (toggle flashlight camera permission) and <code>call &lt;number&gt;</code> (direct dial call phone permission). On Android 6.0+ (API 23+), sensitive permissions must be requested dynamically at runtime.</p>
+<p>In [TerminalScreen.kt], runtime permission requests are handled using <code>rememberLauncherForActivityResult</code>:</p>
+<pre><code class="language-kotlin">// First-run runtime permissions check
+val permissionsToRequest = remember {
+    val list = mutableListOf(Manifest.permission.CAMERA, Manifest.permission.CALL_PHONE)
+    if (Build.VERSION.SDK_INT &lt;= Build.VERSION_CODES.S_V2) {
+        list.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+    }
+    list
+}
+
+val permissionLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.RequestMultiplePermissions()
+) { permissionsMap -&gt;
+    // Refresh app list and hardware capability status after permission response
+    viewModel.refreshApps()
+}
+
+LaunchedEffect(Unit) {
+    val missingPermissions = permissionsToRequest.filter {
+        ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+    }
+    if (missingPermissions.isNotEmpty()) {
+        permissionLauncher.launch(missingPermissions.toTypedArray())
+    }
+}
+</code></pre>
+<pre class="mermaid">flowchart TD
+    A[TerminalScreen Launched] --&gt; B[Check Missing Permissions: CAMERA, CALL_PHONE, STORAGE]
+    B --&gt; C{Any Missing?}
+    C -- No --&gt; D[Proceed directly to Terminal Prompt]
+    C -- Yes --&gt; E[Trigger permissionLauncher.launch]
+    E --&gt; F[System Displays Permission Request Dialogs]
+    F --&gt; G[User Grants or Denies]
+    G --&gt; H[Callback Refreshes App &amp; Hardware State]
+</pre>
+<hr />
+<h2 id="summary-key-takeaways_7">📝 Summary &amp; Key Takeaways</h2>
+<ol>
+<li><strong>System Events</strong>: <code>ACTION_PACKAGE_ADDED</code> and <code>ACTION_PACKAGE_REMOVED</code> allow Terminal Launcher to maintain an up-to-date app index in real-time.</li>
+<li><strong><code>DisposableEffect</code> Clean Up</strong>: Automatically registers the <code>BroadcastReceiver</code> on composition and unregisters it on disposal, preventing memory leaks.</li>
+<li><strong>Data Scheme Requirement</strong>: Package event intent filters require <code>addDataScheme("package")</code> to receive system package notifications.</li>
+<li><strong>Runtime Permissions</strong>: <code>rememberLauncherForActivityResult</code> with <code>RequestMultiplePermissions</code> handles non-blocking permission requests in Compose.</li>
+</ol>
+<hr />
+<h2 id="chapter-8-self-assessment-exercises">❓ Chapter 8 Self-Assessment Exercises</h2>
+<ol>
+<li>What happens if you omit <code>addDataScheme("package")</code> when creating an <code>IntentFilter</code> for <code>ACTION_PACKAGE_ADDED</code>?</li>
+<li><em>Answer</em>: Android OS will fail to deliver package events to the receiver because package broadcasts carry a <code>package:</code> URI scheme payload.</li>
+<li>Why should <code>unregisterReceiver</code> be wrapped in a <code>try-catch</code> block inside <code>onDispose</code>?</li>
+<li><em>Answer</em>: Wrapping unregister in <code>try-catch</code> prevents app crashes if the system or Activity has already unregistered the receiver prior to composable disposal.</li>
+</ol>
+<hr />
+<p>👉 <strong>Next Step</strong>: Proceed to [Chapter 9: Automated Testing, Compilation &amp; Deployment Workflow] to explore unit testing, Gradle CLI builds, and ADB deployment!</p>
+<div style="page-break-after: always;"></div>
+
+<h1 id="chapter-9-automated-testing-compilation-deployment-workflow_1">📖 Chapter 9: Automated Testing, Compilation &amp; Deployment Workflow</h1>
+<hr />
+<h2 id="chapter-overview-learning-objectives_7">🎯 Chapter Overview &amp; Learning Objectives</h2>
+<p>Welcome to <strong>Chapter 9</strong> of <em>The Art of Android Shells: Building Terminal Launcher from Scratch</em>.</p>
+<p>In this final chapter, you will master the end-to-end engineering workflow for building, testing, and deploying Terminal Launcher. You will explore unit testing algorithms in isolation using <strong>JUnit 4</strong>, running Gradle build tasks from the command line interface (CLI), and deploying APK binaries to real hardware devices and emulators using <strong>Android Debug Bridge (ADB)</strong>.</p>
+<p>By the end of this chapter, you will understand:
+1. How to write unit tests for mathematical expression evaluation and domain models in [CommandEngineTest.kt].
+2. How to execute Gradle build tasks (<code>assembleDebug</code>, <code>testDebugUnitTest</code>) via CLI.
+3. How to deploy and debug APKs on hardware devices using ADB (<code>adb install</code>, <code>adb logcat</code>).</p>
+<hr />
+<h2 id="91-unit-testing-with-junit-4">9.1 Unit Testing with JUnit 4</h2>
+<p>Testing business logic in isolation ensures that changes to the command parser or algorithm implementations do not introduce regressions.</p>
+<p>In [CommandEngineTest.kt], unit tests verify mathematical expression parsing and model defaults:</p>
+<pre><code class="language-kotlin">class CommandEngineTest {
+
+    @Test
+    fun testMathExpressionEvaluation() {
+        val expr1 = &quot;12 + 8 * 2&quot;
+        val expr2 = &quot;(100 - 20) / 4&quot;
+        val expr3 = &quot;2 ^ 3&quot;
+
+        val val1 = evaluateMath(expr1)
+        val val2 = evaluateMath(expr2)
+        val val3 = evaluateMath(expr3)
+
+        assertEquals(28.0, val1, 0.001)
+        assertEquals(20.0, val2, 0.001)
+        assertEquals(8.0, val3, 0.001)
+    }
+
+    @Test
+    fun testAppModelAndSettingsDefaults() {
+        val app = AppModel(&quot;YouTube&quot;, &quot;com.google.android.youtube&quot;, &quot;com.google.android.youtube.MainActivity&quot;)
+        assertEquals(&quot;YouTube&quot;, app.label)
+        assertEquals(&quot;com.google.android.youtube&quot;, app.packageName)
+
+        val settings = LauncherSettings()
+        assertEquals(TerminalThemeType.CRT_GREEN, settings.theme)
+        assertTrue(settings.fastfetchOnStart)
+        assertTrue(settings.autocompleteEnabled)
+        assertEquals(&quot;YouTube&quot;, settings.aliases[&quot;yt&quot;])
+        assertEquals(15, settings.textSizeSp)
+        assertEquals(AsciiArtStyle.DEFAULT, settings.asciiArtStyle)
+    }
+}
+</code></pre>
+<pre class="mermaid">flowchart TD
+    A[Run Unit Test Suite] --&gt; B[Test 1: Operator Precedence math evaluation]
+    A --&gt; C[Test 2: AppModel field verification]
+    A --&gt; D[Test 3: LauncherSettings defaults &amp; aliases]
+    B &amp; C &amp; D --&gt; E{All Passed?}
+    E -- Yes --&gt; F[BUILD SUCCESS - Ready for Assembly]
+    E -- No --&gt; G[BUILD FAILURE - Fix Regression]
+</pre>
+<hr />
+<h2 id="92-command-line-build-commands-gradlew">9.2 Command Line Build Commands (<code>./gradlew</code>)</h2>
+<p>While Android Studio provides GUI build buttons, production continuous integration (CI) pipelines and command-line developers rely on the Gradle Wrapper script (<code>./gradlew</code>).</p>
+<h3 id="essential-cli-gradle-commands">Essential CLI Gradle Commands:</h3>
+<pre><code class="language-bash"># 1. Clean build cache and temporary build outputs
+./gradlew clean
+
+# 2. Run unit test suite
+./gradlew testDebugUnitTest
+
+# 3. Compile and assemble Debug APK binary
+./gradlew app:assembleDebug
+
+# 4. Compile and assemble optimized Release APK binary
+./gradlew app:assembleRelease
+</code></pre>
+<h3 id="build-artifact-locations">Build Artifact Locations:</h3>
+<ul>
+<li>Debug APK: <code>app/build/outputs/apk/debug/app-debug.apk</code></li>
+<li>Release APK: <code>app/build/outputs/apk/release/app-release-unsigned.apk</code></li>
+</ul>
+<hr />
+<h2 id="93-deploying-debugging-via-adb-android-debug-bridge">9.3 Deploying &amp; Debugging via ADB (Android Debug Bridge)</h2>
+<p>Once the debug APK is compiled, developers deploy the application to connected Android devices or emulators using <strong>ADB</strong>.</p>
+<pre class="mermaid">sequenceDiagram
+    autonumber
+    actor Dev as Developer Terminal
+    participant ADB as ADB Daemon
+    participant Device as Android Device (Oreo / API 26+)
+
+    Dev-&gt;&gt;ADB: adb devices
+    ADB--&gt;&gt;Dev: List connected devices (e.g. 123456789 device)
+    Dev-&gt;&gt;ADB: adb install -r app/build/outputs/apk/debug/app-debug.apk
+    ADB-&gt;&gt;Device: Stream APK &amp; install package
+    Device--&gt;&gt;ADB: Success
+    Dev-&gt;&gt;ADB: adb logcat -s TerminalLauncher
+    ADB--&gt;&gt;Dev: Stream real-time log entries
+</pre>
+<h3 id="adb-command-line-reference">ADB Command Line Reference:</h3>
+<pre><code class="language-bash"># Check connected devices and emulators
+adb devices
+
+# Install debug APK (-r reinstalls and keeps app data)
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+
+# Launch Terminal Launcher MainActivity directly via ADB shell
+adb shell am start -n com.example.terminallauncher/.MainActivity
+
+# Filter logcat output specifically for Terminal Launcher logs
+adb logcat -s TerminalLauncher:V
+
+# Force-stop Terminal Launcher process
+adb shell am force-stop com.example.terminallauncher
+</code></pre>
+<hr />
+<h2 id="summary-key-takeaways_8">📝 Summary &amp; Key Takeaways</h2>
+<ol>
+<li><strong>Unit Testing</strong>: Isolated unit tests in <code>app/src/test</code> verify math evaluation algorithms and domain model defaults without booting an Android device emulator.</li>
+<li><strong>Gradle CLI</strong>: <code>./gradlew app:assembleDebug</code> and <code>./gradlew testDebugUnitTest</code> automate builds for local environments and CI pipelines.</li>
+<li><strong>ADB Deployment</strong>: <code>adb install -r</code> streams compiled APK binaries directly to physical hardware phones or emulators for instant testing.</li>
+</ol>
+<hr />
+<h2 id="chapter-9-self-assessment-exercises">❓ Chapter 9 Self-Assessment Exercises</h2>
+<ol>
+<li>Why are local unit tests (<code>src/test</code>) significantly faster than instrumentation tests (<code>src/androidTest</code>)?</li>
+<li><em>Answer</em>: Local unit tests execute directly on the local JVM (Java Virtual Machine), whereas instrumentation tests require booting an Android Virtual Device (AVD) or physical device to run inside the Android OS environment.</li>
+<li>What does the <code>-r</code> flag do in <code>adb install -r</code>?</li>
+<li><em>Answer</em>: Reinstalls an existing app package while preserving user settings and data (e.g., DataStore preferences and custom aliases).</li>
+</ol>
+<hr />
+<p>🎉 <strong>Congratulations!</strong> You have completed all 9 chapters of <em>The Art of Android Shells: Building Terminal Launcher from Scratch</em>! You now possess the complete architecture, build system, state management, and command interpreter skills needed to design, develop, and deploy production-grade Android shells!</p>
+<div style="page-break-after: always;"></div>
+</body>
+</html>
