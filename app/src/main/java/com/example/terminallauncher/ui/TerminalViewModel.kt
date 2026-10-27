@@ -317,7 +317,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
             "config set autocomplete", "config set size", "config set ascii",
             "settings", "top", "top memory", "battery", "battery status", "battery health",
             "calc", "sys", "sys flash", "sys wifi", "sys bt", "sys sound", "sys settings",
-            "alias", "unalias", "open", "launch", "install", "uninstall", "ls", "apps"
+            "alias", "unalias", "open", "launch", "install", "uninstall", "cat", "read", "8bit", "tune", "email", "mail", "ls", "apps"
         )
         val inputLower = input.lowercase()
         val match = completions.firstOrNull { it.startsWith(inputLower) && it != inputLower }

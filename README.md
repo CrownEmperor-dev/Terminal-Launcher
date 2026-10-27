@@ -32,7 +32,7 @@ UI Engine: Jetpack Compose
 Edge-To-Edge: Active (Transparent System Bars)
 Themes: CRT Green | Amber Phosphor | OLED Black | Monochrome
 ASCII Banners: Default | Bugdroid | Tux | Retro PC | Minimal | Custom | Off
-Autocomplete: Inline Ghost Prediction (Single-Keystroke & Backspace Dismissal)
+Autocomplete: Inline Ghost Prediction & Duplicate App Auto-Disambiguation
 Termux Integration: Active (`tx <command>` / `termux <command>`)
 Text Selection: Highlight & Copy Output Buffer / Clipboard Paste (Ctrl+C / Ctrl+V)
 --------------------------------------------------
@@ -53,7 +53,7 @@ SYNOPSIS
 
 DESCRIPTION
        Terminal Launcher replaces standard icon grids with an ultra-responsive monospaced
-       shell interface. It provides instant app launching, inline ghost completion, retro CRT
+       shell interface. It provides instant app launching, duplicate app name auto-disambiguation, inline ghost completion, retro CRT
        visual styles, hardware keyboard shortcuts, text selection/copy-paste, a GUI options menu, storage navigation, Termux integration, and built-in system management.
 
 OPTIONS & COMMANDS
@@ -62,6 +62,10 @@ OPTIONS & COMMANDS
            about / version    Display app version, credits, license, and repository URL.
            echo <text|$var>   Print text or shell variables ($USER, $PROMPT, $THEME, $VERSION, $OS).
            search / google / g Search Google directly in default browser (e.g. search Android 15).
+           install <query>    Search & install apps directly from Google Play Store.
+           cat / read <path>  Read and view text files directly inside terminal buffer.
+           8bit / tune        Play real-time 8-bit retro chiptune audio easter egg.
+           email <to> [sub]   Dispatch pre-filled email compose (Proton Mail / Gmail).
            tx / termux <cmd>  Execute Linux commands, scripts, or package managers via Termux.
            time / date        Display current system time, date, and Unix epoch seconds.
            killall / trim     Trim background processes & free RAM (ideal for 4GB devices).
@@ -113,18 +117,6 @@ Type `options` (or `customize`) anywhere in the terminal to launch the **GUI Opt
 * **Toggles**: Startup Infofetch banner and Inline Ghost Autocomplete.
 * **Prompt Editor**: Live shell prompt text editing.
 * **About Card**: Displays app metadata, developer credits, MIT License, and GitHub repository URL.
-
----
-
-## 🐧 `user@mobile:~$ tx help`
-
-Terminal Launcher seamlessly interfaces with Termux (`com.termux`) via `com.termux.RUN_COMMAND`:
-
-* **Interactive CLI Programs** (`tx nano file.txt`, `tx vim`, `tx htop`): Opens Termux in the foreground directly into the active editor/tool session.
-* **Background Shell Commands** (`tx pkg update`, `tx python script.py`, `tx git status`, `tx curl ...`): Executes in the background and renders execution status lines.
-* **Ghost Autocomplete for Termux**: Automatic ghost suggestions for `pkg`, `python`, `pip`, `git`, `nano`, `vim`, `curl`, `wget`, `bash`, `ssh`, `htop`, etc.
-
-*Note: Ensure `allow-external-apps = true` is set in Termux (`~/.termux/termux.properties`) to enable external command execution.*
 
 ---
 

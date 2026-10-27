@@ -9,6 +9,7 @@ import android.os.Build
 class AppRepository(private val context: Context) {
 
     private var cachedApps: List<AppModel> = emptyList()
+    private var autoAliases: Map<String, AppModel> = emptyMap()
 
     init {
         refreshApps()
@@ -43,7 +44,42 @@ class AppRepository(private val context: Context) {
             }
         }.distinctBy { it.packageName }.sortedBy { it.label.lowercase() }
 
+        generateAutoAliases()
         return cachedApps
+    }
+
+    private fun generateAutoAliases() {
+        val aliases = mutableMapOf<String, AppModel>()
+        val groupedByLabel = cachedApps.groupBy { it.label.lowercase() }
+
+        groupedByLabel.filter { it.value.size > 1 }.forEach { (lowercasedLabel, appList) ->
+            val cleanBaseLabel = lowercasedLabel.replace(" ", "")
+            appList.forEachIndexed { idx, app ->
+                val pkgLower = app.packageName.lowercase()
+                val knownBrand = listOf("google", "blackberry", "samsung", "xiaomi", "huawei", "sony", "lg", "motorola", "oneplus", "microsoft", "sec")
+                    .firstOrNull { pkgLower.contains(it) }
+
+                val pkgParts = app.packageName.split(".").filter { it.isNotEmpty() }
+                val lastPart = pkgParts.lastOrNull() ?: "${idx + 1}"
+                val genericWords = setOf("app", "apps", "android", "mobile", "client", "ui")
+
+                val suffix = when {
+                    knownBrand != null -> knownBrand
+                    pkgParts.size >= 2 && !genericWords.contains(pkgParts[pkgParts.size - 2].lowercase()) -> pkgParts[pkgParts.size - 2].lowercase()
+                    else -> lastPart.lowercase()
+                }
+
+                var aliasKey = "$cleanBaseLabel.$suffix"
+                if (aliases.containsKey(aliasKey)) {
+                    aliasKey = "$cleanBaseLabel.${lastPart.lowercase()}"
+                }
+                if (aliases.containsKey(aliasKey)) {
+                    aliasKey = "$cleanBaseLabel.${idx + 1}"
+                }
+                aliases[aliasKey] = app
+            }
+        }
+        autoAliases = aliases
     }
 
     fun getApps(): List<AppModel> {
@@ -53,27 +89,48 @@ class AppRepository(private val context: Context) {
         return cachedApps
     }
 
+    fun getAutoAliases(): Map<String, AppModel> {
+        return autoAliases
+    }
+
     fun findApp(query: String): AppModel? {
         val apps = getApps()
         val q = query.trim().lowercase()
         if (q.isEmpty()) return null
 
-        // 1. Exact package name match
+        // 1. Check auto-generated disambiguation aliases (e.g. files.google, files.blackberry)
+        autoAliases[q]?.let { return it }
+
+        // 2. Exact package name match
         apps.firstOrNull { it.packageName.lowercase() == q }?.let { return it }
 
-        // 2. Exact label match
+        // 3. Exact label match
         apps.firstOrNull { it.label.lowercase() == q }?.let { return it }
 
-        // 3. Prefix label match
+        // 4. Prefix label match
         apps.firstOrNull { it.label.lowercase().startsWith(q) }?.let { return it }
 
-        // 4. Word-boundary or acronym match (e.g. "yt" -> "YouTube", "gc" -> "Google Chrome")
+        // 5. Word-boundary or acronym match (e.g. "yt" -> "YouTube", "gc" -> "Google Chrome")
         apps.firstOrNull { matchesAcronym(it.label, q) }?.let { return it }
 
-        // 5. Substring match
+        // 6. Substring match
         apps.firstOrNull { it.label.lowercase().contains(q) }?.let { return it }
 
         return null
+    }
+
+    fun findDuplicateApps(query: String): List<AppModel> {
+        val apps = getApps()
+        val q = query.trim().lowercase()
+        if (q.isEmpty()) return emptyList()
+
+        val exactMatches = apps.filter { it.label.lowercase() == q }
+        if (exactMatches.size > 1) return exactMatches
+
+        val prefixMatches = apps.filter { it.label.lowercase().startsWith(q) }
+        if (prefixMatches.size > 1) return prefixMatches
+
+        return emptyList()
     }
 
     fun getCompletionRemaining(input: String): String? {
@@ -81,6 +138,12 @@ class AppRepository(private val context: Context) {
         if (trimmed.isEmpty()) return null
 
         val apps = getApps()
+        // Check auto-generated aliases first
+        val autoMatch = autoAliases.keys.firstOrNull { it.startsWith(trimmed) }
+        if (autoMatch != null) {
+            return autoMatch.substring(input.length)
+        }
+
         // Find first app label starting with input
         val match = apps.firstOrNull { it.label.lowercase().startsWith(trimmed) }
         return match?.label?.substring(input.length)

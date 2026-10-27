@@ -4,7 +4,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.hardware.camera2.CameraManager
+import android.media.AudioAttributes
+import android.media.AudioFormat
 import android.media.AudioManager
+import android.media.AudioTrack
 import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
@@ -74,6 +77,10 @@ class CommandEngine(
             "killall", "trim" -> handleKillall()
             "echo" -> handleEcho(args.joinToString(" "), currentSettings)
             "search", "google", "g" -> handleSearch(args.joinToString(" "))
+            "install" -> handleInstall(args.joinToString(" "))
+            "cat", "read", "view" -> handleCat(args.joinToString(" "))
+            "8bit", "tune", "chiptune", "music", "retro" -> handle8BitTune()
+            "email", "mail", "sendmail" -> handleEmail(args)
             "termux", "tx" -> handleTermux(args)
             "options", "customize", "preferences" -> CommandResult(
                 outputLines = listOf(TerminalLine(text = "Opening GUI Options Menu...", type = LineType.SUCCESS)),
@@ -88,7 +95,6 @@ class CommandEngine(
             "cd" -> handleCd(args)
             "apps" -> handleAppsList()
             "open", "launch" -> handleOpenApp(args.joinToString(" "))
-            "install" -> handleInstall(args.joinToString(" "))
             "uninstall", "remove" -> handleUninstall(args.joinToString(" "))
             "alias" -> handleAlias(args, currentSettings)
             "unalias" -> handleUnalias(args, currentSettings)
@@ -137,6 +143,155 @@ class CommandEngine(
         infoDetails.forEach { result.add(TerminalLine(text = it, type = LineType.OUTPUT)) }
         result.add(TerminalLine(text = "--------------------------------------------------", type = LineType.SYSTEM))
         return result
+    }
+
+    private fun handleCat(filePath: String): CommandResult {
+        if (filePath.isBlank()) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "Usage: cat <file_path> or read <file_path>", type = LineType.ERROR)),
+                success = false
+            )
+        }
+
+        val targetFile = resolveStoragePath(filePath)
+        if (!targetFile.exists()) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "cat: file not found: '$filePath'", type = LineType.ERROR)),
+                success = false
+            )
+        }
+
+        if (targetFile.isDirectory) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "cat: '$filePath' is a directory. Use 'ls' or 'cd' instead.", type = LineType.ERROR)),
+                success = false
+            )
+        }
+
+        return try {
+            val allLines = targetFile.readLines(Charsets.UTF_8)
+            val linesToDisplay = allLines.take(100)
+            val output = mutableListOf<TerminalLine>()
+            output.add(TerminalLine(text = "=== CONTENT: ${targetFile.name} (${targetFile.length() / 1024} KB) ===", type = LineType.HEADER))
+            linesToDisplay.forEach { output.add(TerminalLine(text = it, type = LineType.OUTPUT)) }
+
+            if (allLines.size > 100) {
+                output.add(TerminalLine(text = "[DISPLAYING FIRST 100 LINES OF ${allLines.size} TOTAL LINES]", type = LineType.SYSTEM))
+            }
+            output.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
+
+            CommandResult(outputLines = output)
+        } catch (e: Exception) {
+            CommandResult(
+                outputLines = listOf(TerminalLine(text = "Unable to read file: ${e.message}", type = LineType.ERROR)),
+                success = false
+            )
+        }
+    }
+
+    private fun handle8BitTune(): CommandResult {
+        try {
+            val sampleRate = 22050
+            val melody = listOf(
+                261.63 to 150, // C4
+                329.63 to 150, // E4
+                392.00 to 150, // G4
+                523.25 to 300, // C5
+                392.00 to 150, // G4
+                523.25 to 450  // C5
+            )
+
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_GAME)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+
+            val audioFormat = AudioFormat.Builder()
+                .setSampleRate(sampleRate)
+                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                .build()
+
+            val minBufferSize = AudioTrack.getMinBufferSize(
+                sampleRate,
+                AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.ENCODING_PCM_16BIT
+            )
+
+            val audioTrack = AudioTrack.Builder()
+                .setAudioAttributes(audioAttributes)
+                .setAudioFormat(audioFormat)
+                .setBufferSizeInBytes(minBufferSize.coerceAtLeast(4096))
+                .setTransferMode(AudioTrack.MODE_STREAM)
+                .build()
+
+            audioTrack.play()
+
+            Thread {
+                try {
+                    for ((freq, durationMs) in melody) {
+                        val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
+                        val sample = ShortArray(numSamples)
+                        val period = sampleRate / freq
+                        for (i in 0 until numSamples) {
+                            val squareVal = if ((i % period) < (period / 2)) 8000 else -8000
+                            sample[i] = squareVal.toShort()
+                        }
+                        audioTrack.write(sample, 0, sample.size)
+                    }
+                    Thread.sleep(100)
+                    audioTrack.stop()
+                    audioTrack.release()
+                } catch (_: Exception) {}
+            }.start()
+
+            val asciiBanner = listOf(
+                TerminalLine(text = "  ┌───┐ ┌───┐ ┌───┐ ┌───┐  [ 8-BIT CHIPTUNE SYNTHESIZER ]", type = LineType.HEADER),
+                TerminalLine(text = "  │ █ │ │ █ │ │ █ │ │ █ │  ♪ ♫ Playing Retro Square Wave Melody ♪ ♫", type = LineType.SUCCESS),
+                TerminalLine(text = "  └───┘ └───┘ └───┘ └───┘  Synthesized PCM AudioTrack (0 MB Overhead)", type = LineType.SYSTEM)
+            )
+            return CommandResult(outputLines = asciiBanner)
+        } catch (e: Exception) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "Unable to play 8-bit audio: ${e.message}", type = LineType.ERROR)),
+                success = false
+            )
+        }
+    }
+
+    private fun handleEmail(args: List<String>): CommandResult {
+        if (args.isEmpty()) {
+            return CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "Usage: email <recipient@domain> [subject] [message_body]", type = LineType.ERROR),
+                    TerminalLine(text = "Example: email friend@gmail.com \"Meeting Update\" \"Hi, here is the notes.\"", type = LineType.SYSTEM)
+                ),
+                success = false
+            )
+        }
+
+        val recipient = args[0].trim()
+        val subject = if (args.size > 1) args[1].removeSurrounding("\"") else ""
+        val body = if (args.size > 2) args.drop(2).joinToString(" ").removeSurrounding("\"") else ""
+
+        val mailtoUri = "mailto:${Uri.encode(recipient)}?subject=${Uri.encode(subject)}&body=${Uri.encode(body)}"
+
+        return try {
+            val intent = Intent(Intent.ACTION_SENDTO, Uri.parse(mailtoUri)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "Launching email compose to '$recipient' (Proton Mail / Gmail)...", type = LineType.SUCCESS)
+                )
+            )
+        } catch (e: Exception) {
+            CommandResult(
+                outputLines = listOf(TerminalLine(text = "Unable to open email client: ${e.message}", type = LineType.ERROR)),
+                success = false
+            )
+        }
     }
 
     private fun handleInstall(query: String): CommandResult {
@@ -507,6 +662,9 @@ class CommandEngine(
         lines.add(TerminalLine(text = "  echo <text|\$var>   Print string or shell variables", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  search <query>     Search Google in web browser (or 'google' / 'g')", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  install <query>    Search & install apps from Google Play Store", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  cat / read <path>  Read & display text files in terminal", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  8bit / tune        Play 8-bit retro chiptune audio easter egg", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  email <to> [sub]   Dispatch pre-filled email (Proton Mail / Gmail)", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  tx <command>       Execute command or script via Termux (or 'termux')", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  time / date        Display system date, time, and epoch", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  killall / trim     Trim background tasks & free RAM", type = LineType.OUTPUT))
@@ -560,7 +718,7 @@ class CommandEngine(
             }
             "/system", "system" -> {
                 lines.add(TerminalLine(text = "SYSTEM COMMANDS:", type = LineType.HEADER))
-                val sysCmds = listOf("options", "about", "time", "killall", "echo", "search", "install", "termux", "tx", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
+                val sysCmds = listOf("options", "about", "time", "killall", "echo", "search", "install", "cat", "8bit", "email", "termux", "tx", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
                 sysCmds.forEach { lines.add(TerminalLine(text = "  $it", type = LineType.OUTPUT)) }
             }
             "/storage", "storage" -> {
@@ -729,6 +887,12 @@ class CommandEngine(
         if (query.isBlank()) {
             return CommandResult(outputLines = listOf(TerminalLine(text = "Usage: open <app_name_or_package>", type = LineType.ERROR)), success = false)
         }
+
+        val duplicates = appRepository.findDuplicateApps(query)
+        if (duplicates.size > 1) {
+            return generateDisambiguationResult(query, duplicates)
+        }
+
         val app = appRepository.findApp(query)
         return if (app != null) {
             val launched = appRepository.launchApp(app)
@@ -743,6 +907,23 @@ class CommandEngine(
         } else {
             CommandResult(outputLines = listOf(TerminalLine(text = "App not found: '$query'", type = LineType.ERROR)), success = false)
         }
+    }
+
+    private fun generateDisambiguationResult(query: String, duplicates: List<AppModel>): CommandResult {
+        val lines = mutableListOf<TerminalLine>()
+        lines.add(TerminalLine(text = "Multiple apps found matching '$query' (${duplicates.size}):", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
+
+        val autoAliases = appRepository.getAutoAliases()
+        duplicates.forEachIndexed { idx, app ->
+            val alias = autoAliases.entries.firstOrNull { it.value.packageName == app.packageName }?.key ?: "${query.lowercase()}.${idx + 1}"
+            lines.add(TerminalLine(text = "  ${idx + 1}. ${app.label} [${app.packageName}]", type = LineType.OUTPUT))
+            lines.add(TerminalLine(text = "     -> Shortcut alias: $alias", type = LineType.SUCCESS))
+        }
+        lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
+        lines.add(TerminalLine(text = "Type the specific alias or package name to launch.", type = LineType.SYSTEM))
+
+        return CommandResult(outputLines = lines)
     }
 
     private suspend fun handleAlias(args: List<String>, settings: LauncherSettings): CommandResult {
@@ -1038,6 +1219,11 @@ class CommandEngine(
     }
 
     private fun handleFallback(input: String, settings: LauncherSettings): CommandResult {
+        val duplicates = appRepository.findDuplicateApps(input)
+        if (duplicates.size > 1) {
+            return generateDisambiguationResult(input, duplicates)
+        }
+
         val app = appRepository.findApp(input)
         if (app != null) {
             val launched = appRepository.launchApp(app)
