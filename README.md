@@ -35,6 +35,7 @@ ASCII Banners: Default | Bugdroid | Tux | Retro PC | Minimal | Custom | Off
 Autocomplete: Inline Ghost Prediction & Duplicate App Auto-Disambiguation
 Termux Integration: Active (`tx <command>` / `termux <command>`)
 Text Selection: Highlight & Copy Output Buffer / Clipboard Paste (Ctrl+C / Ctrl+V)
+Documentation: [Implementation Plan](docs/IMPLEMENTATION_PLAN.md) | [Developer Tutorial](docs/DEVELOPER_TUTORIAL.md)
 --------------------------------------------------
 ```
 
@@ -173,6 +174,12 @@ cd Terminal-Launcher
 # Install on connected Android device via ADB
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
+
+---
+
+## 📄 Documentation & Roadmap
+* **[Implementation Plan](docs/IMPLEMENTATION_PLAN.md)**: Living roadmap, version history, and active priority queue.
+* **[Developer Tutorial Guide](docs/DEVELOPER_TUTORIAL.md)**: Complete textbook manual on how Terminal Launcher is built from scratch.
 
 ---
 
