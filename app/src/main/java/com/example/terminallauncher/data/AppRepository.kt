@@ -60,7 +60,7 @@ class AppRepository(private val context: Context) {
                     .firstOrNull { pkgLower.contains(it) }
 
                 val pkgParts = app.packageName.split(".").filter { it.isNotEmpty() }
-                val lastPart = pkgParts.lastOrNull() ?: "${idx + 1}"
+                val lastPart = pkgParts.lastOrNull() ?: (idx + 1).toString()
                 val genericWords = setOf("app", "apps", "android", "mobile", "client", "ui")
 
                 val suffix = when {
@@ -159,7 +159,7 @@ class AppRepository(private val context: Context) {
             } else {
                 false
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             false
         }
     }

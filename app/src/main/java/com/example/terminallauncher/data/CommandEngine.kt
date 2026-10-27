@@ -97,7 +97,7 @@ class CommandEngine(
             "open", "launch" -> handleOpenApp(args.joinToString(" "))
             "uninstall", "remove" -> handleUninstall(args.joinToString(" "))
             "alias" -> handleAlias(args, currentSettings)
-            "unalias" -> handleUnalias(args, currentSettings)
+            "unalias" -> handleUnalias(args)
             "history" -> handleHistory(currentSettings)
             "config" -> handleConfig(args, currentSettings)
             "settings" -> handleSystemSettings()
@@ -109,7 +109,7 @@ class CommandEngine(
             "call" -> handleCall(args.joinToString(" "))
             "sms" -> handleSms(args.joinToString(" "))
             "reboot", "shutdown" -> handleReboot()
-            else -> handleFallback(resolvedCommand, currentSettings)
+            else -> handleFallback(resolvedCommand)
         }
     }
 
@@ -943,7 +943,7 @@ class CommandEngine(
         return CommandResult(outputLines = listOf(TerminalLine(text = "Alias added: $key -> $target", type = LineType.SUCCESS)))
     }
 
-    private suspend fun handleUnalias(args: List<String>, settings: LauncherSettings): CommandResult {
+    private suspend fun handleUnalias(args: List<String>): CommandResult {
         val key = args.firstOrNull()?.trim()?.lowercase()
         if (key.isNullOrBlank()) {
             return CommandResult(outputLines = listOf(TerminalLine(text = "Usage: unalias <key>", type = LineType.ERROR)), success = false)
@@ -1218,7 +1218,7 @@ class CommandEngine(
         }
     }
 
-    private fun handleFallback(input: String, settings: LauncherSettings): CommandResult {
+    private fun handleFallback(input: String): CommandResult {
         val duplicates = appRepository.findDuplicateApps(input)
         if (duplicates.size > 1) {
             return generateDisambiguationResult(input, duplicates)
