@@ -47,6 +47,12 @@ data class CommandResult(
     val success: Boolean = true
 )
 
+data class ChiptuneSong(
+    val id: Int,
+    val title: String,
+    val notes: List<Pair<Double, Int>>
+)
+
 class CommandEngine(
     private val context: Context,
     private val appRepository: AppRepository,
@@ -54,6 +60,89 @@ class CommandEngine(
 ) {
     private var currentPath: String = "~"
     private var isFlashlightOn: Boolean = false
+
+    private val chiptuneJukebox = listOf(
+        ChiptuneSong(
+            id = 1,
+            title = "Super Mario Bros (Overworld)",
+            notes = listOf(659.25 to 150, 659.25 to 150, 0.0 to 100, 659.25 to 150, 0.0 to 100, 523.25 to 150, 659.25 to 150, 783.99 to 300, 392.00 to 300)
+        ),
+        ChiptuneSong(
+            id = 2,
+            title = "The Legend of Zelda (Main Theme)",
+            notes = listOf(466.16 to 300, 349.23 to 150, 466.16 to 150, 523.25 to 150, 587.33 to 150, 622.25 to 150, 698.46 to 450)
+        ),
+        ChiptuneSong(
+            id = 3,
+            title = "Tetris (Korobeiniki)",
+            notes = listOf(659.25 to 300, 493.88 to 150, 523.25 to 150, 587.33 to 300, 523.25 to 150, 493.88 to 150, 440.00 to 300)
+        ),
+        ChiptuneSong(
+            id = 4,
+            title = "Pac-Man (Intro Theme)",
+            notes = listOf(493.88 to 120, 987.77 to 120, 739.99 to 120, 622.25 to 120, 987.77 to 120, 739.99 to 120, 622.25 to 180)
+        ),
+        ChiptuneSong(
+            id = 5,
+            title = "Mega Man 2 (Dr. Wily Stage 1)",
+            notes = listOf(311.13 to 150, 415.30 to 150, 466.16 to 150, 554.37 to 150, 523.25 to 150, 466.16 to 150, 415.30 to 300)
+        ),
+        ChiptuneSong(
+            id = 6,
+            title = "Pokémon Red/Blue (Title Theme)",
+            notes = listOf(392.00 to 150, 523.25 to 150, 659.25 to 150, 783.99 to 300, 698.46 to 150, 659.25 to 150, 587.33 to 300)
+        ),
+        ChiptuneSong(
+            id = 7,
+            title = "Sonic the Hedgehog (Green Hill)",
+            notes = listOf(659.25 to 200, 587.33 to 200, 523.25 to 200, 493.88 to 200, 440.00 to 200, 493.88 to 200, 523.25 to 300)
+        ),
+        ChiptuneSong(
+            id = 8,
+            title = "Castlevania (Vampire Killer)",
+            notes = listOf(440.00 to 150, 523.25 to 150, 659.25 to 150, 587.33 to 150, 523.25 to 150, 493.88 to 150, 440.00 to 300)
+        ),
+        ChiptuneSong(
+            id = 9,
+            title = "Metroid (Title Theme)",
+            notes = listOf(261.63 to 200, 311.13 to 200, 392.00 to 200, 466.16 to 200, 523.25 to 200, 466.16 to 200, 392.00 to 300)
+        ),
+        ChiptuneSong(
+            id = 10,
+            title = "Final Fantasy (Victory Fanfare)",
+            notes = listOf(523.25 to 120, 523.25 to 120, 523.25 to 120, 523.25 to 300, 415.30 to 300, 466.16 to 300, 523.25 to 450)
+        ),
+        ChiptuneSong(
+            id = 11,
+            title = "Street Fighter II (Ryu Stage)",
+            notes = listOf(440.00 to 150, 440.00 to 150, 523.25 to 150, 440.00 to 150, 587.33 to 150, 523.25 to 150, 493.88 to 300)
+        ),
+        ChiptuneSong(
+            id = 12,
+            title = "DuckTales (Moon Stage)",
+            notes = listOf(523.25 to 150, 587.33 to 150, 659.25 to 150, 783.99 to 150, 659.25 to 150, 783.99 to 150, 880.00 to 300)
+        ),
+        ChiptuneSong(
+            id = 13,
+            title = "Contra (Title Theme)",
+            notes = listOf(329.63 to 150, 392.00 to 150, 493.88 to 150, 659.25 to 150, 587.33 to 150, 523.25 to 150, 493.88 to 300)
+        ),
+        ChiptuneSong(
+            id = 14,
+            title = "Kirby's Dream Land (Green Greens)",
+            notes = listOf(523.25 to 150, 659.25 to 150, 783.99 to 150, 1046.50 to 300, 987.77 to 150, 880.00 to 150, 783.99 to 300)
+        ),
+        ChiptuneSong(
+            id = 15,
+            title = "Doom (E1M1 At Doom's Gate)",
+            notes = listOf(164.81 to 120, 164.81 to 120, 329.63 to 120, 164.81 to 120, 164.81 to 120, 293.66 to 120, 164.81 to 120, 164.81 to 120, 261.63 to 180)
+        ),
+        ChiptuneSong(
+            id = 16,
+            title = "Nyan Cat (Space Chiptune)",
+            notes = listOf(739.99 to 120, 830.61 to 120, 554.37 to 120, 622.25 to 120, 493.88 to 120, 554.37 to 120, 622.25 to 180)
+        )
+    )
 
     suspend fun execute(commandInput: String, currentSettings: LauncherSettings): CommandResult {
         val trimmed = commandInput.trim()
@@ -79,7 +168,7 @@ class CommandEngine(
             "search", "google", "g" -> handleSearch(args.joinToString(" "))
             "install" -> handleInstall(args.joinToString(" "))
             "cat", "read", "view" -> handleCat(args.joinToString(" "))
-            "8bit", "tune", "chiptune", "music", "retro" -> handle8BitTune()
+            "8bit", "tune", "chiptune", "music", "retro" -> handle8BitTune(args)
             "email", "mail", "sendmail" -> handleEmail(args)
             "termux", "tx" -> handleTermux(args)
             "options", "customize", "preferences" -> CommandResult(
@@ -189,18 +278,34 @@ class CommandEngine(
         }
     }
 
-    private fun handle8BitTune(): CommandResult {
-        try {
-            val sampleRate = 22050
-            val melody = listOf(
-                261.63 to 150, // C4
-                329.63 to 150, // E4
-                392.00 to 150, // G4
-                523.25 to 300, // C5
-                392.00 to 150, // G4
-                523.25 to 450  // C5
-            )
+    private fun handle8BitTune(args: List<String>): CommandResult {
+        val arg = args.firstOrNull()?.lowercase()?.trim() ?: ""
 
+        if (arg == "list" || arg == "playlist") {
+            val lines = mutableListOf<TerminalLine>()
+            lines.add(TerminalLine(text = "8-BIT CHIPTUNE JUKEBOX PLAYLIST (16 TRACKS):", type = LineType.HEADER))
+            lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
+            chiptuneJukebox.forEach { song ->
+                lines.add(TerminalLine(text = "  Track #${song.id} : ${song.title}", type = LineType.OUTPUT))
+            }
+            lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
+            lines.add(TerminalLine(text = "Usage: '8bit <1..16>' or 'tune <name>' (e.g. 8bit 3 or tune mario)", type = LineType.SYSTEM))
+            return CommandResult(outputLines = lines)
+        }
+
+        val targetSong = when {
+            arg.isEmpty() -> chiptuneJukebox.random()
+            arg.toIntOrNull() != null -> {
+                val trackNum = arg.toInt()
+                chiptuneJukebox.firstOrNull { it.id == trackNum } ?: chiptuneJukebox.random()
+            }
+            else -> {
+                chiptuneJukebox.firstOrNull { it.title.lowercase().contains(arg) } ?: chiptuneJukebox.random()
+            }
+        }
+
+        return try {
+            val sampleRate = 22050
             val audioAttributes = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_GAME)
                 .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
@@ -229,7 +334,11 @@ class CommandEngine(
 
             Thread {
                 try {
-                    for ((freq, durationMs) in melody) {
+                    for ((freq, durationMs) in targetSong.notes) {
+                        if (freq <= 0.0) {
+                            Thread.sleep(durationMs.toLong())
+                            continue
+                        }
                         val numSamples = (sampleRate * (durationMs / 1000.0)).toInt()
                         val sample = ShortArray(numSamples)
                         val period = sampleRate / freq
@@ -246,9 +355,9 @@ class CommandEngine(
             }.start()
 
             val asciiBanner = listOf(
-                TerminalLine(text = "  ┌───┐ ┌───┐ ┌───┐ ┌───┐  [ 8-BIT CHIPTUNE SYNTHESIZER ]", type = LineType.HEADER),
-                TerminalLine(text = "  │ █ │ │ █ │ │ █ │ │ █ │  ♪ ♫ Playing Retro Square Wave Melody ♪ ♫", type = LineType.SUCCESS),
-                TerminalLine(text = "  └───┘ └───┘ └───┘ └───┘  Synthesized PCM AudioTrack (0 MB Overhead)", type = LineType.SYSTEM)
+                TerminalLine(text = "  ┌───┐ ┌───┐ ┌───┐ ┌───┐  [ 8-BIT RETRO JUKEBOX - TRACK #${targetSong.id} / 16 ]", type = LineType.HEADER),
+                TerminalLine(text = "  │ █ │ │ █ │ │ █ │ │ █ │  ♪ ♫ Now Playing: ${targetSong.title} ♪ ♫", type = LineType.SUCCESS),
+                TerminalLine(text = "  └───┘ └───┘ └───┘ └───┘  Synthesized Square Wave PCM (0 MB Overhead)", type = LineType.SYSTEM)
             )
             return CommandResult(outputLines = asciiBanner)
         } catch (e: Exception) {
@@ -463,7 +572,7 @@ class CommandEngine(
             .replace("\$USER", userStr)
             .replace("\$PROMPT", settings.promptString)
             .replace("\$THEME", settings.theme.name.lowercase())
-            .replace("\$VERSION", "v1.1.0")
+            .replace("\$VERSION", "v1.1.1")
             .replace("\$OS", "Android ${Build.VERSION.RELEASE}")
             .replace("\$MODEL", "${Build.MANUFACTURER} ${Build.MODEL}")
 
@@ -492,7 +601,7 @@ class CommandEngine(
             TerminalLine(text = "TERMINAL LAUNCHER - ABOUT", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
             TerminalLine(text = "App Name    : Terminal Launcher", type = LineType.OUTPUT),
-            TerminalLine(text = "Version     : v1.1.0 (Build 2)", type = LineType.OUTPUT),
+            TerminalLine(text = "Version     : v1.1.1 (Build 3)", type = LineType.OUTPUT),
             TerminalLine(text = "Developer   : CrownEmperor-dev", type = LineType.OUTPUT),
             TerminalLine(text = "Framework   : Kotlin & Jetpack Compose", type = LineType.OUTPUT),
             TerminalLine(text = "License     : MIT License", type = LineType.OUTPUT),
@@ -654,7 +763,7 @@ class CommandEngine(
 
     private fun handleHelp(): CommandResult {
         val lines = mutableListOf<TerminalLine>()
-        lines.add(TerminalLine(text = "Terminal Launcher v1.0 - Shell Manual", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "Terminal Launcher v1.1.1 - Shell Manual", type = LineType.HEADER))
         lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
         lines.add(TerminalLine(text = "CORE COMMANDS:", type = LineType.HEADER))
         lines.add(TerminalLine(text = "  options / customize GUI visual settings menu", type = LineType.OUTPUT))
@@ -663,7 +772,7 @@ class CommandEngine(
         lines.add(TerminalLine(text = "  search <query>     Search Google in web browser (or 'google' / 'g')", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  install <query>    Search & install apps from Google Play Store", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  cat / read <path>  Read & display text files in terminal", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  8bit / tune        Play 8-bit retro chiptune audio easter egg", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  8bit [1..16|list]  Play 16-track 8-bit retro chiptune jukebox", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  email <to> [sub]   Dispatch pre-filled email (Proton Mail / Gmail)", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  tx <command>       Execute command or script via Termux (or 'termux')", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  time / date        Display system date, time, and epoch", type = LineType.OUTPUT))
