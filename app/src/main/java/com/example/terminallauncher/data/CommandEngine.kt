@@ -131,7 +131,7 @@ class CommandEngine(
             "Uptime: $uptime",
             "RAM: $ramInfo",
             "Battery: $batInfo",
-            "Shell: TerminalLauncher v1.0"
+            "Shell: TerminalLauncher v1.1"
         )
 
         val result = mutableListOf<TerminalLine>()
@@ -463,7 +463,7 @@ class CommandEngine(
             .replace("\$USER", userStr)
             .replace("\$PROMPT", settings.promptString)
             .replace("\$THEME", settings.theme.name.lowercase())
-            .replace("\$VERSION", "v1.0.0")
+            .replace("\$VERSION", "v1.1.0")
             .replace("\$OS", "Android ${Build.VERSION.RELEASE}")
             .replace("\$MODEL", "${Build.MANUFACTURER} ${Build.MODEL}")
 
@@ -492,7 +492,7 @@ class CommandEngine(
             TerminalLine(text = "TERMINAL LAUNCHER - ABOUT", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
             TerminalLine(text = "App Name    : Terminal Launcher", type = LineType.OUTPUT),
-            TerminalLine(text = "Version     : v1.0.0 (Build 1)", type = LineType.OUTPUT),
+            TerminalLine(text = "Version     : v1.1.0 (Build 2)", type = LineType.OUTPUT),
             TerminalLine(text = "Developer   : CrownEmperor-dev", type = LineType.OUTPUT),
             TerminalLine(text = "Framework   : Kotlin & Jetpack Compose", type = LineType.OUTPUT),
             TerminalLine(text = "License     : MIT License", type = LineType.OUTPUT),
@@ -1256,6 +1256,34 @@ class CommandEngine(
         return "${usedMb}MB / ${totalMb}MB (${(usedMb * 100 / totalMb)}%)"
     }
 
+    private fun getBatteryEstimateString(pct: Int, isCharging: Boolean, isFull: Boolean): String {
+        val batManager = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
+        val chargeTimeRemainingMs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && batManager != null) {
+            batManager.computeChargeTimeRemaining()
+        } else -1L
+
+        return when {
+            isFull -> "100% (Fully Charged)"
+            isCharging -> {
+                if (chargeTimeRemainingMs > 0) {
+                    val mins = (chargeTimeRemainingMs / (1000 * 60)) % 60
+                    val hrs = chargeTimeRemainingMs / (1000 * 60 * 60)
+                    val timeStr = if (hrs > 0) "${hrs}h ${mins}m" else "${mins}m"
+                    "$pct% (Charging, $timeStr till full)"
+                } else {
+                    "$pct% (Charging)"
+                }
+            }
+            else -> {
+                val totalEstMins = (pct * 12).toLong() // Heuristic estimate: 100% = ~20h
+                val hrs = totalEstMins / 60
+                val mins = totalEstMins % 60
+                val timeStr = if (hrs > 0) "${hrs}h ${mins}m" else "${mins}m"
+                "$pct% (Discharging, ~$timeStr till drain)"
+            }
+        }
+    }
+
     private fun getBatteryStatusInfo(): String {
         val ifilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
         val batteryStatus: Intent? = context.registerReceiver(null, ifilter)
@@ -1264,8 +1292,10 @@ class CommandEngine(
         val pct = if (level != -1 && scale != -1) (level * 100 / scale) else 0
 
         val status: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
-        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
-        return "$pct% ${if (isCharging) "(Charging)" else "(Discharging)"}"
+        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING
+        val isFull = status == BatteryManager.BATTERY_STATUS_FULL
+
+        return getBatteryEstimateString(pct, isCharging, isFull)
     }
 
     private fun generateTopLines(): List<TerminalLine> {
@@ -1334,10 +1364,15 @@ class CommandEngine(
             else -> "Normal"
         }
 
+        val statusInt = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val isCharging = statusInt == BatteryManager.BATTERY_STATUS_CHARGING
+        val isFull = statusInt == BatteryManager.BATTERY_STATUS_FULL
+        val estString = getBatteryEstimateString(pct, isCharging, isFull)
+
         return listOf(
             TerminalLine(text = "BATTERY HARDWARE STATUS", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
-            TerminalLine(text = "Level       : $pct%", type = LineType.OUTPUT),
+            TerminalLine(text = "Level & Est : $estString", type = LineType.OUTPUT),
             TerminalLine(text = "Temperature : ${String.format(Locale.US, "%.1f", temp)} °C", type = LineType.OUTPUT),
             TerminalLine(text = "Health      : $health", type = LineType.OUTPUT),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
@@ -1353,10 +1388,12 @@ class CommandEngine(
         val pct = if (level != -1 && scale != -1) (level * 100 / scale) else 0
 
         val statusInt = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val isCharging = statusInt == BatteryManager.BATTERY_STATUS_CHARGING
+        val isFull = statusInt == BatteryManager.BATTERY_STATUS_FULL
         val statusStr = when (statusInt) {
             BatteryManager.BATTERY_STATUS_CHARGING -> "Charging"
             BatteryManager.BATTERY_STATUS_DISCHARGING -> "Discharging"
-            BatteryManager.BATTERY_STATUS_FULL -> "Full"
+            BatteryManager.BATTERY_STATUS_FULL -> "Full (100%)"
             BatteryManager.BATTERY_STATUS_NOT_CHARGING -> "Not Charging"
             else -> "Unknown"
         }
@@ -1373,11 +1410,14 @@ class CommandEngine(
         val temp = (batteryStatus?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0) / 10.0
         val tech = batteryStatus?.getStringExtra(BatteryManager.EXTRA_TECHNOLOGY) ?: "Li-ion"
 
+        val estimateText = getBatteryEstimateString(pct, isCharging, isFull)
+
         return listOf(
             TerminalLine(text = "DETAILED BATTERY & POWER METRICS", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
             TerminalLine(text = "Charge Level  : $pct%", type = LineType.OUTPUT),
             TerminalLine(text = "Power State   : $statusStr", type = LineType.OUTPUT),
+            TerminalLine(text = "Estimate      : $estimateText", type = LineType.SUCCESS),
             TerminalLine(text = "Power Source  : $pluggedStr", type = LineType.OUTPUT),
             TerminalLine(text = "Voltage       : ${String.format(Locale.US, "%.2f", voltage)} V", type = LineType.OUTPUT),
             TerminalLine(text = "Temperature   : ${String.format(Locale.US, "%.1f", temp)} °C", type = LineType.OUTPUT),

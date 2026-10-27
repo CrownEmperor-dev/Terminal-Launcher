@@ -53,7 +53,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                         _uiState.value = _uiState.value.copy(lines = savedBuffer)
                     } else {
                         val initialLines = mutableListOf<TerminalLine>()
-                        initialLines.add(TerminalLine(text = "Welcome to Terminal Launcher v1.0", type = LineType.HEADER))
+                        initialLines.add(TerminalLine(text = "Welcome to Terminal Launcher v1.1", type = LineType.HEADER))
                         initialLines.add(TerminalLine(text = "Type 'help' for documentation, 'ls' for app list, 'options' for GUI settings.", type = LineType.SYSTEM))
                         val settings = _uiState.value.settings
                         if (settings.fastfetchOnStart) {
