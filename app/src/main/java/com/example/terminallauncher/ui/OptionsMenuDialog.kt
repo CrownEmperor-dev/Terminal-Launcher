@@ -54,7 +54,9 @@ fun OptionsMenuDialog(
     onSetCustomAscii: (String) -> Unit,
     onSetFastfetch: (Boolean) -> Unit,
     onSetAutocomplete: (Boolean) -> Unit,
-    onSetPrompt: (String) -> Unit
+    onSetStatusBarVisible: (Boolean) -> Unit,
+    onSetPrompt: (String) -> Unit,
+    onSendFeedback: () -> Unit
 ) {
     var promptInput by remember { mutableStateOf(settings.promptString) }
     var customAsciiInput by remember { mutableStateOf(settings.customAsciiArt) }
@@ -99,25 +101,44 @@ fun OptionsMenuDialog(
                     )
                 )
                 Spacer(modifier = Modifier.height(6.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    TerminalThemeType.entries.forEach { theme ->
-                        val isSelected = settings.theme == theme
-                        val label = when (theme) {
-                            TerminalThemeType.CRT_GREEN -> "Green"
-                            TerminalThemeType.AMBER -> "Amber"
-                            TerminalThemeType.OLED_BLACK -> "OLED"
-                            TerminalThemeType.MONOCHROME -> "Mono"
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(
+                            TerminalThemeType.CRT_GREEN to "Green",
+                            TerminalThemeType.AMBER to "Amber",
+                            TerminalThemeType.OLED_BLACK to "OLED",
+                            TerminalThemeType.MONOCHROME to "Mono"
+                        ).forEach { (theme, label) ->
+                            OptionChip(
+                                label = label,
+                                isSelected = settings.theme == theme,
+                                colorScheme = colorScheme,
+                                onClick = { onSetTheme(theme) },
+                                modifier = Modifier.weight(1f)
+                            )
                         }
-                        OptionChip(
-                            label = label,
-                            isSelected = isSelected,
-                            colorScheme = colorScheme,
-                            onClick = { onSetTheme(theme) },
-                            modifier = Modifier.weight(1f)
-                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(
+                            TerminalThemeType.CYAN_NEON to "Cyan",
+                            TerminalThemeType.GAMEBOY_DMG to "GameBoy",
+                            TerminalThemeType.SOLARIZED to "Solarized",
+                            TerminalThemeType.DRACULA to "Dracula"
+                        ).forEach { (theme, label) ->
+                            OptionChip(
+                                label = label,
+                                isSelected = settings.theme == theme,
+                                colorScheme = colorScheme,
+                                onClick = { onSetTheme(theme) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
 
@@ -206,10 +227,10 @@ fun OptionsMenuDialog(
                     val asciiFocusRequester = remember { FocusRequester() }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "PASTE CUSTOM ASCII ART (asciiart.eu):",
+                        text = "PASTE CUSTOM ASCII ART (Use [#FF0055]text[/#] for color tags):",
                         style = TextStyle(
                             fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp,
+                            fontSize = 10.sp,
                             color = colorScheme.textSecondary
                         )
                     )
@@ -295,6 +316,31 @@ fun OptionsMenuDialog(
                     )
                 }
 
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Full Immersion (Status Bar):",
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 13.sp,
+                            color = colorScheme.textPrimary
+                        )
+                    )
+                    Switch(
+                        checked = !settings.statusBarVisible,
+                        onCheckedChange = { onSetStatusBarVisible(!it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colorScheme.background,
+                            checkedTrackColor = colorScheme.promptColor,
+                            uncheckedThumbColor = colorScheme.textGhost,
+                            uncheckedTrackColor = colorScheme.background
+                        )
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Prompt String
@@ -350,7 +396,7 @@ fun OptionsMenuDialog(
                         .padding(8.dp)
                 ) {
                     Text(
-                        text = "Terminal Launcher v1.1.0 (MIT License)",
+                        text = "Terminal Launcher v1.2.0 (MIT License)",
                         style = TextStyle(
                             fontFamily = FontFamily.Monospace,
                             fontSize = 11.sp,
@@ -376,7 +422,29 @@ fun OptionsMenuDialog(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = onSendFeedback,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorScheme.background,
+                        contentColor = colorScheme.promptColor
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, colorScheme.promptColor, RoundedCornerShape(4.dp))
+                ) {
+                    Text(
+                        text = "[ SEND FEEDBACK / REPORT BUG ]",
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Close Button
                 Button(

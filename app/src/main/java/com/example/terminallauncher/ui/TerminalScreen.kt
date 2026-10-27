@@ -1,6 +1,7 @@
 package com.example.terminallauncher.ui
 
 import android.Manifest
+import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -42,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
@@ -51,14 +53,19 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.terminallauncher.data.LineType
 import com.example.terminallauncher.data.TerminalLine
@@ -78,6 +85,19 @@ fun TerminalScreen(
     val context = LocalContext.current
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
+
+    // Observe status bar full immersion preference
+    val window = (context as? Activity)?.window
+    LaunchedEffect(uiState.settings.statusBarVisible, window) {
+        if (window != null) {
+            val controller = WindowInsetsControllerCompat(window, window.decorView)
+            if (uiState.settings.statusBarVisible) {
+                controller.show(WindowInsetsCompat.Type.statusBars())
+            } else {
+                controller.hide(WindowInsetsCompat.Type.statusBars())
+            }
+        }
+    }
 
     // First-run runtime permissions check
     val permissionsToRequest = remember {
@@ -161,7 +181,12 @@ fun TerminalScreen(
             onSetCustomAscii = { viewModel.setCustomAsciiArt(it) },
             onSetFastfetch = { viewModel.setFastfetchOnStart(it) },
             onSetAutocomplete = { viewModel.setAutocompleteEnabled(it) },
-            onSetPrompt = { viewModel.setPromptString(it) }
+            onSetStatusBarVisible = { viewModel.setStatusBarVisible(it) },
+            onSetPrompt = { viewModel.setPromptString(it) },
+            onSendFeedback = {
+                viewModel.closeOptionsMenu()
+                viewModel.sendFeedbackCommand()
+            }
         )
     }
 
@@ -320,8 +345,12 @@ fun TerminalLineView(
         else -> FontWeight.Normal
     }
 
+    val annotatedText = remember(line.text, textColor) {
+        buildAnnotatedTerminalText(line.text, textColor)
+    }
+
     Text(
-        text = line.text,
+        text = annotatedText,
         style = TextStyle(
             fontFamily = FontFamily.Monospace,
             fontSize = fontSize,
@@ -332,4 +361,45 @@ fun TerminalLineView(
             .graphicsLayer()
             .padding(vertical = 1.dp)
     )
+}
+
+fun buildAnnotatedTerminalText(text: String, defaultColor: Color): AnnotatedString {
+    if (!text.contains("[#")) {
+        return AnnotatedString(text)
+    }
+
+    return buildAnnotatedString {
+        var cursor = 0
+        var currentColor = defaultColor
+        val tagRegex = Regex("\\[#([0-9a-fA-F]{6})]|/\\[/#]")
+        val matches = tagRegex.findAll(text)
+
+        for (match in matches) {
+            val range = match.range
+            if (range.first > cursor) {
+                withStyle(SpanStyle(color = currentColor)) {
+                    append(text.substring(cursor, range.first))
+                }
+            }
+            val matchText = match.value
+            if (matchText.startsWith("[#") && matchText.endsWith("]")) {
+                val hexStr = matchText.substring(2, 8)
+                val parsedColor = try {
+                    Color(android.graphics.Color.parseColor("#$hexStr"))
+                } catch (_: Exception) {
+                    defaultColor
+                }
+                currentColor = parsedColor
+            } else if (matchText == "[/#]") {
+                currentColor = defaultColor
+            }
+            cursor = range.last + 1
+        }
+
+        if (cursor < text.length) {
+            withStyle(SpanStyle(color = currentColor)) {
+                append(text.substring(cursor))
+            }
+        }
+    }
 }

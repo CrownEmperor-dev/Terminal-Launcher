@@ -61,5 +61,49 @@ fun getTerminalColorScheme(themeType: TerminalThemeType): TerminalColorScheme {
             headerColor = Color(0xFFECEFF1),
             promptColor = Color(0xFF90A4AE)
         )
+        TerminalThemeType.CYAN_NEON -> TerminalColorScheme(
+            background = Color(0xFF050B14),
+            textPrimary = Color(0xFF00F0FF),
+            textSecondary = Color(0xFF70C0E0),
+            textGhost = Color(0xFF205070),
+            errorColor = Color(0xFFFF0055),
+            successColor = Color(0xFF00FF99),
+            systemColor = Color(0xFF00A3FF),
+            headerColor = Color(0xFFFF007F),
+            promptColor = Color(0xFF00F0FF)
+        )
+        TerminalThemeType.GAMEBOY_DMG -> TerminalColorScheme(
+            background = Color(0xFF9BBC0F),
+            textPrimary = Color(0xFF0F380F),
+            textSecondary = Color(0xFF306230),
+            textGhost = Color(0xFF8BAC0F),
+            errorColor = Color(0xFF8B0000),
+            successColor = Color(0xFF306230),
+            systemColor = Color(0xFF306230),
+            headerColor = Color(0xFF0F380F),
+            promptColor = Color(0xFF0F380F)
+        )
+        TerminalThemeType.SOLARIZED -> TerminalColorScheme(
+            background = Color(0xFF002B36),
+            textPrimary = Color(0xFF839496),
+            textSecondary = Color(0xFF657B83),
+            textGhost = Color(0xFF073642),
+            errorColor = Color(0xFFDC322F),
+            successColor = Color(0xFF859900),
+            systemColor = Color(0xFF268BD2),
+            headerColor = Color(0xFFB58900),
+            promptColor = Color(0xFF2AA198)
+        )
+        TerminalThemeType.DRACULA -> TerminalColorScheme(
+            background = Color(0xFF282A36),
+            textPrimary = Color(0xFFF8F8F2),
+            textSecondary = Color(0xFF6272A4),
+            textGhost = Color(0xFF44475A),
+            errorColor = Color(0xFFFF5555),
+            successColor = Color(0xFF50FA7B),
+            systemColor = Color(0xFF8BE9FD),
+            headerColor = Color(0xFFBD93F9),
+            promptColor = Color(0xFFFF79C6)
+        )
     }
 }

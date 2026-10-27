@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -17,7 +18,11 @@ enum class TerminalThemeType {
     CRT_GREEN,
     AMBER,
     OLED_BLACK,
-    MONOCHROME
+    MONOCHROME,
+    CYAN_NEON,
+    GAMEBOY_DMG,
+    SOLARIZED,
+    DRACULA
 }
 
 enum class AsciiArtStyle {
@@ -35,6 +40,8 @@ data class LauncherSettings(
     val promptString: String = "user@mobile:~$ ",
     val fastfetchOnStart: Boolean = true,
     val autocompleteEnabled: Boolean = true,
+    val statusBarVisible: Boolean = true,
+    val lastFullChargeTimestamp: Long = 0L,
     val firstRunCompleted: Boolean = false,
     val aliases: Map<String, String> = mapOf("yt" to "YouTube", "cam" to "Camera", "notes" to "Keep"),
     val history: List<String> = emptyList(),
@@ -50,6 +57,8 @@ class SettingsRepository(private val context: Context) {
         val PROMPT_STRING = stringPreferencesKey("prompt_string")
         val FASTFETCH_ON_START = booleanPreferencesKey("fastfetch_on_start")
         val AUTOCOMPLETE_ENABLED = booleanPreferencesKey("autocomplete_enabled")
+        val STATUS_BAR_VISIBLE = booleanPreferencesKey("status_bar_visible")
+        val LAST_FULL_CHARGE_TIME = longPreferencesKey("last_full_charge_time")
         val FIRST_RUN_COMPLETED = booleanPreferencesKey("first_run_completed")
         val ALIASES_RAW = stringPreferencesKey("aliases_raw")
         val HISTORY_RAW = stringPreferencesKey("history_raw")
@@ -70,6 +79,8 @@ class SettingsRepository(private val context: Context) {
         val prompt = preferences[PreferencesKeys.PROMPT_STRING] ?: "user@mobile:~$ "
         val fastfetch = preferences[PreferencesKeys.FASTFETCH_ON_START] ?: true
         val autocomplete = preferences[PreferencesKeys.AUTOCOMPLETE_ENABLED] ?: true
+        val statusBar = preferences[PreferencesKeys.STATUS_BAR_VISIBLE] ?: true
+        val lastCharge = preferences[PreferencesKeys.LAST_FULL_CHARGE_TIME] ?: 0L
         val firstRun = preferences[PreferencesKeys.FIRST_RUN_COMPLETED] ?: false
 
         val aliasesRaw = preferences[PreferencesKeys.ALIASES_RAW] ?: "yt=YouTube\ncam=Camera\nnotes=Keep"
@@ -92,6 +103,8 @@ class SettingsRepository(private val context: Context) {
             promptString = prompt,
             fastfetchOnStart = fastfetch,
             autocompleteEnabled = autocomplete,
+            statusBarVisible = statusBar,
+            lastFullChargeTimestamp = lastCharge,
             firstRunCompleted = firstRun,
             aliases = aliasesMap,
             history = historyList,
@@ -139,6 +152,18 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAutocompleteEnabled(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.AUTOCOMPLETE_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setStatusBarVisible(visible: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.STATUS_BAR_VISIBLE] = visible
+        }
+    }
+
+    suspend fun setLastFullChargeTime(timestampMs: Long) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LAST_FULL_CHARGE_TIME] = timestampMs
         }
     }
 

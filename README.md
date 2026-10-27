@@ -27,13 +27,12 @@ user@mobile:~$ infofetch
 OS: Android 8.0+ (API 26+)
 Host: Android Mobile Device
 Kernel: Linux 5.x / Android Runtime
-Shell: TerminalLauncher v1.1
+Shell: TerminalLauncher v1.2
 UI Engine: Jetpack Compose
-Edge-To-Edge: Active (Transparent System Bars)
-Themes: CRT Green | Amber Phosphor | OLED Black | Monochrome
-ASCII Banners: Default | Bugdroid | Tux | Retro PC | Minimal | Custom | Off
+Edge-To-Edge & Full Immersion: Active (Hide Status Bar Option)
+Themes: CRT Green | Amber Phosphor | OLED Black | Monochrome | Cyberpunk Cyan | Game Boy | Solarized | Dracula
+ASCII Banners: Default | Bugdroid | Tux | Retro PC | Minimal | Custom Multi-Color | Off
 Autocomplete: Inline Ghost Prediction & Duplicate App Auto-Disambiguation
-Termux Integration: Active (`tx <command>` / `termux <command>`)
 Text Selection: Highlight & Copy Output Buffer / Clipboard Paste (Ctrl+C / Ctrl+V)
 Documentation: [Implementation Plan](docs/IMPLEMENTATION_PLAN.md) | [Developer Tutorial](docs/DEVELOPER_TUTORIAL.md)
 --------------------------------------------------
@@ -55,7 +54,7 @@ SYNOPSIS
 DESCRIPTION
        Terminal Launcher replaces standard icon grids with an ultra-responsive monospaced
        shell interface. It provides instant app launching, duplicate app name auto-disambiguation, inline ghost completion, retro CRT
-       visual styles, hardware keyboard shortcuts, text selection/copy-paste, a GUI options menu, storage navigation, Termux integration, and built-in system management.
+       visual styles, hardware keyboard shortcuts, text selection/copy-paste, a GUI options menu, storage navigation, feedback reporting, and built-in system management.
 
 OPTIONS & COMMANDS
        core & gui:
@@ -63,9 +62,10 @@ OPTIONS & COMMANDS
            about / version    Display app version, credits, license, and repository URL.
            echo <text|$var>   Print text or shell variables ($USER, $PROMPT, $THEME, $VERSION, $OS).
            search / google / g Search Google directly in default browser (e.g. search Android 15).
+           feedback <msg>     Submit feedback or bug report with automatic device specs.
            install <query>    Search & install apps directly from Google Play Store.
            cat / read <path>  Read and view text files directly inside terminal buffer.
-           8bit / tune        Play real-time 8-bit retro chiptune audio easter egg.
+           8bit [1..16|list]  Play 16-track 8-bit retro chiptune jukebox.
            email <to> [sub]   Dispatch pre-filled email compose (Proton Mail / Gmail).
            tx / termux <cmd>  Execute Linux commands, scripts, or package managers via Termux.
            time / date        Display current system time, date, and Unix epoch seconds.
@@ -84,12 +84,11 @@ OPTIONS & COMMANDS
 
        config & preferences:
            config                     Show current launcher preferences in shell.
-           config set theme <theme>   Set palette: green, amber, oled, mono.
-           config set size <sp>       Set font size (e.g., config set size 15).
-           config set ascii <style>   Set banner style: default, bugdroid, tux, retro_pc, minimal, custom, off.
-           config set fastfetch <on|off> Toggle startup system banner display.
+           config set theme <theme>   Set palette: green, amber, oled, mono, cyan, gameboy, solarized, dracula.
+           config set statusbar <o>   Toggle status bar full immersion (on|off).
+           config set fastfetch <o>   Toggle startup system banner display.
            config set prompt <text>   Customize shell prompt string (default: user@mobile:~$ ).
-           config set autocomplete <on|off> Toggle ghost auto-completion overlay.
+           config set autocomplete <o> Toggle ghost auto-completion overlay.
            settings                   Open native Android device system settings.
 
        system & utilities:
@@ -100,6 +99,7 @@ OPTIONS & COMMANDS
            sys flash            Toggle flashlight / camera torch hardware.
            sys ringer <s|v|n>   Set ringer mode: silent, vibrate, normal.
            sys rotation         Toggle auto-rotation lock.
+           sys statusbar        Toggle status bar full immersion.
            sys gps / hotspot    Open Location / Hotspot settings.
            sys settings <page>  Open settings page (e.g. sys settings display, sys settings app spotify).
            call <number>        Launch phone dialer or direct call intent.
@@ -112,10 +112,10 @@ OPTIONS & COMMANDS
 
 Type `options` (or `customize`) anywhere in the terminal to launch the **GUI Options Overlay**:
 
-* **Theme Color Palette**: CRT Green, Amber Phosphor, OLED Black, Monochrome.
+* **Theme Color Palette**: CRT Green, Amber Phosphor, OLED Black, Monochrome, Cyberpunk Cyan, Game Boy Classic, Solarized Dark, Dracula Retro.
 * **Font Size**: Small (12sp), Medium (15sp), Large (18sp).
-* **ASCII Art Banners**: Default title logo, **Bugdroid** (Android mascot), **Tux** (Linux mascot), Retro PC, Minimal, **Custom ASCII Editor** (paste from `asciiart.eu`), or Off.
-* **Toggles**: Startup Infofetch banner and Inline Ghost Autocomplete.
+* **ASCII Art Banners**: Default title logo, **Bugdroid** (Android mascot), **Tux** (Linux mascot), Retro PC, Minimal, **Custom Multi-Color Editor** (use `[#HEX]` color tags), or Off.
+* **Toggles**: Startup Infofetch banner, Inline Ghost Autocomplete, and Full Immersion Status Bar hiding.
 * **Prompt Editor**: Live shell prompt text editing.
 * **About Card**: Displays app metadata, developer credits, MIT License, and GitHub repository URL.
 
@@ -123,7 +123,7 @@ Type `options` (or `customize`) anywhere in the terminal to launch the **GUI Opt
 
 ## 🎨 `user@mobile:~$ config set theme`
 
-Terminal Launcher supports 4 retro color schemes:
+Terminal Launcher supports 8 retro color schemes:
 
 | Theme | Command | Visual Style |
 | :--- | :--- | :--- |
@@ -131,6 +131,10 @@ Terminal Launcher supports 4 retro color schemes:
 | **Amber Phosphor** | `config set theme amber` | `#FFB000` warm amber text on deep brown `#0D0B08` |
 | **OLED Black** | `config set theme oled` | Crisp `#FFFFFF` text on `#000000` pitch black |
 | **Monochrome** | `config set theme mono` | Slate gray `#E0E0E0` on minimal dark `#121212` |
+| **Cyberpunk Cyan** | `config set theme cyan` | Electric Cyan `#00F0FF` on Deep Navy `#050B14` |
+| **Game Boy Classic** | `config set theme gameboy` | Retro Olive `#0F380F` & `#306230` on Olive Screen `#9BBC0F` |
+| **Solarized Dark** | `config set theme solarized` | Solarized Teal `#839496` & Yellow `#B58900` on `#002B36` |
+| **Dracula Retro** | `config set theme dracula` | Vibrant Purple `#BD93F9` & Pink `#FF79C6` on `#282A36` |
 
 ---
 

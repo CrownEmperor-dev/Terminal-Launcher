@@ -53,7 +53,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                         _uiState.value = _uiState.value.copy(lines = savedBuffer)
                     } else {
                         val initialLines = mutableListOf<TerminalLine>()
-                        initialLines.add(TerminalLine(text = "Welcome to Terminal Launcher v1.1", type = LineType.HEADER))
+                        initialLines.add(TerminalLine(text = "Welcome to Terminal Launcher v1.2", type = LineType.HEADER))
                         initialLines.add(TerminalLine(text = "Type 'help' for documentation, 'ls' for app list, 'options' for GUI settings.", type = LineType.SYSTEM))
                         val settings = _uiState.value.settings
                         if (settings.fastfetchOnStart) {
@@ -121,9 +121,25 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setStatusBarVisible(visible: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setStatusBarVisible(visible)
+        }
+    }
+
     fun setPromptString(prompt: String) {
         viewModelScope.launch {
             settingsRepository.setPromptString(prompt)
+        }
+    }
+
+    fun sendFeedbackCommand() {
+        viewModelScope.launch {
+            val result = commandEngine.execute("feedback", _uiState.value.settings)
+            val updatedLines = _uiState.value.lines.toMutableList()
+            updatedLines.addAll(result.outputLines)
+            _uiState.value = _uiState.value.copy(lines = updatedLines)
+            settingsRepository.saveTerminalBuffer(updatedLines)
         }
     }
 
@@ -197,16 +213,13 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     fun submitCommand() {
         val currentText = _uiState.value.inputFieldValue.text
         val ghostSuffix = _uiState.value.ghostSuffix
-        // Direct single-keystroke execution when ghost autocomplete is active
         val input = if (ghostSuffix.isNotEmpty()) currentText + ghostSuffix else currentText
 
         val currentSettings = _uiState.value.settings
         val currentLines = _uiState.value.lines.toMutableList()
 
-        // Append user prompt entry line
         currentLines.add(TerminalLine(text = "${currentSettings.promptString}$input", type = LineType.INPUT))
 
-        // Reset input field and history traversal
         _uiState.value = _uiState.value.copy(
             inputFieldValue = TextFieldValue(""),
             ghostSuffix = "",
@@ -311,12 +324,12 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     private fun getBuiltInCommandCompletion(input: String): String {
         val completions = listOf(
             "help", "options", "about", "version", "time", "date", "killall", "trim",
-            "echo", "search", "google", "matrix", "infofetch", "infofetch update",
+            "echo", "search", "google", "feedback", "report", "matrix", "infofetch", "infofetch update",
             "fastfetch", "neofetch", "clear", "history", "config",
             "config set theme", "config set fastfetch", "config set prompt",
-            "config set autocomplete", "config set size", "config set ascii",
+            "config set autocomplete", "config set statusbar", "config set size", "config set ascii",
             "settings", "top", "top memory", "battery", "battery status", "battery health",
-            "calc", "sys", "sys flash", "sys wifi", "sys bt", "sys sound", "sys settings",
+            "calc", "sys", "sys flash", "sys wifi", "sys bt", "sys sound", "sys statusbar", "sys settings",
             "alias", "unalias", "open", "launch", "install", "uninstall", "cat", "read", "8bit", "8bit list", "tune", "tune list", "email", "mail", "ls", "apps"
         )
         val inputLower = input.lowercase()

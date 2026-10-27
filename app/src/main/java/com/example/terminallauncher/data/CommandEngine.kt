@@ -166,6 +166,7 @@ class CommandEngine(
             "killall", "trim" -> handleKillall()
             "echo" -> handleEcho(args.joinToString(" "), currentSettings)
             "search", "google", "g" -> handleSearch(args.joinToString(" "))
+            "feedback", "report", "bug" -> handleFeedback(args.joinToString(" "), currentSettings)
             "install" -> handleInstall(args.joinToString(" "))
             "cat", "read", "view" -> handleCat(args.joinToString(" "))
             "8bit", "tune", "chiptune", "music", "retro" -> handle8BitTune(args)
@@ -192,9 +193,9 @@ class CommandEngine(
             "settings" -> handleSystemSettings()
             "infofetch", "fastfetch", "neofetch" -> handleInfofetch(args, currentSettings)
             "top", "htop" -> handleTop(args)
-            "battery" -> handleBattery(args)
+            "battery" -> handleBattery(currentSettings)
             "calc" -> handleCalc(args.joinToString(" "))
-            "sys", "toggle" -> handleSys(args)
+            "sys", "toggle" -> handleSys(args, currentSettings)
             "call" -> handleCall(args.joinToString(" "))
             "sms" -> handleSms(args.joinToString(" "))
             "reboot", "shutdown" -> handleReboot()
@@ -202,12 +203,12 @@ class CommandEngine(
         }
     }
 
-    fun generateInfofetchLines(settings: LauncherSettings): List<TerminalLine> {
+    suspend fun generateInfofetchLines(settings: LauncherSettings): List<TerminalLine> {
         val osVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
         val model = "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}"
         val cpuArch = Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown"
         val ramInfo = getRamUsageInfo()
-        val batInfo = getBatteryStatusInfo()
+        val batInfo = getBatteryStatusInfo(settings)
         val uptime = getUptimeString()
 
         val asciiArt = getAsciiArtBanner(settings.asciiArtStyle, settings)
@@ -220,7 +221,7 @@ class CommandEngine(
             "Uptime: $uptime",
             "RAM: $ramInfo",
             "Battery: $batInfo",
-            "Shell: TerminalLauncher v1.1"
+            "Shell: TerminalLauncher v1.2"
         )
 
         val result = mutableListOf<TerminalLine>()
@@ -232,6 +233,57 @@ class CommandEngine(
         infoDetails.forEach { result.add(TerminalLine(text = it, type = LineType.OUTPUT)) }
         result.add(TerminalLine(text = "--------------------------------------------------", type = LineType.SYSTEM))
         return result
+    }
+
+    private fun handleFeedback(userMsg: String, currentSettings: LauncherSettings): CommandResult {
+        val model = "${Build.MANUFACTURER} ${Build.MODEL}"
+        val os = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
+        val version = "v1.2.0"
+
+        val messageBody = if (userMsg.isBlank()) "User Feedback Report" else userMsg
+        val formattedBody = """
+            |--- USER FEEDBACK REPORT ---
+            |Message: $messageBody
+            |
+            |--- DIAGNOSTIC METRICS ---
+            |Launcher Version: $version
+            |Device Model: $model
+            |OS Version: $os
+            |Theme: ${currentSettings.theme.name.lowercase()}
+            |RAM: ${getRamUsageInfo()}
+        """.trimMargin()
+
+        val githubIssueUrl = "https://github.com/CrownEmperor-dev/Terminal-Launcher/issues/new?title=${Uri.encode("User Feedback / Bug Report")}&body=${Uri.encode(formattedBody)}"
+
+        return try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(githubIssueUrl)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "Opening GitHub Issues with pre-filled feedback & diagnostic metrics...", type = LineType.SUCCESS)
+                )
+            )
+        } catch (_: Exception) {
+            val mailtoUri = "mailto:crownemperor.dev@gmail.com?subject=${Uri.encode("Terminal Launcher v1.2.0 Feedback")}&body=${Uri.encode(formattedBody)}"
+            try {
+                val emailIntent = Intent(Intent.ACTION_SENDTO, Uri.parse(mailtoUri)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(emailIntent)
+                CommandResult(
+                    outputLines = listOf(
+                        TerminalLine(text = "Opening email compose pre-filled with feedback & diagnostic metrics...", type = LineType.SUCCESS)
+                    )
+                )
+            } catch (e: Exception) {
+                CommandResult(
+                    outputLines = listOf(TerminalLine(text = "Unable to launch feedback dispatcher: ${e.message}", type = LineType.ERROR)),
+                    success = false
+                )
+            }
+        }
     }
 
     private fun handleCat(filePath: String): CommandResult {
@@ -548,7 +600,7 @@ class CommandEngine(
         }
     }
 
-    private fun handleInfofetch(args: List<String>, settings: LauncherSettings): CommandResult {
+    private suspend fun handleInfofetch(args: List<String>, settings: LauncherSettings): CommandResult {
         val isUpdate = args.firstOrNull()?.lowercase() == "update"
         val lines = generateInfofetchLines(settings).toMutableList()
         if (isUpdate) {
@@ -572,7 +624,7 @@ class CommandEngine(
             .replace("\$USER", userStr)
             .replace("\$PROMPT", settings.promptString)
             .replace("\$THEME", settings.theme.name.lowercase())
-            .replace("\$VERSION", "v1.1.1")
+            .replace("\$VERSION", "v1.2.0")
             .replace("\$OS", "Android ${Build.VERSION.RELEASE}")
             .replace("\$MODEL", "${Build.MANUFACTURER} ${Build.MODEL}")
 
@@ -601,7 +653,7 @@ class CommandEngine(
             TerminalLine(text = "TERMINAL LAUNCHER - ABOUT", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
             TerminalLine(text = "App Name    : Terminal Launcher", type = LineType.OUTPUT),
-            TerminalLine(text = "Version     : v1.1.1 (Build 3)", type = LineType.OUTPUT),
+            TerminalLine(text = "Version     : v1.2.0 (Build 4)", type = LineType.OUTPUT),
             TerminalLine(text = "Developer   : CrownEmperor-dev", type = LineType.OUTPUT),
             TerminalLine(text = "Framework   : Kotlin & Jetpack Compose", type = LineType.OUTPUT),
             TerminalLine(text = "License     : MIT License", type = LineType.OUTPUT),
@@ -763,13 +815,14 @@ class CommandEngine(
 
     private fun handleHelp(): CommandResult {
         val lines = mutableListOf<TerminalLine>()
-        lines.add(TerminalLine(text = "Terminal Launcher v1.1.1 - Shell Manual", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "Terminal Launcher v1.2.0 - Shell Manual", type = LineType.HEADER))
         lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
         lines.add(TerminalLine(text = "CORE COMMANDS:", type = LineType.HEADER))
         lines.add(TerminalLine(text = "  options / customize GUI visual settings menu", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  about / version    App details, license, and repository URL", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  echo <text|\$var>   Print string or shell variables", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  search <query>     Search Google in web browser (or 'google' / 'g')", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  feedback <message> Send feedback or report bugs with device specs", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  install <query>    Search & install apps from Google Play Store", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  cat / read <path>  Read & display text files in terminal", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  8bit [1..16|list]  Play 16-track 8-bit retro chiptune jukebox", type = LineType.OUTPUT))
@@ -790,10 +843,11 @@ class CommandEngine(
         lines.add(TerminalLine(text = "", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "SETTINGS & PREFERENCES:", type = LineType.HEADER))
         lines.add(TerminalLine(text = "  config                     Show launcher CLI configurations", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  config set theme <t>       Set theme: green, amber, oled, mono", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  config set fastfetch <on|off> Toggle startup system banner", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  config set theme <t>       Set theme: green, amber, oled, mono, cyan, gameboy, solarized, dracula", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  config set statusbar <o>   Toggle status bar full immersion (on|off)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  config set fastfetch <o>   Toggle startup system banner", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  config set prompt <text>   Customize shell prompt string", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  config set autocomplete <on|off> Toggle ghost auto-completion", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  config set autocomplete <o> Toggle ghost auto-completion", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  settings                   Open Android device system settings", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "SYSTEM & UTILITIES:", type = LineType.HEADER))
@@ -803,6 +857,7 @@ class CommandEngine(
         lines.add(TerminalLine(text = "  calc <expr>          Solve inline math expressions", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  sys flash            Toggle flashlight/torch hardware", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  sys ringer <s|v|n>   Set ringer mode: silent, vibrate, normal", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  sys statusbar        Toggle status bar full immersion", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  sys settings <page>  Open settings page (e.g. sys settings display)", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  call <number>        Launch phone dialer", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  sms <number>         Launch SMS messaging", type = LineType.OUTPUT))
@@ -827,7 +882,7 @@ class CommandEngine(
             }
             "/system", "system" -> {
                 lines.add(TerminalLine(text = "SYSTEM COMMANDS:", type = LineType.HEADER))
-                val sysCmds = listOf("options", "about", "time", "killall", "echo", "search", "install", "cat", "8bit", "email", "termux", "tx", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
+                val sysCmds = listOf("options", "about", "time", "killall", "echo", "search", "feedback", "install", "cat", "8bit", "email", "termux", "tx", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
                 sysCmds.forEach { lines.add(TerminalLine(text = "  $it", type = LineType.OUTPUT)) }
             }
             "/storage", "storage" -> {
@@ -979,13 +1034,8 @@ class CommandEngine(
         }
     }
 
-    private fun handleBattery(args: List<String>): CommandResult {
-        val subCommand = args.firstOrNull()?.lowercase() ?: ""
-        return if (subCommand == "status" || subCommand == "health" || subCommand == "info") {
-            CommandResult(outputLines = generateDetailedBatteryLines())
-        } else {
-            CommandResult(outputLines = generateBatteryLines())
-        }
+    private suspend fun handleBattery(settings: LauncherSettings): CommandResult {
+        return CommandResult(outputLines = generateDetailedBatteryLines(settings))
     }
 
     private fun handleAppsList(): CommandResult {
@@ -1082,10 +1132,11 @@ class CommandEngine(
                 TerminalLine(text = "  fastfetch      : ${if (settings.fastfetchOnStart) "on" else "off"}", type = LineType.OUTPUT),
                 TerminalLine(text = "  prompt         : '${settings.promptString}'", type = LineType.OUTPUT),
                 TerminalLine(text = "  autocomplete   : ${if (settings.autocompleteEnabled) "on" else "off"}", type = LineType.OUTPUT),
+                TerminalLine(text = "  statusBar      : ${if (settings.statusBarVisible) "visible" else "hidden (full immersion)"}", type = LineType.OUTPUT),
                 TerminalLine(text = "  textSizeSp     : ${settings.textSizeSp}sp", type = LineType.OUTPUT),
                 TerminalLine(text = "  asciiArtStyle  : ${settings.asciiArtStyle.name.lowercase()}", type = LineType.OUTPUT),
                 TerminalLine(text = "--------------------------------------------------", type = LineType.SYSTEM),
-                TerminalLine(text = "Usage: config set <theme|fastfetch|prompt|autocomplete|size|ascii> <value>", type = LineType.SYSTEM)
+                TerminalLine(text = "Usage: config set <theme|fastfetch|prompt|autocomplete|statusbar|size|ascii> <value>", type = LineType.SYSTEM)
             )
             return CommandResult(outputLines = lines)
         }
@@ -1101,13 +1152,17 @@ class CommandEngine(
                         "amber" -> TerminalThemeType.AMBER
                         "oled", "black" -> TerminalThemeType.OLED_BLACK
                         "mono", "monochrome" -> TerminalThemeType.MONOCHROME
+                        "cyan", "neon" -> TerminalThemeType.CYAN_NEON
+                        "gameboy", "dmg" -> TerminalThemeType.GAMEBOY_DMG
+                        "solarized" -> TerminalThemeType.SOLARIZED
+                        "dracula" -> TerminalThemeType.DRACULA
                         else -> null
                     }
                     if (themeEnum != null) {
                         settingsRepository.setTheme(themeEnum)
                         CommandResult(outputLines = listOf(TerminalLine(text = "Theme set to ${themeEnum.name.lowercase()}", type = LineType.SUCCESS)))
                     } else {
-                        CommandResult(outputLines = listOf(TerminalLine(text = "Invalid theme. Options: green, amber, oled, mono", type = LineType.ERROR)), success = false)
+                        CommandResult(outputLines = listOf(TerminalLine(text = "Invalid theme. Options: green, amber, oled, mono, cyan, gameboy, solarized, dracula", type = LineType.ERROR)), success = false)
                     }
                 }
                 "fastfetch", "neofetch", "infofetch" -> {
@@ -1124,6 +1179,11 @@ class CommandEngine(
                     val enabled = value.lowercase() in listOf("on", "true", "1", "yes")
                     settingsRepository.setAutocompleteEnabled(enabled)
                     CommandResult(outputLines = listOf(TerminalLine(text = "Ghost auto-complete set to ${if (enabled) "on" else "off"}", type = LineType.SUCCESS)))
+                }
+                "statusbar", "immersion" -> {
+                    val visible = value.lowercase() !in listOf("off", "false", "0", "hide")
+                    settingsRepository.setStatusBarVisible(visible)
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Status bar set to ${if (visible) "visible" else "hidden (full immersion)"}", type = LineType.SUCCESS)))
                 }
                 "size", "textsize" -> {
                     val size = value.toIntOrNull() ?: 15
@@ -1158,12 +1218,17 @@ class CommandEngine(
         }
     }
 
-    private fun handleSys(args: List<String>): CommandResult {
+    private suspend fun handleSys(args: List<String>, settings: LauncherSettings): CommandResult {
         val action = args.firstOrNull()?.lowercase() ?: ""
         val subArgs = args.drop(1)
 
         return when (action) {
             "flash", "flashlight", "torch" -> toggleFlashlight()
+            "statusbar", "immersion" -> {
+                val newVisible = !settings.statusBarVisible
+                settingsRepository.setStatusBarVisible(newVisible)
+                CommandResult(outputLines = listOf(TerminalLine(text = "Status bar set to ${if (newVisible) "visible" else "hidden (full immersion)"}", type = LineType.SUCCESS)))
+            }
             "wifi" -> {
                 context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
                 CommandResult(outputLines = listOf(TerminalLine(text = "Opened Wi-Fi Settings", type = LineType.SUCCESS)))
@@ -1183,7 +1248,7 @@ class CommandEngine(
                 CommandResult(outputLines = listOf(TerminalLine(text = "Opened Hotspot & Tethering Settings", type = LineType.SUCCESS)))
             }
             "settings" -> handleSysSettingsSubpage(subArgs.joinToString(" "))
-            else -> CommandResult(outputLines = listOf(TerminalLine(text = "Usage: sys <flash|wifi|bt|sound|rotation|gps|hotspot|settings>", type = LineType.ERROR)), success = false)
+            else -> CommandResult(outputLines = listOf(TerminalLine(text = "Usage: sys <flash|statusbar|wifi|bt|sound|rotation|gps|hotspot|settings>", type = LineType.ERROR)), success = false)
         }
     }
 
@@ -1365,14 +1430,33 @@ class CommandEngine(
         return "${usedMb}MB / ${totalMb}MB (${(usedMb * 100 / totalMb)}%)"
     }
 
-    private fun getBatteryEstimateString(pct: Int, isCharging: Boolean, isFull: Boolean): String {
+    private suspend fun getBatteryEstimateString(pct: Int, isCharging: Boolean, isFull: Boolean, settings: LauncherSettings): String {
         val batManager = context.getSystemService(Context.BATTERY_SERVICE) as? BatteryManager
         val chargeTimeRemainingMs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && batManager != null) {
             batManager.computeChargeTimeRemaining()
         } else -1L
 
+        if (isFull || pct == 100) {
+            if (settings.lastFullChargeTimestamp == 0L || (System.currentTimeMillis() - settings.lastFullChargeTimestamp > 300000)) {
+                settingsRepository.setLastFullChargeTime(System.currentTimeMillis())
+            }
+            return "100% (Fully Charged)"
+        }
+
+        val lastFullMs = settings.lastFullChargeTimestamp
+        val timeSinceFullStr = if (lastFullMs > 0L && !isCharging) {
+            val elapsedMs = System.currentTimeMillis() - lastFullMs
+            val mins = (elapsedMs / (1000 * 60)) % 60
+            val hrs = elapsedMs / (1000 * 60 * 60)
+            if (hrs > 0) "Full charge: ${hrs}h ${mins}m ago" else "Full charge: ${mins}m ago"
+        } else if (!isCharging) {
+            val uptimeMs = SystemClock.elapsedRealtime()
+            val mins = (uptimeMs / (1000 * 60)) % 60
+            val hrs = uptimeMs / (1000 * 60 * 60)
+            if (hrs > 0) "Boot charge: ${hrs}h ${mins}m ago" else "Boot charge: ${mins}m ago"
+        } else ""
+
         return when {
-            isFull -> "100% (Fully Charged)"
             isCharging -> {
                 if (chargeTimeRemainingMs > 0) {
                     val mins = (chargeTimeRemainingMs / (1000 * 60)) % 60
@@ -1388,12 +1472,13 @@ class CommandEngine(
                 val hrs = totalEstMins / 60
                 val mins = totalEstMins % 60
                 val timeStr = if (hrs > 0) "${hrs}h ${mins}m" else "${mins}m"
-                "$pct% (Discharging, ~$timeStr till drain)"
+                val prefix = if (timeSinceFullStr.isNotEmpty()) "$timeSinceFullStr | " else ""
+                "$pct% (Discharging, $prefix~$timeStr till drain)"
             }
         }
     }
 
-    private fun getBatteryStatusInfo(): String {
+    private suspend fun getBatteryStatusInfo(settings: LauncherSettings): String {
         val ifilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
         val batteryStatus: Intent? = context.registerReceiver(null, ifilter)
         val level: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
@@ -1404,12 +1489,12 @@ class CommandEngine(
         val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING
         val isFull = status == BatteryManager.BATTERY_STATUS_FULL
 
-        return getBatteryEstimateString(pct, isCharging, isFull)
+        return getBatteryEstimateString(pct, isCharging, isFull, settings)
     }
 
     private fun generateTopLines(): List<TerminalLine> {
         val ram = getRamUsageInfo()
-        val battery = getBatteryStatusInfo()
+        val battery = "Run 'battery' for live estimates"
         val cores = Runtime.getRuntime().availableProcessors()
         val uptime = getUptimeString()
 
@@ -1459,7 +1544,7 @@ class CommandEngine(
         )
     }
 
-    private fun generateBatteryLines(): List<TerminalLine> {
+    private suspend fun generateBatteryLines(settings: LauncherSettings): List<TerminalLine> {
         val ifilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
         val batteryStatus: Intent? = context.registerReceiver(null, ifilter)
         val level: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
@@ -1476,7 +1561,7 @@ class CommandEngine(
         val statusInt = batteryStatus?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
         val isCharging = statusInt == BatteryManager.BATTERY_STATUS_CHARGING
         val isFull = statusInt == BatteryManager.BATTERY_STATUS_FULL
-        val estString = getBatteryEstimateString(pct, isCharging, isFull)
+        val estString = getBatteryEstimateString(pct, isCharging, isFull, settings)
 
         return listOf(
             TerminalLine(text = "BATTERY HARDWARE STATUS", type = LineType.HEADER),
@@ -1489,7 +1574,7 @@ class CommandEngine(
         )
     }
 
-    private fun generateDetailedBatteryLines(): List<TerminalLine> {
+    private suspend fun generateDetailedBatteryLines(settings: LauncherSettings): List<TerminalLine> {
         val ifilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
         val batteryStatus: Intent? = context.registerReceiver(null, ifilter)
         val level: Int = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
@@ -1519,7 +1604,7 @@ class CommandEngine(
         val temp = (batteryStatus?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0) / 10.0
         val tech = batteryStatus?.getStringExtra(BatteryManager.EXTRA_TECHNOLOGY) ?: "Li-ion"
 
-        val estimateText = getBatteryEstimateString(pct, isCharging, isFull)
+        val estimateText = getBatteryEstimateString(pct, isCharging, isFull, settings)
 
         return listOf(
             TerminalLine(text = "DETAILED BATTERY & POWER METRICS", type = LineType.HEADER),
