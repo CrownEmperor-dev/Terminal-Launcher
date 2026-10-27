@@ -4,7 +4,7 @@
 > **PINNED RULE: VERSION NUMBER BUMP POLICY AFTER EVERY SUCCESSFUL BUILD**
 > Change and increment the version number in `app/build.gradle.kts`, `CommandEngine.kt`, `OptionsMenuDialog.kt`, `TerminalViewModel.kt`, and `README.md` after every successful build:
 > 1. **Big Upgrades / Feature Releases**: Increment MINOR version by `+0.1.0` (e.g. `v1.0.0` ➔ `v1.1.0`).
-> 2. **Small Changes / Tweaks / Bug Fixes**: Increment PATCH version by `+0.0.1` (e.g. `v1.0.0` ➔ `v1.0.1`).
+> 2. **Small Changes / Tweaks / Bug Fixes**: Increment PATCH version by `+0.0.1` (e.g. `v1.1.0` ➔ `v1.1.1`).
 
 ---
 
@@ -12,11 +12,14 @@
 
 Any new feature requests, commands, or project phases will be placed at the top of this queue for execution.
 
-*No active phase in queue. Current version: **v1.1.0 (Build 2)**. Ready for next incoming feature requests!*
+*No active phase in queue. Current version: **v1.1.1 (Build 3)**. Ready for next incoming feature requests!*
 
 ---
 
 ## Completed Phases & Feature Summary
+
+### Version 1.1.1 Patch Release [COMPLETED]
+- **16-Track 8-Bit Retro Chiptune Jukebox**: Randomly picks or allows selecting 16 classic retro game melodies (`8bit`, `8bit <1..16>`, `tune mario`, `8bit list`).
 
 ### Version 1.1.0 Feature Release [COMPLETED]
 - **Battery Estimates**: Displays real-time time till full charge (charging) and time till full drain (discharging) in `infofetch`, `battery`, and `battery status`.
