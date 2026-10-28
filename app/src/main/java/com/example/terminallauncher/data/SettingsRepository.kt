@@ -41,6 +41,7 @@ data class LauncherSettings(
     val fastfetchOnStart: Boolean = true,
     val autocompleteEnabled: Boolean = true,
     val statusBarVisible: Boolean = true,
+    val autoShowKeyboard: Boolean = false,
     val lastFullChargeTimestamp: Long = 0L,
     val firstRunCompleted: Boolean = false,
     val aliases: Map<String, String> = mapOf("yt" to "YouTube", "cam" to "Camera", "notes" to "Keep"),
@@ -58,6 +59,7 @@ class SettingsRepository(private val context: Context) {
         val FASTFETCH_ON_START = booleanPreferencesKey("fastfetch_on_start")
         val AUTOCOMPLETE_ENABLED = booleanPreferencesKey("autocomplete_enabled")
         val STATUS_BAR_VISIBLE = booleanPreferencesKey("status_bar_visible")
+        val AUTO_SHOW_KEYBOARD = booleanPreferencesKey("auto_show_keyboard")
         val LAST_FULL_CHARGE_TIME = longPreferencesKey("last_full_charge_time")
         val FIRST_RUN_COMPLETED = booleanPreferencesKey("first_run_completed")
         val ALIASES_RAW = stringPreferencesKey("aliases_raw")
@@ -80,6 +82,7 @@ class SettingsRepository(private val context: Context) {
         val fastfetch = preferences[PreferencesKeys.FASTFETCH_ON_START] ?: true
         val autocomplete = preferences[PreferencesKeys.AUTOCOMPLETE_ENABLED] ?: true
         val statusBar = preferences[PreferencesKeys.STATUS_BAR_VISIBLE] ?: true
+        val autoKeyboard = preferences[PreferencesKeys.AUTO_SHOW_KEYBOARD] ?: false
         val lastCharge = preferences[PreferencesKeys.LAST_FULL_CHARGE_TIME] ?: 0L
         val firstRun = preferences[PreferencesKeys.FIRST_RUN_COMPLETED] ?: false
 
@@ -104,6 +107,7 @@ class SettingsRepository(private val context: Context) {
             fastfetchOnStart = fastfetch,
             autocompleteEnabled = autocomplete,
             statusBarVisible = statusBar,
+            autoShowKeyboard = autoKeyboard,
             lastFullChargeTimestamp = lastCharge,
             firstRunCompleted = firstRun,
             aliases = aliasesMap,
@@ -158,6 +162,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setStatusBarVisible(visible: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.STATUS_BAR_VISIBLE] = visible
+        }
+    }
+
+    suspend fun setAutoShowKeyboard(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.AUTO_SHOW_KEYBOARD] = enabled
         }
     }
 

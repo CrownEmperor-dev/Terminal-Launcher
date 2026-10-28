@@ -624,7 +624,7 @@ class CommandEngine(
             .replace("\$USER", userStr)
             .replace("\$PROMPT", settings.promptString)
             .replace("\$THEME", settings.theme.name.lowercase())
-            .replace("\$VERSION", "v1.2.0")
+            .replace("\$VERSION", "v1.2.1")
             .replace("\$OS", "Android ${Build.VERSION.RELEASE}")
             .replace("\$MODEL", "${Build.MANUFACTURER} ${Build.MODEL}")
 
@@ -653,7 +653,7 @@ class CommandEngine(
             TerminalLine(text = "TERMINAL LAUNCHER - ABOUT", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
             TerminalLine(text = "App Name    : Terminal Launcher", type = LineType.OUTPUT),
-            TerminalLine(text = "Version     : v1.2.0 (Build 4)", type = LineType.OUTPUT),
+            TerminalLine(text = "Version     : v1.2.1 (Build 5)", type = LineType.OUTPUT),
             TerminalLine(text = "Developer   : CrownEmperor-dev", type = LineType.OUTPUT),
             TerminalLine(text = "Framework   : Kotlin & Jetpack Compose", type = LineType.OUTPUT),
             TerminalLine(text = "License     : MIT License", type = LineType.OUTPUT),
@@ -815,7 +815,7 @@ class CommandEngine(
 
     private fun handleHelp(): CommandResult {
         val lines = mutableListOf<TerminalLine>()
-        lines.add(TerminalLine(text = "Terminal Launcher v1.2.0 - Shell Manual", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "Terminal Launcher v1.2.1 - Shell Manual", type = LineType.HEADER))
         lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
         lines.add(TerminalLine(text = "CORE COMMANDS:", type = LineType.HEADER))
         lines.add(TerminalLine(text = "  options / customize GUI visual settings menu", type = LineType.OUTPUT))
@@ -1179,6 +1179,11 @@ class CommandEngine(
                     val enabled = value.lowercase() in listOf("on", "true", "1", "yes")
                     settingsRepository.setAutocompleteEnabled(enabled)
                     CommandResult(outputLines = listOf(TerminalLine(text = "Ghost auto-complete set to ${if (enabled) "on" else "off"}", type = LineType.SUCCESS)))
+                }
+                "autokeyboard", "keyboard" -> {
+                    val enabled = value.lowercase() in listOf("on", "true", "1", "yes")
+                    settingsRepository.setAutoShowKeyboard(enabled)
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Auto-show soft keyboard on launch set to ${if (enabled) "on" else "off"}", type = LineType.SUCCESS)))
                 }
                 "statusbar", "immersion" -> {
                     val visible = value.lowercase() !in listOf("off", "false", "0", "hide")

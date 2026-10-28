@@ -8,7 +8,7 @@
    |_|\___|_|  |_| |_| |_|_|_| |_|\__,_|_| |_____\__,_|\__,_|_| |_|\___|_| |_|\___|_|   
 ```
 
-> **A lite, keyboard-optimized Android Home Screen Launcher built around a Linux terminal command interface.** Designed specifically for physical hardware keyboard phones (*Clicks Communicator*, *Unihertz Titan / Titan Pocket*, *BlackBerry KeyONE*) and touch Android devices.
+> **A lite, keyboard-optimized Android Home Screen Launcher built around a Linux terminal command interface.** Designed specifically for physical hardware keyboard phones (*Clicks Communicator*, *Unihertz Titan / Titan Pocket*, *BlackBerry KeyONE*), Linux Waydroid containers, and touch Android devices.
 
 ---
 
@@ -24,12 +24,12 @@ user@mobile:~$ infofetch
    .-------------.   
   /               \  
 --------------------------------------------------
-OS: Android 8.0+ (API 26+)
+OS: Android 8.0+ (API 26+) / Waydroid Linux
 Host: Android Mobile Device
 Kernel: Linux 5.x / Android Runtime
-Shell: TerminalLauncher v1.2
+Shell: TerminalLauncher v1.2.1
 UI Engine: Jetpack Compose
-Edge-To-Edge & Full Immersion: Active (Hide Status Bar Option)
+Edge-To-Edge & Full Immersion: Active (Hide Status Bar & Auto-Keyboard Toggle)
 Themes: CRT Green | Amber Phosphor | OLED Black | Monochrome | Cyberpunk Cyan | Game Boy | Solarized | Dracula
 ASCII Banners: Default | Bugdroid | Tux | Retro PC | Minimal | Custom Multi-Color | Off
 Autocomplete: Inline Ghost Prediction & Duplicate App Auto-Disambiguation
@@ -54,7 +54,7 @@ SYNOPSIS
 DESCRIPTION
        Terminal Launcher replaces standard icon grids with an ultra-responsive monospaced
        shell interface. It provides instant app launching, duplicate app name auto-disambiguation, inline ghost completion, retro CRT
-       visual styles, hardware keyboard shortcuts, text selection/copy-paste, a GUI options menu, storage navigation, feedback reporting, and built-in system management.
+       visual styles, hardware keyboard shortcuts, Waydroid/physical keyboard auto-show control, text selection/copy-paste, a GUI options menu, storage navigation, feedback reporting, and built-in system management.
 
 OPTIONS & COMMANDS
        core & gui:
@@ -86,6 +86,7 @@ OPTIONS & COMMANDS
            config                     Show current launcher preferences in shell.
            config set theme <theme>   Set palette: green, amber, oled, mono, cyan, gameboy, solarized, dracula.
            config set statusbar <o>   Toggle status bar full immersion (on|off).
+           config set autokeyboard <o> Toggle soft keyboard auto-show on launch (on|off).
            config set fastfetch <o>   Toggle startup system banner display.
            config set prompt <text>   Customize shell prompt string (default: user@mobile:~$ ).
            config set autocomplete <o> Toggle ghost auto-completion overlay.
@@ -98,7 +99,6 @@ OPTIONS & COMMANDS
            calc <expression>    Evaluate inline mathematical equations (e.g. calc (15*4)/3).
            sys flash            Toggle flashlight / camera torch hardware.
            sys ringer <s|v|n>   Set ringer mode: silent, vibrate, normal.
-           sys rotation         Toggle auto-rotation lock.
            sys statusbar        Toggle status bar full immersion.
            sys gps / hotspot    Open Location / Hotspot settings.
            sys settings <page>  Open settings page (e.g. sys settings display, sys settings app spotify).
@@ -115,7 +115,7 @@ Type `options` (or `customize`) anywhere in the terminal to launch the **GUI Opt
 * **Theme Color Palette**: CRT Green, Amber Phosphor, OLED Black, Monochrome, Cyberpunk Cyan, Game Boy Classic, Solarized Dark, Dracula Retro.
 * **Font Size**: Small (12sp), Medium (15sp), Large (18sp).
 * **ASCII Art Banners**: Default title logo, **Bugdroid** (Android mascot), **Tux** (Linux mascot), Retro PC, Minimal, **Custom Multi-Color Editor** (use `[#HEX]` color tags), or Off.
-* **Toggles**: Startup Infofetch banner, Inline Ghost Autocomplete, and Full Immersion Status Bar hiding.
+* **Toggles**: Startup Infofetch banner, Inline Ghost Autocomplete, Full Immersion Status Bar, and **Auto-Show Soft Keyboard on Launch**.
 * **Prompt Editor**: Live shell prompt text editing.
 * **About Card**: Displays app metadata, developer credits, MIT License, and GitHub repository URL.
 
@@ -151,7 +151,7 @@ KEYBOARD SHORTCUTS & NAVIGATION
   [Ctrl + L]             Clear screen line buffer
   [Long Press Buffer]    Highlight, select, and copy terminal output lines
   [Enter]                Execute typed command / launch app (or dismiss Matrix)
-  [Tap Anywhere]         Refocus command input prompt
+  [Tap Anywhere]         Refocus command input prompt and summon soft keyboard
 --------------------------------------------------
 ```
 

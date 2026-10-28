@@ -55,6 +55,7 @@ fun OptionsMenuDialog(
     onSetFastfetch: (Boolean) -> Unit,
     onSetAutocomplete: (Boolean) -> Unit,
     onSetStatusBarVisible: (Boolean) -> Unit,
+    onSetAutoShowKeyboard: (Boolean) -> Unit,
     onSetPrompt: (String) -> Unit,
     onSendFeedback: () -> Unit
 ) {
@@ -341,6 +342,31 @@ fun OptionsMenuDialog(
                     )
                 }
 
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Auto-Show Soft Keyboard:",
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 13.sp,
+                            color = colorScheme.textPrimary
+                        )
+                    )
+                    Switch(
+                        checked = settings.autoShowKeyboard,
+                        onCheckedChange = { onSetAutoShowKeyboard(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colorScheme.background,
+                            checkedTrackColor = colorScheme.promptColor,
+                            uncheckedThumbColor = colorScheme.textGhost,
+                            uncheckedTrackColor = colorScheme.background
+                        )
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Prompt String
@@ -396,7 +422,7 @@ fun OptionsMenuDialog(
                         .padding(8.dp)
                 ) {
                     Text(
-                        text = "Terminal Launcher v1.2.0 (MIT License)",
+                        text = "Terminal Launcher v1.2.1 (MIT License)",
                         style = TextStyle(
                             fontFamily = FontFamily.Monospace,
                             fontSize = 11.sp,

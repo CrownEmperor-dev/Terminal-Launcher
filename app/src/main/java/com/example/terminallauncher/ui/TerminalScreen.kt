@@ -52,6 +52,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -83,6 +84,7 @@ fun TerminalScreen(
     val focusRequester = remember { FocusRequester() }
     val listState = rememberLazyListState()
     val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
 
@@ -156,9 +158,11 @@ fun TerminalScreen(
         }
     }
 
-    // Auto-focus prompt input on launch
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
+    // Auto-focus prompt input on launch if enabled
+    LaunchedEffect(uiState.settings.autoShowKeyboard) {
+        if (uiState.settings.autoShowKeyboard) {
+            focusRequester.requestFocus()
+        }
     }
 
     // Render Matrix Rain Easter Egg overlay if requested
@@ -182,6 +186,7 @@ fun TerminalScreen(
             onSetFastfetch = { viewModel.setFastfetchOnStart(it) },
             onSetAutocomplete = { viewModel.setAutocompleteEnabled(it) },
             onSetStatusBarVisible = { viewModel.setStatusBarVisible(it) },
+            onSetAutoShowKeyboard = { viewModel.setAutoShowKeyboard(it) },
             onSetPrompt = { viewModel.setPromptString(it) },
             onSendFeedback = {
                 viewModel.closeOptionsMenu()
@@ -202,6 +207,7 @@ fun TerminalScreen(
                 indication = null
             ) {
                 focusRequester.requestFocus()
+                keyboardController?.show()
             }
             .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 20.dp)
     ) {

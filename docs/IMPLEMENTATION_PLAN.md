@@ -4,7 +4,7 @@
 > **PINNED RULE: VERSION NUMBER BUMP POLICY AFTER EVERY SUCCESSFUL BUILD**
 > Change and increment the version number in `app/build.gradle.kts`, `CommandEngine.kt`, `OptionsMenuDialog.kt`, `TerminalViewModel.kt`, and `README.md` after every successful build:
 > 1. **Big Upgrades / Feature Releases**: Increment MINOR version by `+0.1.0` (e.g. `v1.0.0` ➔ `v1.1.0`).
-> 2. **Small Changes / Tweaks / Bug Fixes**: Increment PATCH version by `+0.0.1` (e.g. `v1.1.0` ➔ `v1.1.1`).
+> 2. **Small Changes / Tweaks / Bug Fixes**: Increment PATCH version by `+0.0.1` (e.g. `v1.2.0` ➔ `v1.2.1`).
 
 ---
 
@@ -12,17 +12,15 @@
 
 Any new feature requests, commands, or project phases will be placed at the top of this queue for execution.
 
-### Waydroid / Physical Keyboard Support: Configurable Virtual Keyboard Auto-Show Behavior
-- **Problem**: When starting the launcher in Waydroid or on devices with hardware keyboards, the virtual/soft keyboard automatically pops up on app launch, which is intrusive and undesirable.
-- **Goal**: Disable automatic virtual keyboard popup on launch, or make auto-keyboard focus configurable (`config set autokeyboard <on|off>`), so that the virtual keyboard only appears when the user explicitly clicks or touches the screen/input field.
-- **Proposed Technical Solutions**:
-  - Add a DataStore setting for `auto_show_keyboard` (defaulting to `true` or configurable via command/GUI).
-  - Control focus request on initial `TerminalScreen` launch based on the `auto_show_keyboard` setting.
-  - Support tap/touch on terminal screen/input area to explicitly trigger soft keyboard visibility (`WindowInsetsControllerCompat` / `SoftwareKeyboardController.show()`).
+*No active phase in queue. Current version: **v1.2.1 (Build 5)**. Ready for next incoming feature requests!*
 
 ---
 
 ## Completed Phases & Feature Summary
+
+### Version 1.2.1 Patch Release [COMPLETED]
+- **Waydroid & Hardware Keyboard Optimization**: Added `autoShowKeyboard` preference key (`config set autokeyboard <on|off>`) and GUI switch toggle in `OptionsMenuDialog`.
+  - Disables automatic virtual keyboard popup on launch (ideal for Waydroid, BlackBerry KeyONE, Unihertz Titan, Clicks Communicator) so the soft keyboard only appears when explicitly tapping the screen/input.
 
 ### Version 1.2.0 Feature Release [COMPLETED]
 - **Expanded Retro Color Schemes**: Added Cyberpunk Cyan (`CYAN_NEON`), Game Boy Classic (`GAMEBOY_DMG`), Solarized Dark (`SOLARIZED`), and Dracula Retro (`DRACULA`) themes.
@@ -37,7 +35,7 @@ Any new feature requests, commands, or project phases will be placed at the top 
 ### Version 1.1.0 Feature Release [COMPLETED]
 - **Battery Estimates**: Displays real-time time till full charge (charging) and time till full drain (discharging).
 - **Duplicate App Auto-Disambiguation**: Automatically generates unique shortcut aliases (e.g. `calculator.google` vs `calculator.sec`).
-- **In-Terminal Text File Viewer (`cat <file>`)**: Reads `.txt`, `.log`, `.md`, `.json`, `.csv` files directly inside terminal buffer.
+- **In-Terminal Text File Viewer (`cat <file>`)**: Reads `.txt`, `.log`, `.md`, `.json`, `.csv` files.
 - **8-Bit Chiptune Square Wave Audio Easter Egg (`8bit` / `tune`)**: Synthesizes retro 8-bit square wave PCM melody via Android `AudioTrack` API.
 - **Email Dispatcher (`email <to> [subject] [body]`)**: Pre-fills recipient, subject, and body in Proton Mail, Gmail, or default email client.
 - **Play Store App Installation (`install <app>`)**: Launches Google Play Store app or browser directly to search/details page.

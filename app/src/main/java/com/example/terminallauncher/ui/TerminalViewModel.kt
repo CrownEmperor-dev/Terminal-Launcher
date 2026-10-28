@@ -127,6 +127,12 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun setAutoShowKeyboard(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setAutoShowKeyboard(enabled)
+        }
+    }
+
     fun setPromptString(prompt: String) {
         viewModelScope.launch {
             settingsRepository.setPromptString(prompt)
