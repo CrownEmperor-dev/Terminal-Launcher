@@ -158,10 +158,11 @@ fun TerminalScreen(
         }
     }
 
-    // Auto-focus prompt input on launch if enabled
-    LaunchedEffect(uiState.settings.autoShowKeyboard) {
-        if (uiState.settings.autoShowKeyboard) {
-            focusRequester.requestFocus()
+    // Always focus prompt input on launch so cursor is active for typing immediately!
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+        if (!uiState.settings.autoShowKeyboard) {
+            keyboardController?.hide()
         }
     }
 

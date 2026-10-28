@@ -27,7 +27,7 @@ user@mobile:~$ infofetch
 OS: Android 8.0+ (API 26+) / Waydroid Linux
 Host: Android Mobile Device
 Kernel: Linux 5.x / Android Runtime
-Shell: TerminalLauncher v1.2.1
+Shell: TerminalLauncher v1.2.2
 UI Engine: Jetpack Compose
 Edge-To-Edge & Full Immersion: Active (Hide Status Bar & Auto-Keyboard Toggle)
 Themes: CRT Green | Amber Phosphor | OLED Black | Monochrome | Cyberpunk Cyan | Game Boy | Solarized | Dracula

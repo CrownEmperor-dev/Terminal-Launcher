@@ -422,7 +422,7 @@ fun OptionsMenuDialog(
                         .padding(8.dp)
                 ) {
                     Text(
-                        text = "Terminal Launcher v1.2.1 (MIT License)",
+                        text = "Terminal Launcher v1.2.2 (MIT License)",
                         style = TextStyle(
                             fontFamily = FontFamily.Monospace,
                             fontSize = 11.sp,
