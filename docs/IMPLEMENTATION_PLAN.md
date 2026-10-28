@@ -12,7 +12,23 @@
 
 Any new feature requests, commands, or project phases will be placed at the top of this queue for execution.
 
-*No active phase in queue. Current version: **v1.2.3 (Build 7)**. Ready for next incoming feature requests!*
+### Enhanced `trim` / `killall` Command & Recent Apps Clearing Plan
+- **Problem**: Running `trim` or `killall` frees background process RAM via `ActivityManager.killBackgroundProcesses()`, but does not remove third-party apps from the Android System Recent Apps overview screen (Recents UI), making it seem like "it doesn't do much".
+- **Android Security Constraints**:
+  - Android 8.0+ (API 26+) strictly restricts standard non-root applications from programmatically closing or swiping away third-party app tasks from the System Recents screen (`android.permission.REMOVE_TASKS` is a signature/system-only permission).
+  - `ActivityManager.appTasks` can only remove the current launcher's own task stack.
+
+- **Proposed Solutions & Execution Options**:
+  1. **Option A: Enhanced Memory Trimmer with RAM Delta Metrics**
+     - Measure RAM usage before and after `killBackgroundProcesses()` + `System.gc()`.
+     - Output exact MB of RAM freed (e.g. `[TRIM SUCCESS]: Terminated background processes across 14 apps. Freed 342 MB RAM.`).
+     - Display clear status explaining Android's Recents security model.
+  2. **Option B: Direct Recent Apps Overview Launcher (`trim recents` / `sys recents`)**
+     - Add `trim recents` or `sys recents` command that opens Android's System Recent Apps overview screen via `AccessibilityService.GLOBAL_ACTION_RECENTS` or System Service Intent, allowing the user to tap "Clear All" instantly.
+  3. **Option C: Optional Accessibility Service Helper (`AccessibilityService`)**
+     - Provide an optional Accessibility Service module in Terminal Launcher. When enabled by user in Android Settings, the service can perform `GLOBAL_ACTION_RECENTS` and automatically perform a "Clear All" swipe action when `trim` or `clear-recents` is run.
+
+*Current version: **v1.2.3 (Build 7)**.*
 
 ---
 
