@@ -243,13 +243,17 @@ class CommandEngine(
         var target = "auto"
         var userMsg = argsInput.trim()
 
-        if (userMsg.lowercase().startsWith("github ")) {
+        val lowerInput = userMsg.lowercase()
+        if (lowerInput == "github" || lowerInput.startsWith("github ")) {
             target = "github"
-            userMsg = userMsg.substring("github ".length).trim()
-        } else if (userMsg.lowercase().startsWith("email ") || userMsg.lowercase().startsWith("mail ")) {
+            userMsg = if (lowerInput == "github") "" else userMsg.substring("github ".length).trim()
+        } else if (lowerInput == "email" || lowerInput == "mail" || lowerInput.startsWith("email ") || lowerInput.startsWith("mail ")) {
             target = "email"
-            val prefixLength = if (userMsg.lowercase().startsWith("email ")) "email ".length else "mail ".length
-            userMsg = userMsg.substring(prefixLength).trim()
+            userMsg = when {
+                lowerInput == "email" || lowerInput == "mail" -> ""
+                lowerInput.startsWith("email ") -> userMsg.substring("email ".length).trim()
+                else -> userMsg.substring("mail ".length).trim()
+            }
         }
 
         val messageBody = if (userMsg.isBlank()) "User Feedback Report" else userMsg
@@ -265,75 +269,96 @@ class CommandEngine(
             |RAM: ${getRamUsageInfo()}
         """.trimMargin()
 
+        val subject = "[Terminal Launcher v1.2.3 Feedback]"
         val githubIssueUrl = "https://github.com/CrownEmperor-dev/Terminal-Launcher/issues/new?title=${Uri.encode("User Feedback / Bug Report")}&body=${Uri.encode(formattedBody)}"
-        val mailtoUri = "mailto:crownemperordev@gmail.com?subject=${Uri.encode("[Terminal Launcher v1.2.3 Feedback]")}&body=${Uri.encode(formattedBody)}"
+        val mailtoUri = "mailto:crownemperordev@gmail.com?subject=${Uri.encode(subject)}&body=${Uri.encode(formattedBody)}"
 
-        if (target == "email") {
+        fun launchEmailIntent(): Boolean {
             return try {
                 val emailIntent = Intent(Intent.ACTION_SENDTO, Uri.parse(mailtoUri)).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(emailIntent)
+                true
+            } catch (_: Exception) {
+                try {
+                    val fallbackIntent = Intent(Intent.ACTION_SENDTO).apply {
+                        data = Uri.parse("mailto:crownemperordev@gmail.com")
+                        putExtra(Intent.EXTRA_SUBJECT, subject)
+                        putExtra(Intent.EXTRA_TEXT, formattedBody)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(fallbackIntent)
+                    true
+                } catch (_: Exception) {
+                    false
+                }
+            }
+        }
+
+        fun launchGithubIntent(): Boolean {
+            return try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(githubIssueUrl)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                true
+            } catch (_: Exception) {
+                false
+            }
+        }
+
+        if (target == "email") {
+            return if (launchEmailIntent()) {
                 CommandResult(
                     outputLines = listOf(
                         TerminalLine(text = "Opening direct email compose pre-filled to crownemperordev@gmail.com...", type = LineType.SUCCESS)
                     )
                 )
-            } catch (e: Exception) {
+            } else {
                 CommandResult(
-                    outputLines = listOf(TerminalLine(text = "Unable to open email client: ${e.message}", type = LineType.ERROR)),
+                    outputLines = listOf(TerminalLine(text = "Unable to open email client. Please ensure an email app is installed.", type = LineType.ERROR)),
                     success = false
                 )
             }
         }
 
         if (target == "github") {
-            return try {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(githubIssueUrl)).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
+            return if (launchGithubIntent()) {
                 CommandResult(
                     outputLines = listOf(
                         TerminalLine(text = "Opening GitHub Issues with pre-filled feedback & diagnostic metrics...", type = LineType.SUCCESS)
                     )
                 )
-            } catch (e: Exception) {
+            } else {
                 CommandResult(
-                    outputLines = listOf(TerminalLine(text = "Unable to launch browser for GitHub Issues: ${e.message}", type = LineType.ERROR)),
+                    outputLines = listOf(TerminalLine(text = "Unable to launch browser for GitHub Issues.", type = LineType.ERROR)),
                     success = false
                 )
             }
         }
 
-        return try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(githubIssueUrl)).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(intent)
-            CommandResult(
+        // Auto target: try GitHub first, fallback to Email
+        if (launchGithubIntent()) {
+            return CommandResult(
                 outputLines = listOf(
                     TerminalLine(text = "Opening GitHub Issues with pre-filled feedback & diagnostic metrics...", type = LineType.SUCCESS)
                 )
             )
-        } catch (_: Exception) {
-            try {
-                val emailIntent = Intent(Intent.ACTION_SENDTO, Uri.parse(mailtoUri)).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(emailIntent)
-                CommandResult(
-                    outputLines = listOf(
-                        TerminalLine(text = "Opening email compose pre-filled with feedback & diagnostic metrics...", type = LineType.SUCCESS)
-                    )
-                )
-            } catch (e: Exception) {
-                CommandResult(
-                    outputLines = listOf(TerminalLine(text = "Unable to launch feedback dispatcher: ${e.message}", type = LineType.ERROR)),
-                    success = false
-                )
-            }
         }
+
+        if (launchEmailIntent()) {
+            return CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "Opening email compose pre-filled with feedback & diagnostic metrics...", type = LineType.SUCCESS)
+                )
+            )
+        }
+
+        return CommandResult(
+            outputLines = listOf(TerminalLine(text = "Unable to launch feedback dispatcher.", type = LineType.ERROR)),
+            success = false
+        )
     }
 
     private fun handleCat(filePath: String): CommandResult {
