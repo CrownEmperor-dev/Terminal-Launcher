@@ -183,7 +183,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ## 📄 Documentation & Roadmap
 * **[Implementation Plan](docs/IMPLEMENTATION_PLAN.md)**: Living roadmap, version history, and active priority queue.
-* **[Developer Tutorial Guide](docs/DEVELOPER_TUTORIAL.md)**: Complete textbook manual on how Terminal Launcher is built from scratch.
+
 
 ---
 
