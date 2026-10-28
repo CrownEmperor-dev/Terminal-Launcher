@@ -192,6 +192,10 @@ fun TerminalScreen(
             onSendFeedback = {
                 viewModel.closeOptionsMenu()
                 viewModel.sendFeedbackCommand()
+            },
+            onSendEmailFeedback = {
+                viewModel.closeOptionsMenu()
+                viewModel.sendEmailFeedbackCommand()
             }
         )
     }

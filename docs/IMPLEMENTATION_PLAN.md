@@ -8,60 +8,21 @@
 
 ---
 
-## Active Phase: Dual Feedback & Bug Reporting System (Primary: GitHub Issues, Secondary: Direct Email)
+## Active Priority Queue (Next Intake Stack)
 
-### Proposed Feature Details
+Any new feature requests, commands, or project phases will be placed at the top of this queue for execution.
 
-#### 1. Primary Path: GitHub Issues Intent Dispatcher ⭐
-- **Command Syntax**: `feedback <message>` or `report <bug>` or `feedback github <message>`.
-- **Execution Logic**:
-  - Constructs pre-filled GitHub Issue URL on repository (`https://github.com/CrownEmperor-dev/Terminal-Launcher/issues/new?title=User+Feedback&body=...`).
-  - Automatically attaches user message and diagnostic hardware metrics (Launcher version, Android OS, phone model, RAM).
-  - Launches web browser directly to GitHub's issue creation page.
-
-#### 2. Secondary Path: Direct Email Dispatcher (`crownemperordev@gmail.com`) ⭐
-- **Command Syntax**: `feedback email <message>` or fallback if browser is unavailable.
-- **Execution Logic**:
-  - Constructs pre-filled `mailto:crownemperordev@gmail.com` Intent with:
-    - **To**: `crownemperordev@gmail.com`
-    - **Subject**: `[Terminal Launcher v1.2.3 Feedback]`
-    - **Body**: Pre-filled user message + automatic hardware diagnostics.
-  - Launches user's preferred email client (**Proton Mail**, **Gmail**, Outlook, K-9 Mail) pre-filled and ready to send.
-
-#### 3. GUI Options Menu Dual Feedback Buttons
-- In `OptionsMenuDialog`, provides both **`[ REPORT ISSUE ON GITHUB ]`** and **`[ SEND DIRECT EMAIL ]`** buttons.
-
-#### 4. Autocomplete & Documentation
-- Include `feedback` and `report` in shell autocomplete and manual.
-- Bump version to **`v1.2.3` (Build 7)** upon completion.
-
----
-
-## Proposed Changes
-
-### Command Engine & UI Layer
-
-#### [MODIFY] [CommandEngine.kt](file:///home/mohammed/AndroidStudioProjects/TerminalLauncher/app/src/main/java/com/example/terminallauncher/data/CommandEngine.kt)
-- Update `handleFeedback(userMsg)` to support both GitHub Issues primary intent and direct email secondary fallback to `crownemperordev@gmail.com`.
-- Add `feedback` and `report` to `execute()`, `handleHelp()`, and `ls /system`.
-
-#### [MODIFY] [OptionsMenuDialog.kt](file:///home/mohammed/AndroidStudioProjects/TerminalLauncher/app/src/main/java/com/example/terminallauncher/ui/OptionsMenuDialog.kt)
-- Add GitHub Issues and Direct Email feedback buttons in `OptionsMenuDialog`.
-
----
-
-## Verification Plan
-
-### Automated Tests
-- Unit test verifying URL/mailto URI formatting for GitHub Issues and direct email to `crownemperordev@gmail.com`.
-
-### Manual Verification
-- Execute `feedback "Great terminal launcher!"` -> verify browser opens pre-filled GitHub Issue form with device specs.
-- Execute `feedback email "Direct email test"` -> verify email client opens pre-filled to `crownemperordev@gmail.com`.
+*No active phase in queue. Current version: **v1.2.3 (Build 7)**. Ready for next incoming feature requests!*
 
 ---
 
 ## Completed Phases & Feature Summary
+
+### Version 1.2.3 Patch Release [COMPLETED]
+- **Dual Feedback & Bug Reporting System**:
+  - Primary Path: Pre-filled GitHub Issue launcher (`feedback <msg>`, `report <bug>`, `feedback github <msg>`) with auto-attached diagnostic specs.
+  - Secondary Path: Direct email dispatcher (`feedback email <msg>`, `report email <bug>`) targeting `crownemperordev@gmail.com`.
+  - GUI Options Menu Dual Buttons: **`[ REPORT ISSUE ON GITHUB ]`** and **`[ SEND DIRECT EMAIL ]`** options in `OptionsMenuDialog`.
 
 ### Version 1.2.2 Patch Release [COMPLETED]
 - **Waydroid & Linux PC Cursor Focus Fix**: Always maintains active input focus and blinking cursor on boot for instant physical/laptop keyboard typing, while actively suppressing the virtual software keyboard when `autokeyboard` is set to `off` (the default).

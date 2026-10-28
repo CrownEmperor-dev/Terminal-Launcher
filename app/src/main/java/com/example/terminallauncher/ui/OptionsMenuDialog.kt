@@ -57,7 +57,8 @@ fun OptionsMenuDialog(
     onSetStatusBarVisible: (Boolean) -> Unit,
     onSetAutoShowKeyboard: (Boolean) -> Unit,
     onSetPrompt: (String) -> Unit,
-    onSendFeedback: () -> Unit
+    onSendFeedback: () -> Unit,
+    onSendEmailFeedback: () -> Unit = {}
 ) {
     var promptInput by remember { mutableStateOf(settings.promptString) }
     var customAsciiInput by remember { mutableStateOf(settings.customAsciiArt) }
@@ -422,7 +423,7 @@ fun OptionsMenuDialog(
                         .padding(8.dp)
                 ) {
                     Text(
-                        text = "Terminal Launcher v1.2.2 (MIT License)",
+                        text = "Terminal Launcher v1.2.3 (MIT License)",
                         style = TextStyle(
                             fontFamily = FontFamily.Monospace,
                             fontSize = 11.sp,
@@ -450,24 +451,46 @@ fun OptionsMenuDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                Button(
-                    onClick = onSendFeedback,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = colorScheme.background,
-                        contentColor = colorScheme.promptColor
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, colorScheme.promptColor, RoundedCornerShape(4.dp))
-                ) {
-                    Text(
-                        text = "[ SEND FEEDBACK / REPORT BUG ]",
-                        style = TextStyle(
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.sp
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = onSendFeedback,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colorScheme.background,
+                            contentColor = colorScheme.promptColor
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, colorScheme.promptColor, RoundedCornerShape(4.dp))
+                    ) {
+                        Text(
+                            text = "[ REPORT ISSUE ON GITHUB ]",
+                            style = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
                         )
-                    )
+                    }
+
+                    Button(
+                        onClick = onSendEmailFeedback,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colorScheme.background,
+                            contentColor = colorScheme.promptColor
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, colorScheme.promptColor, RoundedCornerShape(4.dp))
+                    ) {
+                        Text(
+                            text = "[ SEND DIRECT EMAIL ]",
+                            style = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))

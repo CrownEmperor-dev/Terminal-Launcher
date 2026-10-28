@@ -53,7 +53,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                         _uiState.value = _uiState.value.copy(lines = savedBuffer)
                     } else {
                         val initialLines = mutableListOf<TerminalLine>()
-                        initialLines.add(TerminalLine(text = "Welcome to Terminal Launcher v1.2", type = LineType.HEADER))
+                        initialLines.add(TerminalLine(text = "Welcome to Terminal Launcher v1.2.3", type = LineType.HEADER))
                         initialLines.add(TerminalLine(text = "Type 'help' for documentation, 'ls' for app list, 'options' for GUI settings.", type = LineType.SYSTEM))
                         val settings = _uiState.value.settings
                         if (settings.fastfetchOnStart) {
@@ -141,7 +141,17 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
     fun sendFeedbackCommand() {
         viewModelScope.launch {
-            val result = commandEngine.execute("feedback", _uiState.value.settings)
+            val result = commandEngine.execute("feedback github", _uiState.value.settings)
+            val updatedLines = _uiState.value.lines.toMutableList()
+            updatedLines.addAll(result.outputLines)
+            _uiState.value = _uiState.value.copy(lines = updatedLines)
+            settingsRepository.saveTerminalBuffer(updatedLines)
+        }
+    }
+
+    fun sendEmailFeedbackCommand() {
+        viewModelScope.launch {
+            val result = commandEngine.execute("feedback email", _uiState.value.settings)
             val updatedLines = _uiState.value.lines.toMutableList()
             updatedLines.addAll(result.outputLines)
             _uiState.value = _uiState.value.copy(lines = updatedLines)
@@ -330,7 +340,8 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     private fun getBuiltInCommandCompletion(input: String): String {
         val completions = listOf(
             "help", "options", "about", "version", "time", "date", "killall", "trim",
-            "echo", "search", "google", "feedback", "report", "matrix", "infofetch", "infofetch update",
+            "echo", "search", "google", "feedback", "feedback github", "feedback email",
+            "report", "report github", "report email", "matrix", "infofetch", "infofetch update",
             "fastfetch", "neofetch", "clear", "history", "config",
             "config set theme", "config set fastfetch", "config set prompt",
             "config set autocomplete", "config set statusbar", "config set size", "config set ascii",

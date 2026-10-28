@@ -221,7 +221,7 @@ class CommandEngine(
             "Uptime: $uptime",
             "RAM: $ramInfo",
             "Battery: $batInfo",
-            "Shell: TerminalLauncher v1.2"
+            "Shell: TerminalLauncher v1.2.3"
         )
 
         val result = mutableListOf<TerminalLine>()
@@ -235,10 +235,22 @@ class CommandEngine(
         return result
     }
 
-    private fun handleFeedback(userMsg: String, currentSettings: LauncherSettings): CommandResult {
+    private fun handleFeedback(argsInput: String, currentSettings: LauncherSettings): CommandResult {
         val model = "${Build.MANUFACTURER} ${Build.MODEL}"
         val os = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
-        val version = "v1.2.0"
+        val version = "v1.2.3"
+
+        var target = "auto"
+        var userMsg = argsInput.trim()
+
+        if (userMsg.lowercase().startsWith("github ")) {
+            target = "github"
+            userMsg = userMsg.substring("github ".length).trim()
+        } else if (userMsg.lowercase().startsWith("email ") || userMsg.lowercase().startsWith("mail ")) {
+            target = "email"
+            val prefixLength = if (userMsg.lowercase().startsWith("email ")) "email ".length else "mail ".length
+            userMsg = userMsg.substring(prefixLength).trim()
+        }
 
         val messageBody = if (userMsg.isBlank()) "User Feedback Report" else userMsg
         val formattedBody = """
@@ -254,6 +266,45 @@ class CommandEngine(
         """.trimMargin()
 
         val githubIssueUrl = "https://github.com/CrownEmperor-dev/Terminal-Launcher/issues/new?title=${Uri.encode("User Feedback / Bug Report")}&body=${Uri.encode(formattedBody)}"
+        val mailtoUri = "mailto:crownemperordev@gmail.com?subject=${Uri.encode("[Terminal Launcher v1.2.3 Feedback]")}&body=${Uri.encode(formattedBody)}"
+
+        if (target == "email") {
+            return try {
+                val emailIntent = Intent(Intent.ACTION_SENDTO, Uri.parse(mailtoUri)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(emailIntent)
+                CommandResult(
+                    outputLines = listOf(
+                        TerminalLine(text = "Opening direct email compose pre-filled to crownemperordev@gmail.com...", type = LineType.SUCCESS)
+                    )
+                )
+            } catch (e: Exception) {
+                CommandResult(
+                    outputLines = listOf(TerminalLine(text = "Unable to open email client: ${e.message}", type = LineType.ERROR)),
+                    success = false
+                )
+            }
+        }
+
+        if (target == "github") {
+            return try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(githubIssueUrl)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                CommandResult(
+                    outputLines = listOf(
+                        TerminalLine(text = "Opening GitHub Issues with pre-filled feedback & diagnostic metrics...", type = LineType.SUCCESS)
+                    )
+                )
+            } catch (e: Exception) {
+                CommandResult(
+                    outputLines = listOf(TerminalLine(text = "Unable to launch browser for GitHub Issues: ${e.message}", type = LineType.ERROR)),
+                    success = false
+                )
+            }
+        }
 
         return try {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(githubIssueUrl)).apply {
@@ -266,7 +317,6 @@ class CommandEngine(
                 )
             )
         } catch (_: Exception) {
-            val mailtoUri = "mailto:crownemperor.dev@gmail.com?subject=${Uri.encode("Terminal Launcher v1.2.0 Feedback")}&body=${Uri.encode(formattedBody)}"
             try {
                 val emailIntent = Intent(Intent.ACTION_SENDTO, Uri.parse(mailtoUri)).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -624,7 +674,7 @@ class CommandEngine(
             .replace("\$USER", userStr)
             .replace("\$PROMPT", settings.promptString)
             .replace("\$THEME", settings.theme.name.lowercase())
-            .replace("\$VERSION", "v1.2.2")
+            .replace("\$VERSION", "v1.2.3")
             .replace("\$OS", "Android ${Build.VERSION.RELEASE}")
             .replace("\$MODEL", "${Build.MANUFACTURER} ${Build.MODEL}")
 
@@ -653,7 +703,7 @@ class CommandEngine(
             TerminalLine(text = "TERMINAL LAUNCHER - ABOUT", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
             TerminalLine(text = "App Name    : Terminal Launcher", type = LineType.OUTPUT),
-            TerminalLine(text = "Version     : v1.2.2 (Build 6)", type = LineType.OUTPUT),
+            TerminalLine(text = "Version     : v1.2.3 (Build 7)", type = LineType.OUTPUT),
             TerminalLine(text = "Developer   : CrownEmperor-dev", type = LineType.OUTPUT),
             TerminalLine(text = "Framework   : Kotlin & Jetpack Compose", type = LineType.OUTPUT),
             TerminalLine(text = "License     : MIT License", type = LineType.OUTPUT),
@@ -815,7 +865,7 @@ class CommandEngine(
 
     private fun handleHelp(): CommandResult {
         val lines = mutableListOf<TerminalLine>()
-        lines.add(TerminalLine(text = "Terminal Launcher v1.2.2 - Shell Manual", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "Terminal Launcher v1.2.3 - Shell Manual", type = LineType.HEADER))
         lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
         lines.add(TerminalLine(text = "CORE COMMANDS:", type = LineType.HEADER))
         lines.add(TerminalLine(text = "  options / customize GUI visual settings menu", type = LineType.OUTPUT))
