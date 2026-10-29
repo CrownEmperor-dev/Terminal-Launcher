@@ -174,7 +174,7 @@ class CommandEngine(
             "cat", "read", "view" -> handleCat(args.joinToString(" "))
             "8bit", "tune", "chiptune", "music", "retro" -> handle8BitTune(args)
             "email", "mail", "sendmail" -> handleEmail(args)
-            "termux", "tx" -> handleTermux(args)
+            "whatsnew", "changelog", "news" -> handleWhatsNew()
             "options", "customize", "preferences" -> CommandResult(
                 outputLines = listOf(TerminalLine(text = "Opening GUI Options Menu...", type = LineType.SUCCESS)),
                 openOptionsMenu = true
@@ -210,7 +210,30 @@ class CommandEngine(
         val osVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
         val model = "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}"
         val cpuArch = Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown"
+        val cpuCores = Runtime.getRuntime().availableProcessors()
         val ramInfo = getRamUsageInfo()
+
+        val storageInfo = try {
+            val stat = android.os.StatFs(Environment.getDataDirectory().path)
+            val blockSize = stat.blockSizeLong
+            val totalBytes = stat.blockCountLong * blockSize
+            val availBytes = stat.availableBlocksLong * blockSize
+            val freeGb = String.format(Locale.US, "%.1f", availBytes / (1024.0 * 1024.0 * 1024.0))
+            val totalGb = String.format(Locale.US, "%.1f", totalBytes / (1024.0 * 1024.0 * 1024.0))
+            "${freeGb}GB free / ${totalGb}GB"
+        } catch (_: Exception) {
+            "Storage Info Unavailable"
+        }
+
+        val appCountInfo = try {
+            val allPkgs = context.packageManager.getInstalledPackages(0)
+            val systemCount = allPkgs.count { ((it.applicationInfo?.flags ?: 0) and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0 }
+            val userCount = allPkgs.size - systemCount
+            "$userCount User / $systemCount System (${allPkgs.size} Total)"
+        } catch (_: Exception) {
+            "App Count Unavailable"
+        }
+
         val batInfo = getBatteryStatusInfo(settings)
         val uptime = getUptimeString()
 
@@ -220,11 +243,13 @@ class CommandEngine(
             "OS: $osVersion",
             "Host: $model",
             "Kernel: Linux ${System.getProperty("os.version") ?: "Android"}",
-            "Arch: $cpuArch",
+            "CPU: $cpuArch ($cpuCores Cores)",
             "Uptime: $uptime",
             "RAM: $ramInfo",
+            "Storage: $storageInfo",
+            "Apps: $appCountInfo",
             "Battery: $batInfo",
-            "Shell: TerminalLauncher v1.3"
+            "Shell: TerminalLauncher v1.3.2"
         )
 
         val result = mutableListOf<TerminalLine>()
@@ -241,7 +266,7 @@ class CommandEngine(
     private fun handleFeedback(userMsg: String, currentSettings: LauncherSettings): CommandResult {
         val model = "${Build.MANUFACTURER} ${Build.MODEL}"
         val os = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
-        val version = "v1.3.1"
+        val version = "v1.3.2"
 
         val trimmedMsg = userMsg.trim()
         val isForceEmail = trimmedMsg.lowercase().startsWith("email ") || trimmedMsg.lowercase() == "email"
@@ -536,98 +561,17 @@ class CommandEngine(
         }
     }
 
-    private fun handleTermuxSetup(): CommandResult {
+    private fun handleWhatsNew(): CommandResult {
         val lines = listOf(
-            TerminalLine(text = "TERMUX INTEGRATION SETUP INSTRUCTIONS", type = LineType.HEADER),
+            TerminalLine(text = "TERMINAL LAUNCHER - WHAT'S NEW IN V1.3.2", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
-            TerminalLine(text = "1. Open Termux on your device.", type = LineType.OUTPUT),
-            TerminalLine(text = "2. Copy and run this exact command inside Termux:", type = LineType.OUTPUT),
-            TerminalLine(text = "   echo \"allow-external-apps = true\" >> ~/.termux/termux.properties && termux-reload-settings", type = LineType.SUCCESS),
-            TerminalLine(text = "3. Ensure Termux is installed from F-Droid or GitHub (build 0.118+).", type = LineType.OUTPUT),
+            TerminalLine(text = "• Uninstallation Fix : Direct App Info fallback for Android 11-15 (MIUI / Moto)", type = LineType.OUTPUT),
+            TerminalLine(text = "• Optimized Core Engine: Removed deprecated Termux background dependencies", type = LineType.OUTPUT),
+            TerminalLine(text = "• Enhanced Infofetch   : Added CPU cores, Disk Storage, & User/System app counts", type = LineType.OUTPUT),
+            TerminalLine(text = "• Release Notes Viewer : Type 'whatsnew' or 'changelog' anytime in shell", type = LineType.OUTPUT),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM)
         )
         return CommandResult(outputLines = lines)
-    }
-
-    private fun handleTermux(args: List<String>): CommandResult {
-        val termuxPackage = "com.termux"
-        val pm = context.packageManager
-        val isInstalled = try {
-            pm.getLaunchIntentForPackage(termuxPackage) != null
-        } catch (_: Exception) {
-            false
-        }
-
-        if (!isInstalled) {
-            return CommandResult(
-                outputLines = listOf(
-                    TerminalLine(text = "Termux application is not installed on this device.", type = LineType.ERROR),
-                    TerminalLine(text = "Install Termux from F-Droid or GitHub to enable Termux commands.", type = LineType.SYSTEM)
-                ),
-                success = false
-            )
-        }
-
-        val subCmd = args.firstOrNull()?.lowercase() ?: ""
-        if (subCmd == "setup" || subCmd == "config") {
-            return handleTermuxSetup()
-        }
-
-        if (args.isEmpty()) {
-            val launchIntent = pm.getLaunchIntentForPackage(termuxPackage)
-            if (launchIntent != null) {
-                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(launchIntent)
-                return CommandResult(outputLines = listOf(TerminalLine(text = "Opening Termux terminal...", type = LineType.SUCCESS)))
-            } else {
-                return CommandResult(outputLines = listOf(TerminalLine(text = "Unable to launch Termux.", type = LineType.ERROR)), success = false)
-            }
-        }
-
-        val fullCommand = args.joinToString(" ")
-        val interactiveTools = setOf("nano", "vim", "vi", "emacs", "micro", "htop", "top", "less", "more", "man", "gdb", "python", "node", "bash", "zsh", "fish", "tmux", "screen")
-        val isInteractive = interactiveTools.contains(subCmd)
-
-        return try {
-            val intent = Intent("com.termux.RUN_COMMAND").apply {
-                setClassName("com.termux", "com.termux.app.RunCommandService")
-                putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash")
-                putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf("-c", fullCommand))
-                putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
-                putExtra("com.termux.RUN_COMMAND_BACKGROUND", !isInteractive)
-                putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "0")
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-
-            context.startService(intent)
-
-            val msg = if (isInteractive) {
-                "Launching Termux ($fullCommand)..."
-            } else {
-                "Sent Termux command: '$fullCommand'"
-            }
-
-            CommandResult(
-                outputLines = listOf(
-                    TerminalLine(text = msg, type = LineType.SUCCESS),
-                    TerminalLine(text = "Tip: Run 'tx setup' for Termux external app setup instructions.", type = LineType.SYSTEM)
-                )
-            )
-        } catch (_: Exception) {
-            val launchIntent = pm.getLaunchIntentForPackage(termuxPackage)
-            if (launchIntent != null) {
-                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(launchIntent)
-                CommandResult(
-                    outputLines = listOf(
-                        TerminalLine(text = "Opened Termux terminal for '$fullCommand'.", type = LineType.SUCCESS),
-                        TerminalLine(text = "Run 'tx setup' to configure automatic background command execution.", type = LineType.SYSTEM)
-                    )
-                )
-            } else {
-                CommandResult(outputLines = listOf(TerminalLine(text = "Failed to send command to Termux.", type = LineType.ERROR)), success = false)
-            }
-        }
     }
 
     private suspend fun handleInfofetch(args: List<String>, settings: LauncherSettings): CommandResult {
@@ -654,7 +598,7 @@ class CommandEngine(
             .replace("\$USER", userStr)
             .replace("\$PROMPT", settings.promptString)
             .replace("\$THEME", settings.theme.name.lowercase())
-            .replace("\$VERSION", "v1.3.1")
+            .replace("\$VERSION", "v1.3.2")
             .replace("\$OS", "Android ${Build.VERSION.RELEASE}")
             .replace("\$MODEL", "${Build.MANUFACTURER} ${Build.MODEL}")
 
@@ -683,7 +627,7 @@ class CommandEngine(
             TerminalLine(text = "TERMINAL LAUNCHER - ABOUT", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
             TerminalLine(text = "App Name    : Terminal Launcher", type = LineType.OUTPUT),
-            TerminalLine(text = "Version     : v1.3.1 (Build 9)", type = LineType.OUTPUT),
+            TerminalLine(text = "Version     : v1.3.2 (Build 8)", type = LineType.OUTPUT),
             TerminalLine(text = "Developer   : CrownEmperor-dev", type = LineType.OUTPUT),
             TerminalLine(text = "Framework   : Kotlin & Jetpack Compose", type = LineType.OUTPUT),
             TerminalLine(text = "License     : MIT License", type = LineType.OUTPUT),
@@ -834,34 +778,26 @@ class CommandEngine(
         val label = app.label
 
         return try {
-            val packageInstaller = context.packageManager.packageInstaller
-            val callbackIntent = Intent(context, MainActivity::class.java).apply {
-                putExtra("UNINSTALL_PKG", pkgName)
+            val deleteIntent = Intent(Intent.ACTION_DELETE).apply {
+                data = Uri.fromParts("package", pkgName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-            } else {
-                PendingIntent.FLAG_UPDATE_CURRENT
-            }
-            val pendingIntent = PendingIntent.getActivity(context, 0, callbackIntent, flags)
-
-            packageInstaller.uninstall(pkgName, pendingIntent.intentSender)
-
+            context.startActivity(deleteIntent)
             CommandResult(
                 outputLines = listOf(
-                    TerminalLine(text = "Opening system uninstallation prompt for $label ($pkgName)...", type = LineType.SUCCESS)
+                    TerminalLine(text = "Opening uninstallation prompt for $label ($pkgName)...", type = LineType.SUCCESS)
                 )
             )
         } catch (_: Exception) {
             try {
                 val settingsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                    data = Uri.parse("package:$pkgName")
+                    data = Uri.fromParts("package", pkgName, null)
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(settingsIntent)
                 CommandResult(
                     outputLines = listOf(
-                        TerminalLine(text = "Opened App Info for $label ($pkgName)...", type = LineType.SUCCESS),
+                        TerminalLine(text = "Opened App Info Settings for $label ($pkgName)...", type = LineType.SUCCESS),
                         TerminalLine(text = "Tap 'Uninstall' on the App Info page to remove.", type = LineType.SYSTEM)
                     )
                 )
@@ -925,11 +861,12 @@ class CommandEngine(
 
     private fun handleHelp(): CommandResult {
         val lines = mutableListOf<TerminalLine>()
-        lines.add(TerminalLine(text = "Terminal Launcher v1.3.1 - Shell Manual", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "Terminal Launcher v1.3.2 - Shell Manual", type = LineType.HEADER))
         lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
         lines.add(TerminalLine(text = "CORE COMMANDS:", type = LineType.HEADER))
         lines.add(TerminalLine(text = "  options / customize GUI visual settings menu", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  about / version    App details, license, and repository URL", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  whatsnew / changelog Show release notes and what's new in v1.3.2", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  echo <text|\$var>   Print string or shell variables", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  search <query>     Search Google in web browser (or 'google' / 'g')", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  feedback <message> Send feedback or report bugs with device specs", type = LineType.OUTPUT))
@@ -937,7 +874,6 @@ class CommandEngine(
         lines.add(TerminalLine(text = "  cat / read <path>  Read & display text files in terminal", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  8bit [1..16|list]  Play 16-track 8-bit retro chiptune jukebox", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  email <to> [sub]   Dispatch pre-filled email (Proton Mail / Gmail)", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  tx <command>       Execute command or script via Termux (or 'termux')", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  time / date        Display system date, time, and epoch", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  killall / trim     Trim background tasks, recover RAM, or 'trim recents'", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  matrix             Full-screen matrix digital rain easter egg", type = LineType.OUTPUT))

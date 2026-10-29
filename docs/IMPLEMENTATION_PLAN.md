@@ -13,34 +13,12 @@
 
 ## Active Priority Queue (Next Intake Stack)
 
-### 1. Canonical `Uri.fromParts` Uninstallation & Direct App Info Fallback (`uninstall <app>`) [TOP PRIORITY]
-- **Problem**: `PackageInstaller.uninstall()` or `ACTION_DELETE` gets intercepted/blocked on MIUI (Redmi Note 8) and Motorola (Android 15) OEM security policies unless special developer options are enabled.
-- **Solution Strategy**:
-  1. **Primary Intent**: `Intent(Intent.ACTION_DELETE, Uri.fromParts("package", pkgName, null))` with `FLAG_ACTIVITY_NEW_TASK`.
-  2. **Direct App Info Page Fallback (100% Guaranteed to Work on ALL Android Devices)**:
-     If the system uninstallation dialog is intercepted by MIUI or Android 15, Terminal Launcher immediately opens the native App Info Settings page (`Settings.ACTION_APPLICATION_DETAILS_SETTINGS`, `Uri.fromParts("package", pkgName, null)`).
-     The native App Info page opens instantly with the prominent **"UNINSTALL"** button, allowing 1-tap uninstallation across all Android OEMs (MIUI, Motorola, Samsung, Pixel, Android 15)!
-
-### 2. Complete Removal of Termux Implementation
-- **Reasoning**: Termux's background service (`com.termux.app.RunCommandService`) relies on internal Termux Linux socket paths (`/data/data/com.termux/files/usr/bin/...`) and requires `allow-external-apps = true` in `~/.termux/termux.properties` plus explicit `termux-reload-settings`. On modern Android 11–15 OEMs (MIUI, Motorola, OneUI), background service intents across non-system app boundaries are blocked by OS security, creating fragile "spaghetti" fallback code that degrades user experience.
-- **Execution Plan**:
-  - Remove `handleTermux`, `handleTermuxSetup`, `tx`, `termux` routing in `CommandEngine.kt`.
-  - Remove `<uses-permission android:name="com.termux.permission.RUN_COMMAND" />` in `AndroidManifest.xml`.
-  - Remove Termux sub-command completions in `TerminalViewModel.kt`.
-
-### 3. Enhanced `infofetch` System Metrics & New Features log.
-- Expand `infofetch` output to include:
-    - **CPU Specs**: Active CPU Cores, Max Frequency, Architecture ABI.
-    - **Disk Storage**: Internal Storage total/used/free MB/GB & Mounted MicroSD Storage.
-    - **Installed App Count**: Total user apps installed and total system packages count.
-- Show new features and fixes log after each app update. show as a message box after installation and as a summary in options menu.
-
-### 4. Fix `ls` File Visibility on Android 15 (Moto G35 / API 35)
+### 1. Fix `ls` File Visibility on Android 15 (Moto G35 / API 35) [NEXT IN QUEUE]
 - **Problem**: On Android 15, `ls` lists directories but hides regular files (`.txt`, `.pdf`, `.apk`) due to Android 15 scoped storage file enumeration filters.
 - **Solution Strategy**:
   - Update `handleLs()` to use `File.listFiles()` with explicit `MediaStore.Files` / `Environment.isExternalStorageManager()` query fallbacks to guarantee regular files display alongside directories across all Android 15 devices.
 
-### 5. Dynamic Linux Terminal Prompt Path (`user@mobile:~/Download$ `)
+### 2. Dynamic Linux Terminal Prompt Path (`user@mobile:~/Download$ `)
 - **Feature Goal**: Mirror standard Linux bash shells where the prompt reflects the current active directory.
 - **Execution Logic**:
   - Root: `user@mobile:~$ `
@@ -48,14 +26,14 @@
   - Inside `storage0/Download/Docs`: `user@mobile:~/Download/Docs$ `
   - Update `TerminalViewModel` state and prompt calculation dynamically when `cd` changes `currentPath`.
 
-### 6. File Creation (`mkdir`), Deletion (`rm`), and Output Redirection (`echo "text" > file.txt`)
+### 3. File Creation (`mkdir`), Deletion (`rm`), and Output Redirection (`echo "text" > file.txt`)
 - **`mkdir <dir_name>`**: Creates new subdirectory inside active `cd` folder or path.
 - **`rm <file_or_dir>`**: Deletes specified file or directory (`rm -r` for recursive folder removal).
 - **Shell Redirection (`>` & `>>`)**:
   - Parse input for `>` (overwrite) and `>>` (append).
   - Execute left-hand command (e.g. `echo "Hello World" > notes.txt` or `time >> log.txt`) and write/append output text directly to target file in active `cd` directory.
 
-### 7. Full `grep` Implementation & Command Piping (`|`) & Wildcards (`*.log`)
+### 4. Full `grep` Implementation & Command Piping (`|`) & Wildcards (`*.log`)
 - **`grep` Command Flags**:
   - `-i` : Case-insensitive match.
   - `-v` : Invert match (output non-matching lines).
@@ -109,6 +87,12 @@
 ---
 
 ## Completed Phases & Feature Summary
+
+### Version 1.3.2 Patch Release [COMPLETED]
+- **Canonical `Uri.fromParts` Uninstallation & Direct App Info Fallback**: `uninstall <app>` uses `Intent.ACTION_DELETE` with `Uri.fromParts("package", pkgName, null)` and direct App Info page fallback (`Settings.ACTION_APPLICATION_DETAILS_SETTINGS`) guaranteeing 1-tap uninstallation on Android 11–15 (MIUI, Motorola, Samsung).
+- **Cleaned & Optimized Engine**: Completely removed deprecated Termux background dependencies and permission declarations.
+- **Expanded Infofetch System Metrics**: Included CPU Cores (`Runtime.getRuntime().availableProcessors()`), Internal Disk Storage (`StatFs` free vs. total GB), and User vs. System App Counts.
+- **Release Notes & WhatsNew Viewer**: Added `whatsnew` / `changelog` shell command and GUI release notes card in `OptionsMenuDialog`.
 
 ### Version 1.3.1 Patch Release [COMPLETED]
 - **Official System `PackageInstaller.uninstall()` Integration**: Replaced deprecated intent filters with `PackageInstaller.uninstall()`.

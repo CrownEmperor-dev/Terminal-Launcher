@@ -62,6 +62,7 @@ fun OptionsMenuDialog(
 ) {
     var promptInput by remember { mutableStateOf(settings.promptString) }
     var customAsciiInput by remember { mutableStateOf(settings.customAsciiArt) }
+    var showWhatsNew by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
 
     Dialog(onDismissRequest = onDismiss) {
@@ -423,7 +424,7 @@ fun OptionsMenuDialog(
                         .padding(8.dp)
                 ) {
                     Text(
-                        text = "Terminal Launcher v1.2.3 (MIT License)",
+                        text = "Terminal Launcher v1.3.2 (MIT License)",
                         style = TextStyle(
                             fontFamily = FontFamily.Monospace,
                             fontSize = 11.sp,
@@ -447,6 +448,56 @@ fun OptionsMenuDialog(
                             color = colorScheme.systemColor
                         )
                     )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Button(
+                    onClick = { showWhatsNew = !showWhatsNew },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorScheme.background,
+                        contentColor = colorScheme.promptColor
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, colorScheme.promptColor, RoundedCornerShape(4.dp))
+                ) {
+                    Text(
+                        text = if (showWhatsNew) "[ HIDE RELEASE NOTES ]" else "[ WHAT'S NEW IN V1.3.2 ]",
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    )
+                }
+
+                if (showWhatsNew) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, colorScheme.promptColor, RoundedCornerShape(4.dp))
+                            .padding(8.dp)
+                    ) {
+                        Text(
+                            text = "WHAT'S NEW IN V1.3.2:",
+                            style = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = colorScheme.headerColor
+                            )
+                        )
+                        Text(
+                            text = "• Uninstallation Fix: Direct App Info fallback for Android 11-15 (MIUI / Moto)\n• Engine Optimization: Removed deprecated Termux background dependencies\n• Enhanced Infofetch: Added CPU cores, Disk Storage, & App counts\n• Release Notes Viewer: Type 'whatsnew' or 'changelog' in shell",
+                            style = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 10.sp,
+                                color = colorScheme.textPrimary
+                            )
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))

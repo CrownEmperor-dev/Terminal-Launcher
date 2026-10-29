@@ -53,7 +53,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                         _uiState.value = _uiState.value.copy(lines = savedBuffer)
                     } else {
                         val initialLines = mutableListOf<TerminalLine>()
-                        initialLines.add(TerminalLine(text = "Welcome to Terminal Launcher v1.2.3", type = LineType.HEADER))
+                        initialLines.add(TerminalLine(text = "Welcome to Terminal Launcher v1.3.2", type = LineType.HEADER))
                         initialLines.add(TerminalLine(text = "Type 'help' for documentation, 'ls' for app list, 'options' for GUI settings.", type = LineType.SYSTEM))
                         val settings = _uiState.value.settings
                         if (settings.fastfetchOnStart) {
@@ -339,7 +339,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
     private fun getBuiltInCommandCompletion(input: String): String {
         val completions = listOf(
-            "help", "options", "about", "version", "time", "date", "killall", "trim",
+            "help", "options", "about", "version", "whatsnew", "changelog", "time", "date", "killall", "trim",
             "echo", "search", "google", "feedback", "feedback github", "feedback email",
             "report", "report github", "report email", "matrix", "infofetch", "infofetch update",
             "fastfetch", "neofetch", "clear", "history", "config",

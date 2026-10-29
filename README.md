@@ -27,7 +27,7 @@ user@mobile:~$ infofetch
 OS: Android 8.0+ (API 26+) / Waydroid Linux
 Host: Android Mobile Device
 Kernel: Linux 5.x / Android Runtime
-Shell: TerminalLauncher v1.3.1
+Shell: TerminalLauncher v1.3.2
 UI Engine: Jetpack Compose
 Edge-To-Edge & Full Immersion: Active (Hide Status Bar & Auto-Keyboard Toggle)
 Themes: CRT Green | Amber Phosphor | OLED Black | Monochrome | Cyberpunk Cyan | Game Boy | Solarized | Dracula
@@ -67,7 +67,7 @@ OPTIONS & COMMANDS
            cat / read <path>  Read and view text files directly inside terminal buffer.
            8bit [1..16|list]  Play 16-track 8-bit retro chiptune jukebox.
            email <to> [sub]   Dispatch pre-filled email compose (Proton Mail / Gmail).
-           tx / termux <cmd>  Execute Linux commands, scripts, or package managers via Termux.
+           whatsnew / news    Display release notes and what's new in v1.4.0.
            time / date        Display current system time, date, and Unix epoch seconds.
            killall / trim     Trim background processes & free RAM (ideal for 4GB devices).
            matrix             Trigger full-screen Matrix Digital Rain easter egg.
