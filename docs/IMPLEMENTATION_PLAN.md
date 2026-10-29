@@ -4,22 +4,50 @@
 > **PINNED RULE: VERSION NUMBER BUMP POLICY AFTER EVERY SUCCESSFUL BUILD**
 > Change and increment the version number in `app/build.gradle.kts`, `CommandEngine.kt`, `OptionsMenuDialog.kt`, `TerminalViewModel.kt`, and `README.md` after every successful build:
 > 1. **Big Upgrades / Feature Releases**: Increment MINOR version by `+0.1.0` (e.g. `v1.2.0` ➔ `v1.3.0`).
-> 2. **Small Changes / Tweaks / Bug Fixes**: Increment PATCH version by `+0.0.1` (e.g. `v1.3.0` ➔ `v1.3.1`).
+> 2. **Small Changes / Tweaks / Bug Fixes**: Increment PATCH version by `+0.0.1` (e.g. `v1.3.1` ➔ `v1.3.2`).
 
 ---
 
-## Active Priority Queue (Next Intake Stack)
+## Active Priority Queue: Canonical `Uri.fromParts` Uninstallation & App Info Direct Fallback (`uninstall <app>`)
 
-Any new feature requests, commands, or project phases will be placed at the top of this queue for execution.
+### Proposed Feature Details
 
-*No active phase in queue. Current version: **v1.3.1 (Build 9)**. Ready for next incoming feature requests!*
+#### 1. Canonical `Uri.fromParts("package", pkgName, null)` Uninstallation Handler
+- **Problem**: `Uri.parse("package:$pkgName")` or `PackageInstaller` can be blocked on OEM Android builds (Redmi/MIUI Security Optimization, Motorola Moto G35 Android 15).
+- **Canonical Solution**:
+  1. **Primary Intent**: `Intent(Intent.ACTION_DELETE, Uri.fromParts("package", pkgName, null))` with `FLAG_ACTIVITY_NEW_TASK`.
+  2. **Direct App Info Fallback (100% Guaranteed Works on ALL Android Devices)**:
+     If the system uninstallation dialog is intercepted by MIUI / Android 15 security, launch `Settings.ACTION_APPLICATION_DETAILS_SETTINGS` with `Uri.fromParts("package", pkgName, null)` directly!
+     The native "App Info" page opens with the prominent **"UNINSTALL"** button, allowing 1-tap uninstallation across all Android OEMs!
+
+---
+
+## Proposed Changes
+
+### Command Engine Layer
+
+#### [MODIFY] [CommandEngine.kt](file:///home/mohammed/AndroidStudioProjects/TerminalLauncher/app/src/main/java/com/example/terminallauncher/data/CommandEngine.kt)
+- Update `handleUninstall(appQuery)` to use `Uri.fromParts("package", pkgName, null)` for `ACTION_DELETE` and direct fallback to `Settings.ACTION_APPLICATION_DETAILS_SETTINGS`.
+
+#### [MODIFY] [build.gradle.kts](file:///home/mohammed/AndroidStudioProjects/TerminalLauncher/app/build.gradle.kts)
+- Bump version to **`v1.3.2` (Build 10)**.
+
+---
+
+## Verification Plan
+
+### Automated Tests
+- Unit test verifying `uninstall` package query resolution.
+
+### Manual Verification
+- Execute `uninstall spotify` -> verify system uninstallation prompt or App Info page opens directly with the "Uninstall" button available.
 
 ---
 
 ## Completed Phases & Feature Summary
 
 ### Version 1.3.1 Patch Release [COMPLETED]
-- **Official System `PackageInstaller.uninstall()` Uninstallation Integration**: Replaced deprecated/blocked Intent filters with Android's official system `PackageInstaller.uninstall(packageName, pendingIntent.intentSender)` API and declared `REQUEST_DELETE_PACKAGES` permission in `AndroidManifest.xml`. Directly invokes native OS uninstallation dialogs across Android 8.1, Android 11 (MIUI), and Android 15 (Motorola/Pixel).
+- **Official System `PackageInstaller.uninstall()` Uninstallation Integration**: Replaced deprecated/blocked Intent filters with Android's official system `PackageInstaller.uninstall(packageName, pendingIntent.intentSender)` API and declared `REQUEST_DELETE_PACKAGES` permission in `AndroidManifest.xml`.
 
 ### Version 1.3.0 Feature Release [COMPLETED]
 - **Enhanced RAM Trimmer**: Scans all installed packages (`packageManager.getInstalledPackages(0)`) and kills third-party background processes, displaying exact RAM MB used/free before vs after and MB recovered.
