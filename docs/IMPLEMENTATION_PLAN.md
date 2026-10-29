@@ -12,16 +12,18 @@
 
 Any new feature requests, commands, or project phases will be placed at the top of this queue for execution.
 
-*No active phase in queue. Current version: **v1.3.0 (Build 8)**. Ready for next incoming feature requests!*
+*No active phase in queue. Current version: **v1.3.1 (Build 9)**. Ready for next incoming feature requests!*
 
 ---
 
 ## Completed Phases & Feature Summary
 
+### Version 1.3.1 Patch Release [COMPLETED]
+- **Official System `PackageInstaller.uninstall()` Uninstallation Integration**: Replaced deprecated/blocked Intent filters with Android's official system `PackageInstaller.uninstall(packageName, pendingIntent.intentSender)` API and declared `REQUEST_DELETE_PACKAGES` permission in `AndroidManifest.xml`. Directly invokes native OS uninstallation dialogs across Android 8.1, Android 11 (MIUI), and Android 15 (Motorola/Pixel).
+
 ### Version 1.3.0 Feature Release [COMPLETED]
 - **Enhanced RAM Trimmer**: Scans all installed packages (`packageManager.getInstalledPackages(0)`) and kills third-party background processes, displaying exact RAM MB used/free before vs after and MB recovered.
 - **Recent Apps Overview Launcher (`trim recents` / `sys recents`)**: Launches native Android Recent Apps Overview screen to clear task stacks with one touch.
-- **Multi-Version `uninstall` Fallback Chain**: 3-stage fallback intent chain (`ACTION_UNINSTALL_PACKAGE` -> `ACTION_DELETE` -> `ACTION_APPLICATION_DETAILS_SETTINGS`) ensuring reliable uninstallation prompts across Android 8.1, Android 11 (MIUI), and Android 15.
 
 ### Version 1.2.3 Patch Release [COMPLETED]
 - **Dual Feedback & Bug Reporting System**:

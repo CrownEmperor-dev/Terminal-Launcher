@@ -1,8 +1,10 @@
 package com.example.terminallauncher.data
 
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageInstaller
 import android.hardware.camera2.CameraManager
 import android.media.AudioAttributes
 import android.media.AudioFormat
@@ -15,6 +17,7 @@ import android.os.Environment
 import android.os.SystemClock
 import android.provider.Settings
 import androidx.compose.runtime.Immutable
+import com.example.terminallauncher.MainActivity
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -238,7 +241,7 @@ class CommandEngine(
     private fun handleFeedback(userMsg: String, currentSettings: LauncherSettings): CommandResult {
         val model = "${Build.MANUFACTURER} ${Build.MODEL}"
         val os = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
-        val version = "v1.3.0"
+        val version = "v1.3.1"
 
         val trimmedMsg = userMsg.trim()
         val isForceEmail = trimmedMsg.lowercase().startsWith("email ") || trimmedMsg.lowercase() == "email"
@@ -651,7 +654,7 @@ class CommandEngine(
             .replace("\$USER", userStr)
             .replace("\$PROMPT", settings.promptString)
             .replace("\$THEME", settings.theme.name.lowercase())
-            .replace("\$VERSION", "v1.3.0")
+            .replace("\$VERSION", "v1.3.1")
             .replace("\$OS", "Android ${Build.VERSION.RELEASE}")
             .replace("\$MODEL", "${Build.MANUFACTURER} ${Build.MODEL}")
 
@@ -680,7 +683,7 @@ class CommandEngine(
             TerminalLine(text = "TERMINAL LAUNCHER - ABOUT", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
             TerminalLine(text = "App Name    : Terminal Launcher", type = LineType.OUTPUT),
-            TerminalLine(text = "Version     : v1.3.0 (Build 8)", type = LineType.OUTPUT),
+            TerminalLine(text = "Version     : v1.3.1 (Build 9)", type = LineType.OUTPUT),
             TerminalLine(text = "Developer   : CrownEmperor-dev", type = LineType.OUTPUT),
             TerminalLine(text = "Framework   : Kotlin & Jetpack Compose", type = LineType.OUTPUT),
             TerminalLine(text = "License     : MIT License", type = LineType.OUTPUT),
@@ -830,48 +833,43 @@ class CommandEngine(
         val pkgName = app.packageName
         val label = app.label
 
-        // Stage 1: Modern Android Standard (ACTION_UNINSTALL_PACKAGE)
-        try {
-            val uninstallIntent = Intent(Intent.ACTION_UNINSTALL_PACKAGE).apply {
-                data = Uri.parse("package:$pkgName")
-                putExtra(Intent.EXTRA_RETURN_RESULT, true)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return try {
+            val packageInstaller = context.packageManager.packageInstaller
+            val callbackIntent = Intent(context, MainActivity::class.java).apply {
+                putExtra("UNINSTALL_PKG", pkgName)
             }
-            context.startActivity(uninstallIntent)
-            return CommandResult(
-                outputLines = listOf(TerminalLine(text = "Opening uninstallation prompt for $label...", type = LineType.SUCCESS))
+            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            } else {
+                PendingIntent.FLAG_UPDATE_CURRENT
+            }
+            val pendingIntent = PendingIntent.getActivity(context, 0, callbackIntent, flags)
+
+            packageInstaller.uninstall(pkgName, pendingIntent.intentSender)
+
+            CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "Opening system uninstallation prompt for $label ($pkgName)...", type = LineType.SUCCESS)
+                )
             )
         } catch (_: Exception) {
-            // Stage 2: Legacy Android 8.1 Fallback (ACTION_DELETE)
             try {
-                val deleteIntent = Intent(Intent.ACTION_DELETE).apply {
-                    data = Uri.fromParts("package", pkgName, null)
+                val settingsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                    data = Uri.parse("package:$pkgName")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-                context.startActivity(deleteIntent)
-                return CommandResult(
-                    outputLines = listOf(TerminalLine(text = "Opening uninstallation prompt for $label...", type = LineType.SUCCESS))
+                context.startActivity(settingsIntent)
+                CommandResult(
+                    outputLines = listOf(
+                        TerminalLine(text = "Opened App Info for $label ($pkgName)...", type = LineType.SUCCESS),
+                        TerminalLine(text = "Tap 'Uninstall' on the App Info page to remove.", type = LineType.SYSTEM)
+                    )
                 )
-            } catch (_: Exception) {
-                // Stage 3: OEM Safe Fallback for MIUI / Android 15 (ACTION_APPLICATION_DETAILS_SETTINGS)
-                try {
-                    val settingsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.parse("package:$pkgName")
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    context.startActivity(settingsIntent)
-                    return CommandResult(
-                        outputLines = listOf(
-                            TerminalLine(text = "Opened App Info for $label ($pkgName)...", type = LineType.SUCCESS),
-                            TerminalLine(text = "Tap 'Uninstall' on the App Info page to remove.", type = LineType.SYSTEM)
-                        )
-                    )
-                } catch (e: Exception) {
-                    return CommandResult(
-                        outputLines = listOf(TerminalLine(text = "Unable to launch uninstaller for $label: ${e.message}", type = LineType.ERROR)),
-                        success = false
-                    )
-                }
+            } catch (e: Exception) {
+                CommandResult(
+                    outputLines = listOf(TerminalLine(text = "Unable to launch uninstaller for $label: ${e.message}", type = LineType.ERROR)),
+                    success = false
+                )
             }
         }
     }
@@ -927,7 +925,7 @@ class CommandEngine(
 
     private fun handleHelp(): CommandResult {
         val lines = mutableListOf<TerminalLine>()
-        lines.add(TerminalLine(text = "Terminal Launcher v1.3.0 - Shell Manual", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "Terminal Launcher v1.3.1 - Shell Manual", type = LineType.HEADER))
         lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
         lines.add(TerminalLine(text = "CORE COMMANDS:", type = LineType.HEADER))
         lines.add(TerminalLine(text = "  options / customize GUI visual settings menu", type = LineType.OUTPUT))
