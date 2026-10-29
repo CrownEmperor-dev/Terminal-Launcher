@@ -163,7 +163,7 @@ class CommandEngine(
             "help", "man" -> handleHelp()
             "about", "version" -> handleAbout()
             "time", "date" -> handleTime()
-            "killall", "trim" -> handleKillall()
+            "killall", "trim" -> handleKillall(args)
             "echo" -> handleEcho(args.joinToString(" "), currentSettings)
             "search", "google", "g" -> handleSearch(args.joinToString(" "))
             "feedback", "report", "bug" -> handleFeedback(args.joinToString(" "), currentSettings)
@@ -221,7 +221,7 @@ class CommandEngine(
             "Uptime: $uptime",
             "RAM: $ramInfo",
             "Battery: $batInfo",
-            "Shell: TerminalLauncher v1.2.3"
+            "Shell: TerminalLauncher v1.3"
         )
 
         val result = mutableListOf<TerminalLine>()
@@ -235,28 +235,19 @@ class CommandEngine(
         return result
     }
 
-    private fun handleFeedback(argsInput: String, currentSettings: LauncherSettings): CommandResult {
+    private fun handleFeedback(userMsg: String, currentSettings: LauncherSettings): CommandResult {
         val model = "${Build.MANUFACTURER} ${Build.MODEL}"
         val os = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
-        val version = "v1.2.3"
+        val version = "v1.3.0"
 
-        var target = "auto"
-        var userMsg = argsInput.trim()
-
-        val lowerInput = userMsg.lowercase()
-        if (lowerInput == "github" || lowerInput.startsWith("github ")) {
-            target = "github"
-            userMsg = if (lowerInput == "github") "" else userMsg.substring("github ".length).trim()
-        } else if (lowerInput == "email" || lowerInput == "mail" || lowerInput.startsWith("email ") || lowerInput.startsWith("mail ")) {
-            target = "email"
-            userMsg = when {
-                lowerInput == "email" || lowerInput == "mail" -> ""
-                lowerInput.startsWith("email ") -> userMsg.substring("email ".length).trim()
-                else -> userMsg.substring("mail ".length).trim()
-            }
+        val trimmedMsg = userMsg.trim()
+        val isForceEmail = trimmedMsg.lowercase().startsWith("email ") || trimmedMsg.lowercase() == "email"
+        val messageBody = when {
+            isForceEmail -> trimmedMsg.substringAfter("email").trim().ifBlank { "User Feedback Report" }
+            trimmedMsg.isBlank() -> "User Feedback Report"
+            else -> trimmedMsg
         }
 
-        val messageBody = if (userMsg.isBlank()) "User Feedback Report" else userMsg
         val formattedBody = """
             |--- USER FEEDBACK REPORT ---
             |Message: $messageBody
@@ -269,96 +260,57 @@ class CommandEngine(
             |RAM: ${getRamUsageInfo()}
         """.trimMargin()
 
-        val subject = "[Terminal Launcher v1.2.3 Feedback]"
+        val developerEmail = "crownemperordev@gmail.com"
+        val mailtoUri = "mailto:$developerEmail?subject=${Uri.encode("Terminal Launcher $version Feedback")}&body=${Uri.encode(formattedBody)}"
         val githubIssueUrl = "https://github.com/CrownEmperor-dev/Terminal-Launcher/issues/new?title=${Uri.encode("User Feedback / Bug Report")}&body=${Uri.encode(formattedBody)}"
-        val mailtoUri = "mailto:crownemperordev@gmail.com?subject=${Uri.encode(subject)}&body=${Uri.encode(formattedBody)}"
 
-        fun launchEmailIntent(): Boolean {
+        if (isForceEmail) {
             return try {
                 val emailIntent = Intent(Intent.ACTION_SENDTO, Uri.parse(mailtoUri)).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(emailIntent)
-                true
-            } catch (_: Exception) {
-                try {
-                    val fallbackIntent = Intent(Intent.ACTION_SENDTO).apply {
-                        data = Uri.parse("mailto:crownemperordev@gmail.com")
-                        putExtra(Intent.EXTRA_SUBJECT, subject)
-                        putExtra(Intent.EXTRA_TEXT, formattedBody)
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }
-                    context.startActivity(fallbackIntent)
-                    true
-                } catch (_: Exception) {
-                    false
-                }
-            }
-        }
-
-        fun launchGithubIntent(): Boolean {
-            return try {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(githubIssueUrl)).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(intent)
-                true
-            } catch (_: Exception) {
-                false
-            }
-        }
-
-        if (target == "email") {
-            return if (launchEmailIntent()) {
                 CommandResult(
                     outputLines = listOf(
-                        TerminalLine(text = "Opening direct email compose pre-filled to crownemperordev@gmail.com...", type = LineType.SUCCESS)
+                        TerminalLine(text = "Opening email compose to '$developerEmail' with pre-filled feedback & diagnostic metrics...", type = LineType.SUCCESS)
                     )
                 )
-            } else {
+            } catch (e: Exception) {
                 CommandResult(
-                    outputLines = listOf(TerminalLine(text = "Unable to open email client. Please ensure an email app is installed.", type = LineType.ERROR)),
+                    outputLines = listOf(TerminalLine(text = "Unable to launch email client: ${e.message}", type = LineType.ERROR)),
                     success = false
                 )
             }
         }
 
-        if (target == "github") {
-            return if (launchGithubIntent()) {
-                CommandResult(
-                    outputLines = listOf(
-                        TerminalLine(text = "Opening GitHub Issues with pre-filled feedback & diagnostic metrics...", type = LineType.SUCCESS)
-                    )
-                )
-            } else {
-                CommandResult(
-                    outputLines = listOf(TerminalLine(text = "Unable to launch browser for GitHub Issues.", type = LineType.ERROR)),
-                    success = false
-                )
+        return try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(githubIssueUrl)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-        }
-
-        // Auto target: try GitHub first, fallback to Email
-        if (launchGithubIntent()) {
-            return CommandResult(
+            context.startActivity(intent)
+            CommandResult(
                 outputLines = listOf(
                     TerminalLine(text = "Opening GitHub Issues with pre-filled feedback & diagnostic metrics...", type = LineType.SUCCESS)
                 )
             )
-        }
-
-        if (launchEmailIntent()) {
-            return CommandResult(
-                outputLines = listOf(
-                    TerminalLine(text = "Opening email compose pre-filled with feedback & diagnostic metrics...", type = LineType.SUCCESS)
+        } catch (_: Exception) {
+            try {
+                val emailIntent = Intent(Intent.ACTION_SENDTO, Uri.parse(mailtoUri)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(emailIntent)
+                CommandResult(
+                    outputLines = listOf(
+                        TerminalLine(text = "Opening email compose to '$developerEmail' pre-filled with feedback & diagnostic metrics...", type = LineType.SUCCESS)
+                    )
                 )
-            )
+            } catch (e: Exception) {
+                CommandResult(
+                    outputLines = listOf(TerminalLine(text = "Unable to launch feedback dispatcher: ${e.message}", type = LineType.ERROR)),
+                    success = false
+                )
+            }
         }
-
-        return CommandResult(
-            outputLines = listOf(TerminalLine(text = "Unable to launch feedback dispatcher.", type = LineType.ERROR)),
-            success = false
-        )
     }
 
     private fun handleCat(filePath: String): CommandResult {
@@ -699,7 +651,7 @@ class CommandEngine(
             .replace("\$USER", userStr)
             .replace("\$PROMPT", settings.promptString)
             .replace("\$THEME", settings.theme.name.lowercase())
-            .replace("\$VERSION", "v1.2.3")
+            .replace("\$VERSION", "v1.3.0")
             .replace("\$OS", "Android ${Build.VERSION.RELEASE}")
             .replace("\$MODEL", "${Build.MANUFACTURER} ${Build.MODEL}")
 
@@ -728,7 +680,7 @@ class CommandEngine(
             TerminalLine(text = "TERMINAL LAUNCHER - ABOUT", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
             TerminalLine(text = "App Name    : Terminal Launcher", type = LineType.OUTPUT),
-            TerminalLine(text = "Version     : v1.2.3 (Build 7)", type = LineType.OUTPUT),
+            TerminalLine(text = "Version     : v1.3.0 (Build 8)", type = LineType.OUTPUT),
             TerminalLine(text = "Developer   : CrownEmperor-dev", type = LineType.OUTPUT),
             TerminalLine(text = "Framework   : Kotlin & Jetpack Compose", type = LineType.OUTPUT),
             TerminalLine(text = "License     : MIT License", type = LineType.OUTPUT),
@@ -755,35 +707,88 @@ class CommandEngine(
         return CommandResult(outputLines = lines)
     }
 
-    private fun handleKillall(): CommandResult {
+    private fun handleKillall(args: List<String>): CommandResult {
+        val subArg = args.firstOrNull()?.lowercase()?.trim() ?: ""
+
+        if (subArg == "recents" || subArg == "tasks") {
+            return try {
+                val intent = Intent("com.android.systemui.recents.SHOW_RECENTS").apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                CommandResult(
+                    outputLines = listOf(
+                        TerminalLine(text = "RECENT APPS OVERVIEW LAUNCHED", type = LineType.HEADER),
+                        TerminalLine(text = "==================================================", type = LineType.SYSTEM),
+                        TerminalLine(text = "Notice: Android OS restricts non-root launchers from programmatically swiping third-party tasks out of Recents UI.", type = LineType.SYSTEM),
+                        TerminalLine(text = "Tap 'Clear All' in Recents UI to close task stacks.", type = LineType.SUCCESS),
+                        TerminalLine(text = "==================================================", type = LineType.SYSTEM)
+                    )
+                )
+            } catch (_: Exception) {
+                try {
+                    val settingsIntent = Intent(Settings.ACTION_SETTINGS).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(settingsIntent)
+                    CommandResult(
+                        outputLines = listOf(
+                            TerminalLine(text = "Opened System Settings. Recents overview unavailable on this OEM.", type = LineType.SYSTEM)
+                        )
+                    )
+                } catch (e: Exception) {
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Unable to launch Recents UI: ${e.message}", type = LineType.ERROR)), success = false)
+                }
+            }
+        }
+
         val actManager = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-        val initialRam = getRamUsageInfo()
+        val memInfo = android.app.ActivityManager.MemoryInfo()
+        actManager.getMemoryInfo(memInfo)
+
+        val totalMb = memInfo.totalMem / (1024 * 1024)
+        val availBeforeMb = memInfo.availMem / (1024 * 1024)
+        val usedBeforeMb = totalMb - availBeforeMb
 
         return try {
-            val runningAppProcesses = actManager.runningAppProcesses ?: emptyList()
+            val pm = context.packageManager
+            val installedPackages = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.getInstalledPackages(android.content.pm.PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                pm.getInstalledPackages(0)
+            }
+
             var killedCount = 0
-            runningAppProcesses.forEach { proc ->
-                if (proc.pkgList.isNotEmpty() && proc.processName != context.packageName) {
-                    proc.pkgList.forEach { pkg ->
-                        try {
-                            actManager.killBackgroundProcesses(pkg)
-                            killedCount++
-                        } catch (_: Exception) {}
-                    }
+            val selfPkg = context.packageName
+
+            installedPackages.forEach { pkgInfo ->
+                val pkgName = pkgInfo.packageName
+                if (pkgName != selfPkg && pkgName != "android" && pkgName != "com.android.systemui") {
+                    try {
+                        actManager.killBackgroundProcesses(pkgName)
+                        killedCount++
+                    } catch (_: Exception) {}
                 }
             }
 
             System.gc()
-            val newRam = getRamUsageInfo()
+            actManager.getMemoryInfo(memInfo)
+            val availAfterMb = memInfo.availMem / (1024 * 1024)
+            val usedAfterMb = totalMb - availAfterMb
+            val freedMb = (availAfterMb - availBeforeMb).coerceAtLeast(0)
 
             CommandResult(
                 outputLines = listOf(
-                    TerminalLine(text = "BACKGROUND PROCESS TRIM", type = LineType.HEADER),
+                    TerminalLine(text = "BACKGROUND PROCESS TRIM & RAM RECOVERY", type = LineType.HEADER),
                     TerminalLine(text = "==================================================", type = LineType.SYSTEM),
+                    TerminalLine(text = "Scanned Packages : ${installedPackages.size} installed apps", type = LineType.OUTPUT),
                     TerminalLine(text = "Trimmed Packages : $killedCount background processes", type = LineType.OUTPUT),
-                    TerminalLine(text = "RAM Before Trim  : $initialRam", type = LineType.OUTPUT),
-                    TerminalLine(text = "RAM After Trim   : $newRam", type = LineType.SUCCESS),
-                    TerminalLine(text = "==================================================", type = LineType.SYSTEM)
+                    TerminalLine(text = "RAM Before Trim  : $usedBeforeMb MB used ($availBeforeMb MB free)", type = LineType.OUTPUT),
+                    TerminalLine(text = "RAM After Trim   : $usedAfterMb MB used ($availAfterMb MB free)", type = LineType.SUCCESS),
+                    TerminalLine(text = "RAM Memory Freed : $freedMb MB recovered", type = LineType.SUCCESS),
+                    TerminalLine(text = "==================================================", type = LineType.SYSTEM),
+                    TerminalLine(text = "Tip: Run 'trim recents' to launch Recent Apps Overview.", type = LineType.SYSTEM)
                 )
             )
         } catch (e: Exception) {
@@ -822,20 +827,52 @@ class CommandEngine(
             )
         }
 
-        return try {
-            val intent = Intent(Intent.ACTION_DELETE).apply {
-                data = Uri.fromParts("package", app.packageName, null)
+        val pkgName = app.packageName
+        val label = app.label
+
+        // Stage 1: Modern Android Standard (ACTION_UNINSTALL_PACKAGE)
+        try {
+            val uninstallIntent = Intent(Intent.ACTION_UNINSTALL_PACKAGE).apply {
+                data = Uri.parse("package:$pkgName")
+                putExtra(Intent.EXTRA_RETURN_RESULT, true)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            context.startActivity(intent)
-            CommandResult(
-                outputLines = listOf(TerminalLine(text = "Opening uninstallation prompt for ${app.label}...", type = LineType.SUCCESS))
+            context.startActivity(uninstallIntent)
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "Opening uninstallation prompt for $label...", type = LineType.SUCCESS))
             )
-        } catch (e: Exception) {
-            CommandResult(
-                outputLines = listOf(TerminalLine(text = "Unable to launch uninstaller for ${app.label}: ${e.message}", type = LineType.ERROR)),
-                success = false
-            )
+        } catch (_: Exception) {
+            // Stage 2: Legacy Android 8.1 Fallback (ACTION_DELETE)
+            try {
+                val deleteIntent = Intent(Intent.ACTION_DELETE).apply {
+                    data = Uri.fromParts("package", pkgName, null)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(deleteIntent)
+                return CommandResult(
+                    outputLines = listOf(TerminalLine(text = "Opening uninstallation prompt for $label...", type = LineType.SUCCESS))
+                )
+            } catch (_: Exception) {
+                // Stage 3: OEM Safe Fallback for MIUI / Android 15 (ACTION_APPLICATION_DETAILS_SETTINGS)
+                try {
+                    val settingsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.parse("package:$pkgName")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(settingsIntent)
+                    return CommandResult(
+                        outputLines = listOf(
+                            TerminalLine(text = "Opened App Info for $label ($pkgName)...", type = LineType.SUCCESS),
+                            TerminalLine(text = "Tap 'Uninstall' on the App Info page to remove.", type = LineType.SYSTEM)
+                        )
+                    )
+                } catch (e: Exception) {
+                    return CommandResult(
+                        outputLines = listOf(TerminalLine(text = "Unable to launch uninstaller for $label: ${e.message}", type = LineType.ERROR)),
+                        success = false
+                    )
+                }
+            }
         }
     }
 
@@ -890,7 +927,7 @@ class CommandEngine(
 
     private fun handleHelp(): CommandResult {
         val lines = mutableListOf<TerminalLine>()
-        lines.add(TerminalLine(text = "Terminal Launcher v1.2.3 - Shell Manual", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "Terminal Launcher v1.3.0 - Shell Manual", type = LineType.HEADER))
         lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
         lines.add(TerminalLine(text = "CORE COMMANDS:", type = LineType.HEADER))
         lines.add(TerminalLine(text = "  options / customize GUI visual settings menu", type = LineType.OUTPUT))
@@ -904,11 +941,11 @@ class CommandEngine(
         lines.add(TerminalLine(text = "  email <to> [sub]   Dispatch pre-filled email (Proton Mail / Gmail)", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  tx <command>       Execute command or script via Termux (or 'termux')", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  time / date        Display system date, time, and epoch", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  killall / trim     Trim background tasks & free RAM", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  killall / trim     Trim background tasks, recover RAM, or 'trim recents'", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  matrix             Full-screen matrix digital rain easter egg", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  ls [letter|dir]    List applications, storage (e.g. ls storage), or filter", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  cd <dir>           Change active storage directory (e.g. cd storage0/Download)", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  open <app>         Launch an app by name or package", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  open <app>         Explicitly launch an app by name or package", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  uninstall <app>    Trigger native uninstallation for an app", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  alias [k=v]       Set custom command shortcut (e.g., alias yt=YouTube)", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  unalias <key>     Remove a custom alias", type = LineType.OUTPUT))
@@ -920,6 +957,7 @@ class CommandEngine(
         lines.add(TerminalLine(text = "  config                     Show launcher CLI configurations", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  config set theme <t>       Set theme: green, amber, oled, mono, cyan, gameboy, solarized, dracula", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  config set statusbar <o>   Toggle status bar full immersion (on|off)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  config set autokeyboard <o> Toggle soft keyboard auto-show on launch (on|off)", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  config set fastfetch <o>   Toggle startup system banner", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  config set prompt <text>   Customize shell prompt string", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  config set autocomplete <o> Toggle ghost auto-completion", type = LineType.OUTPUT))
@@ -933,6 +971,7 @@ class CommandEngine(
         lines.add(TerminalLine(text = "  sys flash            Toggle flashlight/torch hardware", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  sys ringer <s|v|n>   Set ringer mode: silent, vibrate, normal", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  sys statusbar        Toggle status bar full immersion", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  sys recents          Launch Recent Apps Overview screen", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  sys settings <page>  Open settings page (e.g. sys settings display)", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  call <number>        Launch phone dialer", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  sms <number>         Launch SMS messaging", type = LineType.OUTPUT))
@@ -957,7 +996,7 @@ class CommandEngine(
             }
             "/system", "system" -> {
                 lines.add(TerminalLine(text = "SYSTEM COMMANDS:", type = LineType.HEADER))
-                val sysCmds = listOf("options", "about", "time", "killall", "echo", "search", "feedback", "install", "cat", "8bit", "email", "termux", "tx", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
+                val sysCmds = listOf("options", "about", "time", "killall", "trim", "echo", "search", "feedback", "install", "cat", "8bit", "email", "termux", "tx", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
                 sysCmds.forEach { lines.add(TerminalLine(text = "  $it", type = LineType.OUTPUT)) }
             }
             "/storage", "storage" -> {
@@ -1208,10 +1247,11 @@ class CommandEngine(
                 TerminalLine(text = "  prompt         : '${settings.promptString}'", type = LineType.OUTPUT),
                 TerminalLine(text = "  autocomplete   : ${if (settings.autocompleteEnabled) "on" else "off"}", type = LineType.OUTPUT),
                 TerminalLine(text = "  statusBar      : ${if (settings.statusBarVisible) "visible" else "hidden (full immersion)"}", type = LineType.OUTPUT),
+                TerminalLine(text = "  autoKeyboard   : ${if (settings.autoShowKeyboard) "on (auto-show)" else "off (tap to show)"}", type = LineType.OUTPUT),
                 TerminalLine(text = "  textSizeSp     : ${settings.textSizeSp}sp", type = LineType.OUTPUT),
                 TerminalLine(text = "  asciiArtStyle  : ${settings.asciiArtStyle.name.lowercase()}", type = LineType.OUTPUT),
                 TerminalLine(text = "--------------------------------------------------", type = LineType.SYSTEM),
-                TerminalLine(text = "Usage: config set <theme|fastfetch|prompt|autocomplete|statusbar|size|ascii> <value>", type = LineType.SYSTEM)
+                TerminalLine(text = "Usage: config set <theme|fastfetch|prompt|autocomplete|statusbar|autokeyboard|size|ascii> <value>", type = LineType.SYSTEM)
             )
             return CommandResult(outputLines = lines)
         }

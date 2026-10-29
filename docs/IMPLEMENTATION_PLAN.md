@@ -3,8 +3,8 @@
 > [!IMPORTANT]
 > **PINNED RULE: VERSION NUMBER BUMP POLICY AFTER EVERY SUCCESSFUL BUILD**
 > Change and increment the version number in `app/build.gradle.kts`, `CommandEngine.kt`, `OptionsMenuDialog.kt`, `TerminalViewModel.kt`, and `README.md` after every successful build:
-> 1. **Big Upgrades / Feature Releases**: Increment MINOR version by `+0.1.0` (e.g. `v1.0.0` ➔ `v1.1.0`).
-> 2. **Small Changes / Tweaks / Bug Fixes**: Increment PATCH version by `+0.0.1` (e.g. `v1.2.2` ➔ `v1.2.3`).
+> 1. **Big Upgrades / Feature Releases**: Increment MINOR version by `+0.1.0` (e.g. `v1.2.0` ➔ `v1.3.0`).
+> 2. **Small Changes / Tweaks / Bug Fixes**: Increment PATCH version by `+0.0.1` (e.g. `v1.3.0` ➔ `v1.3.1`).
 
 ---
 
@@ -12,42 +12,16 @@
 
 Any new feature requests, commands, or project phases will be placed at the top of this queue for execution.
 
-### Fix & Enhance `trim` / `killall` Background RAM Trimmer & Recent Apps Clearing Plan
-- **Discovered Bug & Root Cause**:
-  - `trim` / `killall` currently relies on `ActivityManager.runningAppProcesses`.
-  - On Android 8.0+ (API 26+), `getRunningAppProcesses()` is restricted by the OS and returns 0 third-party app processes to non-system callers.
-  - Because `runningAppProcesses` is empty, `killBackgroundProcesses()` was being called 0 times, resulting in 0 MB RAM freed before vs. after.
-
-- **Proposed Solution & Technical Execution**:
-  1. **Enumerate All User Packages (`PackageManager`)**:
-     - Query non-system installed packages via `packageManager.getInstalledPackages(0)`.
-     - Execute `ActivityManager.killBackgroundProcesses(pkgName)` for every installed third-party package (e.g. Chrome, Spotify, games).
-     - Run `System.gc()` and display exact RAM MB freed before vs after.
-  2. **Recent Apps Overview Launcher (`trim recents` / `sys recents`)**:
-     - Add `trim recents` or `sys recents` sub-command to launch Android's native Recent Apps Overview screen via system intent / accessibility, allowing the user to tap "Clear All" with one touch.
-  3. **Android Recents Security Disclosure**:
-     - Display clear explanatory output in terminal detailing that Android OS restricts non-root third-party apps from programmatically swiping third-party tasks out of Recents UI (`android.permission.REMOVE_TASKS` is signature-only).
-
-### Multi-Version Compatibility Fix for `uninstall` Command (Android 11 & Android 15 Support)
-- **Problem & Scope**:
-  - `uninstall <app>` works on BlackBerry KeyONE (Android 8.1 / Oreo), but fails or is intercepted on Redmi Note 8 (Android 11 / MIUI) and Moto G35 (Android 15).
-- **Technical Root Cause**:
-  - **Android 11 (MIUI / Redmi Note 8)**: MIUI Security restricts `Intent.ACTION_DELETE` with `package:` URI when launched from third-party home screen apps.
-  - **Android 15 (Moto G35 / API 35)**: Android 14/15 restricts/deprecates unguided `ACTION_DELETE` intents for third-party launchers without explicit `ACTION_UNINSTALL_PACKAGE` or PackageInstaller APIs.
-
-- **Proposed Multi-Stage Fallback Solutions**:
-  1. **Primary Intent (Modern Android Standard)**:
-     - Use `Intent(Intent.ACTION_UNINSTALL_PACKAGE, Uri.parse("package:$packageName"))` with `EXTRA_RETURN_RESULT` extra.
-  2. **Secondary Intent (Legacy Android 8.1 Fallback)**:
-     - Fallback to `Intent(Intent.ACTION_DELETE, Uri.fromParts("package", packageName, null))`.
-  3. **Tertiary Intent (OEM / Android 11-15 Safe Fallback)**:
-     - Fallback to App Info Settings (`Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))`) where the native "Uninstall" button is guaranteed to be functional across all Android OEMs (MIUI, Motorola, Stock Android 15).
-
-*Current version: **v1.2.3 (Build 7)**.*
+*No active phase in queue. Current version: **v1.3.0 (Build 8)**. Ready for next incoming feature requests!*
 
 ---
 
 ## Completed Phases & Feature Summary
+
+### Version 1.3.0 Feature Release [COMPLETED]
+- **Enhanced RAM Trimmer**: Scans all installed packages (`packageManager.getInstalledPackages(0)`) and kills third-party background processes, displaying exact RAM MB used/free before vs after and MB recovered.
+- **Recent Apps Overview Launcher (`trim recents` / `sys recents`)**: Launches native Android Recent Apps Overview screen to clear task stacks with one touch.
+- **Multi-Version `uninstall` Fallback Chain**: 3-stage fallback intent chain (`ACTION_UNINSTALL_PACKAGE` -> `ACTION_DELETE` -> `ACTION_APPLICATION_DETAILS_SETTINGS`) ensuring reliable uninstallation prompts across Android 8.1, Android 11 (MIUI), and Android 15.
 
 ### Version 1.2.3 Patch Release [COMPLETED]
 - **Dual Feedback & Bug Reporting System**:
