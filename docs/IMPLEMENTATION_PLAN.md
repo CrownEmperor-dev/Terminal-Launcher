@@ -12,21 +12,36 @@
 
 Any new feature requests, commands, or project phases will be placed at the top of this queue for execution.
 
-### Enhanced `trim` / `killall` Command & Recent Apps Clearing Plan
-- **Problem**: Running `trim` or `killall` frees background process RAM via `ActivityManager.killBackgroundProcesses()`, but does not remove third-party apps from the Android System Recent Apps overview screen (Recents UI), making it seem like "it doesn't do much".
-- **Android Security Constraints**:
-  - Android 8.0+ (API 26+) strictly restricts standard non-root applications from programmatically closing or swiping away third-party app tasks from the System Recents screen (`android.permission.REMOVE_TASKS` is a signature/system-only permission).
-  - `ActivityManager.appTasks` can only remove the current launcher's own task stack.
+### Fix & Enhance `trim` / `killall` Background RAM Trimmer & Recent Apps Clearing Plan
+- **Discovered Bug & Root Cause**:
+  - `trim` / `killall` currently relies on `ActivityManager.runningAppProcesses`.
+  - On Android 8.0+ (API 26+), `getRunningAppProcesses()` is restricted by the OS and returns 0 third-party app processes to non-system callers.
+  - Because `runningAppProcesses` is empty, `killBackgroundProcesses()` was being called 0 times, resulting in 0 MB RAM freed before vs. after.
 
-- **Proposed Solutions & Execution Options**:
-  1. **Option A: Enhanced Memory Trimmer with RAM Delta Metrics**
-     - Measure RAM usage before and after `killBackgroundProcesses()` + `System.gc()`.
-     - Output exact MB of RAM freed (e.g. `[TRIM SUCCESS]: Terminated background processes across 14 apps. Freed 342 MB RAM.`).
-     - Display clear status explaining Android's Recents security model.
-  2. **Option B: Direct Recent Apps Overview Launcher (`trim recents` / `sys recents`)**
-     - Add `trim recents` or `sys recents` command that opens Android's System Recent Apps overview screen via `AccessibilityService.GLOBAL_ACTION_RECENTS` or System Service Intent, allowing the user to tap "Clear All" instantly.
-  3. **Option C: Optional Accessibility Service Helper (`AccessibilityService`)**
-     - Provide an optional Accessibility Service module in Terminal Launcher. When enabled by user in Android Settings, the service can perform `GLOBAL_ACTION_RECENTS` and automatically perform a "Clear All" swipe action when `trim` or `clear-recents` is run.
+- **Proposed Solution & Technical Execution**:
+  1. **Enumerate All User Packages (`PackageManager`)**:
+     - Query non-system installed packages via `packageManager.getInstalledPackages(0)`.
+     - Execute `ActivityManager.killBackgroundProcesses(pkgName)` for every installed third-party package (e.g. Chrome, Spotify, games).
+     - Run `System.gc()` and display exact RAM MB freed before vs after.
+  2. **Recent Apps Overview Launcher (`trim recents` / `sys recents`)**:
+     - Add `trim recents` or `sys recents` sub-command to launch Android's native Recent Apps Overview screen via system intent / accessibility, allowing the user to tap "Clear All" with one touch.
+  3. **Android Recents Security Disclosure**:
+     - Display clear explanatory output in terminal detailing that Android OS restricts non-root third-party apps from programmatically swiping third-party tasks out of Recents UI (`android.permission.REMOVE_TASKS` is signature-only).
+
+### Multi-Version Compatibility Fix for `uninstall` Command (Android 11 & Android 15 Support)
+- **Problem & Scope**:
+  - `uninstall <app>` works on BlackBerry KeyONE (Android 8.1 / Oreo), but fails or is intercepted on Redmi Note 8 (Android 11 / MIUI) and Moto G35 (Android 15).
+- **Technical Root Cause**:
+  - **Android 11 (MIUI / Redmi Note 8)**: MIUI Security restricts `Intent.ACTION_DELETE` with `package:` URI when launched from third-party home screen apps.
+  - **Android 15 (Moto G35 / API 35)**: Android 14/15 restricts/deprecates unguided `ACTION_DELETE` intents for third-party launchers without explicit `ACTION_UNINSTALL_PACKAGE` or PackageInstaller APIs.
+
+- **Proposed Multi-Stage Fallback Solutions**:
+  1. **Primary Intent (Modern Android Standard)**:
+     - Use `Intent(Intent.ACTION_UNINSTALL_PACKAGE, Uri.parse("package:$packageName"))` with `EXTRA_RETURN_RESULT` extra.
+  2. **Secondary Intent (Legacy Android 8.1 Fallback)**:
+     - Fallback to `Intent(Intent.ACTION_DELETE, Uri.fromParts("package", packageName, null))`.
+  3. **Tertiary Intent (OEM / Android 11-15 Safe Fallback)**:
+     - Fallback to App Info Settings (`Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))`) where the native "Uninstall" button is guaranteed to be functional across all Android OEMs (MIUI, Motorola, Stock Android 15).
 
 *Current version: **v1.2.3 (Build 7)**.*
 
