@@ -1,36 +1,92 @@
 # Terminal Launcher Living Roadmap & Implementation Plan
 
 > [!IMPORTANT]
-> **PINNED RULE: VERSION NUMBER BUMP POLICY AFTER EVERY SUCCESSFUL BUILD**
-> Change and increment the version number in `app/build.gradle.kts`, `CommandEngine.kt`, `OptionsMenuDialog.kt`, `TerminalViewModel.kt`, and `README.md` after every successful build:
-> 1. **Big Upgrades / Feature Releases**: Increment MINOR version by `+0.1.0` (e.g. `v1.2.0` ➔ `v1.3.0`).
-> 2. **Small Changes / Tweaks / Bug Fixes**: Increment PATCH version by `+0.0.1` (e.g. `v1.3.1` ➔ `v1.3.2`).
+> **PINNED META-INSTRUCTIONS FOR ALL CHAT SESSIONS & AGENTS**
+> 1. **Single Source of Truth**: `docs/IMPLEMENTATION_PLAN.md` (and `implementation_plan.artifact.md`) is the master implementation plan file for Terminal Launcher. Always read and update this file regularly.
+> 2. **Pre-Implementation Protocol**: When the user provides ideas or bug reports, update `docs/IMPLEMENTATION_PLAN.md` first with detailed technical strategies. Present the updated plan to the user and await explicit approval before modifying any code files.
+> 3. **Execution & Version Bump Protocol**: After implementing and verifying a feature with `./gradlew app:assembleDebug` and `./gradlew app:testDebugUnitTest`:
+>    - Increment version number in `app/build.gradle.kts`, `CommandEngine.kt`, `OptionsMenuDialog.kt`, `TerminalViewModel.kt`, and `README.md` (Minor `+0.1.0` for features, Patch `+0.0.1` for tweaks/fixes).
+>    - Output a **"Fix and New Features Log"** summary at the start of your response.
+> 4. **Session Override Rule**: This protocol overrides any conflicting parameters from previous chat sessions.
 
 ---
 
-## Active Priority Queue: Canonical `Uri.fromParts` Uninstallation & App Info Direct Fallback (`uninstall <app>`)
+## Active Priority Queue (Next Intake Stack)
 
-### Proposed Feature Details
-
-#### 1. Canonical `Uri.fromParts("package", pkgName, null)` Uninstallation Handler
-- **Problem**: `Uri.parse("package:$pkgName")` or `PackageInstaller` can be blocked on OEM Android builds (Redmi/MIUI Security Optimization, Motorola Moto G35 Android 15).
-- **Canonical Solution**:
+### 1. Canonical `Uri.fromParts` Uninstallation & Direct App Info Fallback (`uninstall <app>`) [TOP PRIORITY]
+- **Problem**: `PackageInstaller.uninstall()` or `ACTION_DELETE` gets intercepted/blocked on MIUI (Redmi Note 8) and Motorola (Android 15) OEM security policies unless special developer options are enabled.
+- **Solution Strategy**:
   1. **Primary Intent**: `Intent(Intent.ACTION_DELETE, Uri.fromParts("package", pkgName, null))` with `FLAG_ACTIVITY_NEW_TASK`.
-  2. **Direct App Info Fallback (100% Guaranteed Works on ALL Android Devices)**:
-     If the system uninstallation dialog is intercepted by MIUI / Android 15 security, launch `Settings.ACTION_APPLICATION_DETAILS_SETTINGS` with `Uri.fromParts("package", pkgName, null)` directly!
-     The native "App Info" page opens with the prominent **"UNINSTALL"** button, allowing 1-tap uninstallation across all Android OEMs!
+  2. **Direct App Info Page Fallback (100% Guaranteed to Work on ALL Android Devices)**:
+     If the system uninstallation dialog is intercepted by MIUI or Android 15, Terminal Launcher immediately opens the native App Info Settings page (`Settings.ACTION_APPLICATION_DETAILS_SETTINGS`, `Uri.fromParts("package", pkgName, null)`).
+     The native App Info page opens instantly with the prominent **"UNINSTALL"** button, allowing 1-tap uninstallation across all Android OEMs (MIUI, Motorola, Samsung, Pixel, Android 15)!
+
+### 2. Complete Removal of Termux Implementation
+- **Reasoning**: Termux's background service (`com.termux.app.RunCommandService`) relies on internal Termux Linux socket paths (`/data/data/com.termux/files/usr/bin/...`) and requires `allow-external-apps = true` in `~/.termux/termux.properties` plus explicit `termux-reload-settings`. On modern Android 11–15 OEMs (MIUI, Motorola, OneUI), background service intents across non-system app boundaries are blocked by OS security, creating fragile "spaghetti" fallback code that degrades user experience.
+- **Execution Plan**:
+  - Remove `handleTermux`, `handleTermuxSetup`, `tx`, `termux` routing in `CommandEngine.kt`.
+  - Remove `<uses-permission android:name="com.termux.permission.RUN_COMMAND" />` in `AndroidManifest.xml`.
+  - Remove Termux sub-command completions in `TerminalViewModel.kt`.
+
+### 3. Enhanced `infofetch` System Metrics & New Features log.
+- Expand `infofetch` output to include:
+    - **CPU Specs**: Active CPU Cores, Max Frequency, Architecture ABI.
+    - **Disk Storage**: Internal Storage total/used/free MB/GB & Mounted MicroSD Storage.
+    - **Installed App Count**: Total user apps installed and total system packages count.
+- Show new features and fixes log after each app update. show as a message box after installation and as a summary in options menu.
+
+### 4. Fix `ls` File Visibility on Android 15 (Moto G35 / API 35)
+- **Problem**: On Android 15, `ls` lists directories but hides regular files (`.txt`, `.pdf`, `.apk`) due to Android 15 scoped storage file enumeration filters.
+- **Solution Strategy**:
+  - Update `handleLs()` to use `File.listFiles()` with explicit `MediaStore.Files` / `Environment.isExternalStorageManager()` query fallbacks to guarantee regular files display alongside directories across all Android 15 devices.
+
+### 5. Dynamic Linux Terminal Prompt Path (`user@mobile:~/Download$ `)
+- **Feature Goal**: Mirror standard Linux bash shells where the prompt reflects the current active directory.
+- **Execution Logic**:
+  - Root: `user@mobile:~$ `
+  - Inside `storage0/Download`: `user@mobile:~/Download$ `
+  - Inside `storage0/Download/Docs`: `user@mobile:~/Download/Docs$ `
+  - Update `TerminalViewModel` state and prompt calculation dynamically when `cd` changes `currentPath`.
+
+### 6. File Creation (`mkdir`), Deletion (`rm`), and Output Redirection (`echo "text" > file.txt`)
+- **`mkdir <dir_name>`**: Creates new subdirectory inside active `cd` folder or path.
+- **`rm <file_or_dir>`**: Deletes specified file or directory (`rm -r` for recursive folder removal).
+- **Shell Redirection (`>` & `>>`)**:
+  - Parse input for `>` (overwrite) and `>>` (append).
+  - Execute left-hand command (e.g. `echo "Hello World" > notes.txt` or `time >> log.txt`) and write/append output text directly to target file in active `cd` directory.
+
+### 7. Full `grep` Implementation & Command Piping (`|`) & Wildcards (`*.log`)
+- **`grep` Command Flags**:
+  - `-i` : Case-insensitive match.
+  - `-v` : Invert match (output non-matching lines).
+  - `-n` : Print line numbers (`12: matching line`).
+  - `-c` : Count total matching lines.
+  - `-r` : Recursive search inside subdirectories.
+  - `-w` : Exact word boundary match (`\bpattern\b`).
+- **Command Piping (`|`)**: Support piping left-hand output into right-hand `grep` filter (e.g., `ls | grep ".txt"` or `history | grep "config"`).
+- **Wildcard Expansion (`*.log`, `*.txt`)**: Support searching across multiple files (e.g., `grep "error" *.log`).
+
+
 
 ---
 
 ## Proposed Changes
 
-### Command Engine Layer
+### Core Engine & Architecture Layer
 
 #### [MODIFY] [CommandEngine.kt](file:///home/mohammed/AndroidStudioProjects/TerminalLauncher/app/src/main/java/com/example/terminallauncher/data/CommandEngine.kt)
 - Update `handleUninstall(appQuery)` to use `Uri.fromParts("package", pkgName, null)` for `ACTION_DELETE` and direct fallback to `Settings.ACTION_APPLICATION_DETAILS_SETTINGS`.
+- Remove all Termux code completely.
+- Fix Android 15 file visibility in `handleLs()`.
+- Implement dynamic prompt formatting reflecting active `cd` folder.
+- Implement `mkdir`, `rm`, output redirection (`>` / `>>`), `grep` with flags (`-i`, `-v`, `-n`, `-c`, `-r`, `-w`), piping (`|`), and wildcards (`*.log`).
+- Expand `infofetch` with CPU, Disk Storage, and App Count metrics.
 
-#### [MODIFY] [build.gradle.kts](file:///home/mohammed/AndroidStudioProjects/TerminalLauncher/app/build.gradle.kts)
-- Bump version to **`v1.3.2` (Build 10)**.
+#### [MODIFY] [AndroidManifest.xml](file:///home/mohammed/AndroidStudioProjects/TerminalLauncher/app/src/main/AndroidManifest.xml)
+- Remove `com.termux.permission.RUN_COMMAND`.
+
+#### [MODIFY] [TerminalViewModel.kt](file:///home/mohammed/AndroidStudioProjects/TerminalLauncher/app/src/main/java/com/example/terminallauncher/ui/TerminalViewModel.kt)
+- Update completions for `mkdir`, `rm`, `grep`, and dynamic prompt state.
 
 ---
 
@@ -38,62 +94,53 @@
 
 ### Automated Tests
 - Unit test verifying `uninstall` package query resolution.
+- Unit test verifying `grep` flags (`-i`, `-v`, `-n`, `-c`, `-w`), file wildcard expansion (`*.log`), and piping (`|`).
+- Unit test verifying file creation (`mkdir`), deletion (`rm`), and shell redirection (`>`).
 
 ### Manual Verification
 - Execute `uninstall spotify` -> verify system uninstallation prompt or App Info page opens directly with the "Uninstall" button available.
+- Execute `cd storage0/Download` -> verify prompt updates to `user@mobile:~/Download$ `.
+- Execute `ls` on Android 15 -> verify both files and folders display.
+- Execute `echo "Hello World" > hello.txt` -> verify file created and `cat hello.txt` reads "Hello World".
+- Execute `grep -i -n "hello" hello.txt` -> verify line number and text output.
+- Execute `ls | grep ".txt"` -> verify piped output filtering works cleanly.
+- Execute `infofetch` -> verify CPU cores, Disk Storage, and Total App Count display.
 
 ---
 
 ## Completed Phases & Feature Summary
 
 ### Version 1.3.1 Patch Release [COMPLETED]
-- **Official System `PackageInstaller.uninstall()` Uninstallation Integration**: Replaced deprecated/blocked Intent filters with Android's official system `PackageInstaller.uninstall(packageName, pendingIntent.intentSender)` API and declared `REQUEST_DELETE_PACKAGES` permission in `AndroidManifest.xml`.
+- **Official System `PackageInstaller.uninstall()` Integration**: Replaced deprecated intent filters with `PackageInstaller.uninstall()`.
 
 ### Version 1.3.0 Feature Release [COMPLETED]
-- **Enhanced RAM Trimmer**: Scans all installed packages (`packageManager.getInstalledPackages(0)`) and kills third-party background processes, displaying exact RAM MB used/free before vs after and MB recovered.
-- **Recent Apps Overview Launcher (`trim recents` / `sys recents`)**: Launches native Android Recent Apps Overview screen to clear task stacks with one touch.
+- **Enhanced RAM Trimmer**: Scans all installed packages (`packageManager.getInstalledPackages(0)`) and kills third-party background processes.
+- **Recent Apps Overview Launcher (`trim recents` / `sys recents`)**.
 
 ### Version 1.2.3 Patch Release [COMPLETED]
-- **Dual Feedback & Bug Reporting System**:
-  - Primary Path: Pre-filled GitHub Issue launcher (`feedback <msg>`, `report <bug>`, `feedback github <msg>`) with auto-attached diagnostic specs.
-  - Secondary Path: Direct email dispatcher (`feedback email <msg>`, `report email <bug>`) targeting `crownemperordev@gmail.com`.
-  - GUI Options Menu Dual Buttons: **`[ REPORT ISSUE ON GITHUB ]`** and **`[ SEND DIRECT EMAIL ]`** options in `OptionsMenuDialog`.
+- **Dual Feedback & Bug Reporting System**: GitHub Issues primary & direct email (`crownemperordev@gmail.com`) secondary.
 
 ### Version 1.2.2 Patch Release [COMPLETED]
-- **Waydroid & Linux PC Cursor Focus Fix**: Always maintains active input focus and blinking cursor on boot for instant physical/laptop keyboard typing, while actively suppressing the virtual software keyboard when `autokeyboard` is set to `off` (the default).
-
-### Version 1.2.1 Patch Release [COMPLETED]
-- **Waydroid & Hardware Keyboard Optimization**: Added `autoShowKeyboard` preference key (`config set autokeyboard <on|off>`) and GUI switch toggle in `OptionsMenuDialog`.
+- **Waydroid & Linux PC Cursor Focus Fix**: Active input focus and blinking cursor on boot with soft keyboard suppression.
 
 ### Version 1.2.0 Feature Release [COMPLETED]
-- **Expanded Retro Color Schemes**: Added Cyberpunk Cyan (`CYAN_NEON`), Game Boy Classic (`GAMEBOY_DMG`), Solarized Dark (`SOLARIZED`), and Dracula Retro (`DRACULA`) themes.
-- **Multi-Color Custom ASCII Banners**: Inline `[#HEX]` color tag parsing into Compose `AnnotatedString` with custom `SpanStyle` character colors.
-- **Full Immersion Status Bar Toggle**: `config set statusbar <on|off>`, `sys statusbar`, and GUI switch in `OptionsMenuDialog`.
-- **Battery Metric Fix (Time Since Full Charge)**: Tracks 100% full recharge timestamps in DataStore (`lastFullChargeTimestamp`) and displays `Time Since Full Charge: 4h 15m ago`.
-- **User Feedback & Bug Reporting System**: `feedback <message>` / `report <bug>` pre-filled GitHub Issue / email dispatcher with automatic hardware diagnostics.
+- **Expanded Retro Color Schemes**: Added Cyberpunk Cyan, Game Boy, Solarized Dark, Dracula.
+- **Multi-Color Custom ASCII Banners**: Inline `[#HEX]` color tag parsing.
+- **Full Immersion Status Bar Toggle**: `config set statusbar <on|off>`.
+- **Battery Metric Fix (Time Since Full Charge)**.
 
 ### Version 1.1.1 Patch Release [COMPLETED]
-- **16-Track 8-Bit Retro Chiptune Jukebox**: Randomly picks or allows selecting 16 classic retro game melodies (`8bit`, `8bit <1..16>`, `tune mario`, `8bit list`).
+- **16-Track 8-Bit Retro Chiptune Jukebox** (`8bit`, `tune`).
 
 ### Version 1.1.0 Feature Release [COMPLETED]
-- **Battery Estimates**: Displays real-time time till full charge (charging) and time till full drain (discharging).
-- **Duplicate App Auto-Disambiguation**: Automatically generates unique shortcut aliases (e.g. `calculator.google` vs `calculator.sec`).
-- **In-Terminal Text File Viewer (`cat <file>`)**: Reads `.txt`, `.log`, `.md`, `.json`, `.csv` files.
-- **8-Bit Chiptune Square Wave Audio Easter Egg (`8bit` / `tune`)**: Synthesizes retro 8-bit square wave PCM melody via Android `AudioTrack` API.
-- **Email Dispatcher (`email <to> [subject] [body]`)**: Pre-fills recipient, subject, and body in Proton Mail, Gmail, or default email client.
-- **Play Store App Installation (`install <app>`)**: Launches Google Play Store app or browser directly to search/details page.
+- **Battery Estimates**, **Duplicate App Auto-Disambiguation**, **`cat <file>` Viewer**, **`install <app>` Play Store Launcher**.
 
 ### Version 1.0.0 Initial Features [COMPLETED]
-- **Phase 1**: Performance & 120Hz Optimizations, Single-Keystroke `Enter` Autocomplete Execution, Command Disambiguation (`config`, `settings`, `options`), `matrix` easter egg.
-- **Phase 2**: Storage Directory Traversal (`ls /storage`, `storage0`, `storage1`, `cd`), Package Event Detection (`PACKAGE_ADDED`, `PACKAGE_REMOVED`), Android 8.1 Oreo permissions.
-- **Phase 3**: Direct Web URL Launcher, `time`/`date` command, `killall` memory trimmer, Ghost autocomplete dismissal via `Backspace`, `about` card, `sys` hardware toggles & deep settings subpages.
-- **Phase 4**: `echo` command with variable expansion (`$USER`, `$PROMPT`, `$THEME`, `$VERSION`, `$OS`, `$MODEL`), Google Web Search (`search`/`google`/`g`), Custom Handmade ASCII Art Editor (`asciiart.eu`).
-- **Text Selection & Copy-Paste**: Output line buffer highlighting (`SelectionContainer`), `Ctrl+C`/`Ctrl+V` input shortcuts.
+- **Phase 1-4**: Performance, Storage Navigation, Direct Web URLs, `echo` variables, Custom ASCII editor, Text Selection & `Ctrl+C`/`Ctrl+V`.
 
 ---
 
 ## Deferred Backlog (Indefinitely On Hold)
-- Termux Intent Execution Bridge.
-- Android 15 `uninstall` Direct Intent Prompt.
-- `grep <pattern>`: Search buffer output lines or file content.
-- `wa <number> <message>` / `whatsapp`: Direct WhatsApp messaging.
+- Termux Intent Execution Bridge (Removed & Cancelled).
+- Android 15 `uninstall` Direct Intent Prompt.(Working on).
+
