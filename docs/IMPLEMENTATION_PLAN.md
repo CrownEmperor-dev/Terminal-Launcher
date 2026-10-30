@@ -15,8 +15,25 @@
 
 Any new feature requests, commands, or project phases will be placed at the top of this queue for execution.
 
-*No active phase in queue. Current version: **v1.3.6 (Build 12)**. Ready for next incoming feature requests!*
+### 1. File Creation (`mkdir`), Deletion (`rm`), and Output Redirection (`echo "text" > file.txt` [NEXT IN QUEUE]
 
+- **`mkdir <dir_name>`**: Creates new subdirectory inside active `cd` folder or path.
+- **`rm <file_or_dir>`**: Deletes specified file or directory (`rm -r` for recursive folder removal).
+- **Shell Redirection (`>` & `>>`)**:
+  - Parse input for `>` (overwrite) and `>>` (append).
+  - Execute left-hand command (e.g. `echo "Hello World" > notes.txt` or `time >> log.txt`) and write/append output text directly to target file in active `cd` directory.
+
+### 2. Full `grep` Implementation & Command Piping (`|`) & Wildcards (`*.log`)
+
+- **`grep` Command Flags**:
+  - `-i` : Case-insensitive match.
+  - `-v` : Invert match (output non-matching lines).
+  - `-n` : Print line numbers (`12: matching line`).
+  - `-c` : Count total matching lines.
+  - `-r` : Recursive search inside subdirectories.
+  - `-w` : Exact word boundary match (`\bpattern\b`).
+- **Command Piping (`|`)**: Support piping left-hand output into right-hand `grep` filter (e.g., `ls | grep ".txt"` or `history | grep "config"`).
+- **Wildcard Expansion (`*.log`, `*.txt`)**: Support searching across multiple files (e.g., `grep "error" *.log`).
 ---
 
 ## Completed Phases & Feature Summary
