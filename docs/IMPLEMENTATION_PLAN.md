@@ -15,8 +15,28 @@
 
 Any new feature requests, commands, or project phases will be placed at the top of this queue for execution.
 
-### 1. Full `grep` Implementation & Command Piping (`|`) & Wildcards (`*.log`) [NEXT IN QUEUE]
+### 1. System Power Commands (`reboot`, `restart`, `shutdown`, `poweroff`)
+- **Technical Feasibility & Execution Strategy**:
+  - **Rooted Devices (`su`)**: Execute `su -c "reboot"` for reboot/restart and `su -c "reboot -p"` or `su -c "svc power shutdown"` for shutdown.
+  - **Non-Rooted Android Fallback**: Open Android's System Power Menu dialog (`AccessibilityService.GLOBAL_ACTION_POWER_DIALOG` or `Intent("android.intent.action.ACTION_POWER_USAGE_SUMMARY")`) so the user can tap Power Off / Restart in 1 click.
+  - **Terminal Output**: Display clear status notice indicating execution mode (Root Direct vs System Power Dialog Fallback).
 
+### 2. In-Launcher & System Screenshot Command (`screenshot` / `sc` / `sys screenshot`)
+- **Technical Execution Strategy**:
+  - **In-Launcher Window Capture (Primary)**: Use Compose `GraphicsLayer` / `drawToBitmap()` or `PixelCopy.request()` on MainActivity Window surface to capture high-res PNG image of the terminal shell.
+  - **Storage Persistence**: Automatically save screenshot PNG file to `storage0/Pictures/Screenshots/screenshot_<timestamp>.png`.
+  - **System Screenshot Fallback**: On Android 11+ (API 30+), support `screenshot sys` using `AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT` for full OS screen capture.
+  - **Terminal Output**: Display saved PNG file path and size (e.g. `[SUCCESS]: Screenshot saved to storage0/Pictures/Screenshots/screenshot_20260228_123000.png (420 KB)`).
+
+### 3. Help & Manual (`help` / `man`) Complete Command Audit & Update
+- **Goal**: Audit and update `handleHelp()` in `CommandEngine.kt` to ensure every built-in command, utility, and flag is fully listed and documented.
+- **Audit Checklist**:
+  - Core: `options`, `about`, `version`, `whatsnew`, `echo`, `search`, `feedback`, `install`, `cat`, `mkdir`, `rm`, `8bit`, `email`, `time`, `killall`, `trim`, `matrix`, `ls`, `cd`, `open`, `uninstall`, `alias`, `unalias`, `clear`, `history`, `help`.
+  - Power & Hardware: `reboot`, `restart`, `shutdown`, `poweroff`, `screenshot`.
+  - Preferences: `config` (theme, statusbar, autokeyboard, fastfetch, prompt, autocomplete), `settings`.
+  - Utilities: `infofetch`, `top`, `battery`, `calc`, `sys` (`flash`, `ringer`, `statusbar`, `recents`, `storage`, `settings`, `gps`, `hotspot`).
+
+### 4. Full `grep` Implementation & Command Piping (`|`) & Wildcards (`*.log`)
 - **`grep` Command Flags**:
   - `-i` : Case-insensitive match.
   - `-v` : Invert match (output non-matching lines).
