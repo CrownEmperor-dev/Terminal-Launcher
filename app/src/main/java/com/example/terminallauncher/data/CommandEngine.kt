@@ -208,34 +208,20 @@ class CommandEngine(
         }
     }
 
+    private suspend fun handleInfofetch(args: List<String>, settings: LauncherSettings): CommandResult {
+        val isUpdate = args.firstOrNull()?.lowercase() == "update"
+        val lines = generateInfofetchLines(settings).toMutableList()
+        if (isUpdate) {
+            lines.add(0, TerminalLine(text = "[REFRESHED REAL-TIME SYSTEM INFORMATION]", type = LineType.SUCCESS))
+        }
+        return CommandResult(outputLines = lines)
+    }
+
     suspend fun generateInfofetchLines(settings: LauncherSettings): List<TerminalLine> {
         val osVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
         val model = "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}"
         val cpuArch = Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown"
-        val cpuCores = Runtime.getRuntime().availableProcessors()
         val ramInfo = getRamUsageInfo()
-
-        val storageInfo = try {
-            val stat = android.os.StatFs(Environment.getDataDirectory().path)
-            val blockSize = stat.blockSizeLong
-            val totalBytes = stat.blockCountLong * blockSize
-            val availBytes = stat.availableBlocksLong * blockSize
-            val freeGb = String.format(Locale.US, "%.1f", availBytes / (1024.0 * 1024.0 * 1024.0))
-            val totalGb = String.format(Locale.US, "%.1f", totalBytes / (1024.0 * 1024.0 * 1024.0))
-            "${freeGb}GB free / ${totalGb}GB"
-        } catch (_: Exception) {
-            "Storage Info Unavailable"
-        }
-
-        val appCountInfo = try {
-            val allPkgs = context.packageManager.getInstalledPackages(0)
-            val systemCount = allPkgs.count { ((it.applicationInfo?.flags ?: 0) and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0 }
-            val userCount = allPkgs.size - systemCount
-            "$userCount User / $systemCount System (${allPkgs.size} Total)"
-        } catch (_: Exception) {
-            "App Count Unavailable"
-        }
-
         val batInfo = getBatteryStatusInfo(settings)
         val uptime = getUptimeString()
 
@@ -245,13 +231,11 @@ class CommandEngine(
             "OS: $osVersion",
             "Host: $model",
             "Kernel: Linux ${System.getProperty("os.version") ?: "Android"}",
-            "CPU: $cpuArch ($cpuCores Cores)",
+            "Arch: $cpuArch",
             "Uptime: $uptime",
             "RAM: $ramInfo",
-            "Storage: $storageInfo",
-            "Apps: $appCountInfo",
             "Battery: $batInfo",
-            "Shell: TerminalLauncher v1.3.4"
+            "Shell: TerminalLauncher v1.3.6"
         )
 
         val result = mutableListOf<TerminalLine>()
@@ -268,7 +252,7 @@ class CommandEngine(
     private fun handleFeedback(userMsg: String, currentSettings: LauncherSettings): CommandResult {
         val model = "${Build.MANUFACTURER} ${Build.MODEL}"
         val os = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
-        val version = "v1.3.4"
+        val version = "v1.3.6"
 
         val trimmedMsg = userMsg.trim()
         val isForceEmail = trimmedMsg.lowercase().startsWith("email ") || trimmedMsg.lowercase() == "email"
@@ -344,24 +328,25 @@ class CommandEngine(
     }
 
     private fun handleCat(filePath: String): CommandResult {
-        if (filePath.isBlank()) {
+        val cleanPath = filePath.trim().removeSurrounding("\"").removeSurrounding("'")
+        if (cleanPath.isBlank()) {
             return CommandResult(
                 outputLines = listOf(TerminalLine(text = "Usage: cat <file_path> or read <file_path>", type = LineType.ERROR)),
                 success = false
             )
         }
 
-        val targetFile = resolveStoragePath(filePath)
+        val targetFile = resolveStoragePath(cleanPath)
         if (!targetFile.exists()) {
             return CommandResult(
-                outputLines = listOf(TerminalLine(text = "cat: file not found: '$filePath'", type = LineType.ERROR)),
+                outputLines = listOf(TerminalLine(text = "cat: file not found: '$cleanPath'", type = LineType.ERROR)),
                 success = false
             )
         }
 
         if (targetFile.isDirectory) {
             return CommandResult(
-                outputLines = listOf(TerminalLine(text = "cat: '$filePath' is a directory. Use 'ls' or 'cd' instead.", type = LineType.ERROR)),
+                outputLines = listOf(TerminalLine(text = "cat: '$cleanPath' is a directory. Use 'ls' or 'cd' instead.", type = LineType.ERROR)),
                 success = false
             )
         }
@@ -565,24 +550,14 @@ class CommandEngine(
 
     private fun handleWhatsNew(): CommandResult {
         val lines = listOf(
-            TerminalLine(text = "TERMINAL LAUNCHER - WHAT'S NEW IN V1.3.4", type = LineType.HEADER),
+            TerminalLine(text = "TERMINAL LAUNCHER - WHAT'S NEW IN V1.3.6", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
-            TerminalLine(text = "• Dynamic Prompt Path   : Shell prompt dynamically reflects active storage directory (~/Download)", type = LineType.OUTPUT),
-            TerminalLine(text = "• Android 15 File Vis   : Enhanced 'ls' with MediaStore fallback on API 35", type = LineType.OUTPUT),
-            TerminalLine(text = "• Uninstallation Fix    : Direct App Info fallback for Android 11-15 (MIUI / Moto)", type = LineType.OUTPUT),
-            TerminalLine(text = "• Enhanced Infofetch    : Added CPU cores, Disk Storage, & User/System app counts", type = LineType.OUTPUT),
-            TerminalLine(text = "• Release Notes Viewer  : Type 'whatsnew' or 'changelog' anytime in shell", type = LineType.OUTPUT),
+            TerminalLine(text = "• Multi-Word Folder Support: 'cd storage0/Quick Share' & 'ls \"Quick Share\"' work seamlessly", type = LineType.OUTPUT),
+            TerminalLine(text = "• All Files Access Prompt  : Run 'sys storage' to grant All Files Access on Android 11-15", type = LineType.OUTPUT),
+            TerminalLine(text = "• Case-Insensitive Storage: 'ls storage0/download' & 'cd storage0/download' match 'Download'", type = LineType.OUTPUT),
+            TerminalLine(text = "• Storage Directory Guard  : 'ls storage0/invalid' outputs explicit error instead of app list", type = LineType.OUTPUT),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM)
         )
-        return CommandResult(outputLines = lines)
-    }
-
-    private suspend fun handleInfofetch(args: List<String>, settings: LauncherSettings): CommandResult {
-        val isUpdate = args.firstOrNull()?.lowercase() == "update"
-        val lines = generateInfofetchLines(settings).toMutableList()
-        if (isUpdate) {
-            lines.add(0, TerminalLine(text = "[REFRESHED REAL-TIME SYSTEM INFORMATION]", type = LineType.SUCCESS))
-        }
         return CommandResult(outputLines = lines)
     }
 
@@ -601,7 +576,7 @@ class CommandEngine(
             .replace("\$USER", userStr)
             .replace("\$PROMPT", settings.promptString)
             .replace("\$THEME", settings.theme.name.lowercase())
-            .replace("\$VERSION", "v1.3.4")
+            .replace("\$VERSION", "v1.3.6")
             .replace("\$OS", "Android ${Build.VERSION.RELEASE}")
             .replace("\$MODEL", "${Build.MANUFACTURER} ${Build.MODEL}")
 
@@ -630,7 +605,7 @@ class CommandEngine(
             TerminalLine(text = "TERMINAL LAUNCHER - ABOUT", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
             TerminalLine(text = "App Name    : Terminal Launcher", type = LineType.OUTPUT),
-            TerminalLine(text = "Version     : v1.3.4 (Build 10)", type = LineType.OUTPUT),
+            TerminalLine(text = "Version     : v1.3.6 (Build 12)", type = LineType.OUTPUT),
             TerminalLine(text = "Developer   : CrownEmperor-dev", type = LineType.OUTPUT),
             TerminalLine(text = "Framework   : Kotlin & Jetpack Compose", type = LineType.OUTPUT),
             TerminalLine(text = "License     : MIT License", type = LineType.OUTPUT),
@@ -781,26 +756,34 @@ class CommandEngine(
         val label = app.label
 
         return try {
-            val deleteIntent = Intent(Intent.ACTION_DELETE).apply {
-                data = Uri.fromParts("package", pkgName, null)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val packageInstaller = context.packageManager.packageInstaller
+            val callbackIntent = Intent(context, MainActivity::class.java).apply {
+                putExtra("UNINSTALL_PKG", pkgName)
             }
-            context.startActivity(deleteIntent)
+            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            } else {
+                PendingIntent.FLAG_UPDATE_CURRENT
+            }
+            val pendingIntent = PendingIntent.getActivity(context, 0, callbackIntent, flags)
+
+            packageInstaller.uninstall(pkgName, pendingIntent.intentSender)
+
             CommandResult(
                 outputLines = listOf(
-                    TerminalLine(text = "Opening uninstallation prompt for $label ($pkgName)...", type = LineType.SUCCESS)
+                    TerminalLine(text = "Opening system uninstallation prompt for $label ($pkgName)...", type = LineType.SUCCESS)
                 )
             )
         } catch (_: Exception) {
             try {
                 val settingsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                    data = Uri.fromParts("package", pkgName, null)
+                    data = Uri.parse("package:$pkgName")
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(settingsIntent)
                 CommandResult(
                     outputLines = listOf(
-                        TerminalLine(text = "Opened App Info Settings for $label ($pkgName)...", type = LineType.SUCCESS),
+                        TerminalLine(text = "Opened App Info for $label ($pkgName)...", type = LineType.SUCCESS),
                         TerminalLine(text = "Tap 'Uninstall' on the App Info page to remove.", type = LineType.SYSTEM)
                     )
                 )
@@ -864,12 +847,11 @@ class CommandEngine(
 
     private fun handleHelp(): CommandResult {
         val lines = mutableListOf<TerminalLine>()
-        lines.add(TerminalLine(text = "Terminal Launcher v1.3.2 - Shell Manual", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "Terminal Launcher v1.3.6 - Shell Manual", type = LineType.HEADER))
         lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
         lines.add(TerminalLine(text = "CORE COMMANDS:", type = LineType.HEADER))
         lines.add(TerminalLine(text = "  options / customize GUI visual settings menu", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  about / version    App details, license, and repository URL", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  whatsnew / changelog Show release notes and what's new in v1.3.2", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  echo <text|\$var>   Print string or shell variables", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  search <query>     Search Google in web browser (or 'google' / 'g')", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  feedback <message> Send feedback or report bugs with device specs", type = LineType.OUTPUT))
@@ -909,6 +891,7 @@ class CommandEngine(
         lines.add(TerminalLine(text = "  sys ringer <s|v|n>   Set ringer mode: silent, vibrate, normal", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  sys statusbar        Toggle status bar full immersion", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  sys recents          Launch Recent Apps Overview screen", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  sys storage          Open All Files Access permission settings", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  sys settings <page>  Open settings page (e.g. sys settings display)", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  call <number>        Launch phone dialer", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  sms <number>         Launch SMS messaging", type = LineType.OUTPUT))
@@ -917,7 +900,8 @@ class CommandEngine(
     }
 
     private fun handleLs(args: List<String>, settings: LauncherSettings): CommandResult {
-        val targetArg = args.firstOrNull()?.replace("\"", "")?.trim() ?: currentPath
+        val rawTarget = args.joinToString(" ").trim().removeSurrounding("\"").removeSurrounding("'")
+        val targetArg = if (rawTarget.isBlank()) currentPath else rawTarget
         val lines = mutableListOf<TerminalLine>()
 
         when (targetArg.lowercase()) {
@@ -933,7 +917,7 @@ class CommandEngine(
             }
             "/system", "system" -> {
                 lines.add(TerminalLine(text = "SYSTEM COMMANDS:", type = LineType.HEADER))
-                val sysCmds = listOf("options", "about", "time", "killall", "trim", "echo", "search", "feedback", "install", "cat", "8bit", "email", "termux", "tx", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
+                val sysCmds = listOf("options", "about", "time", "killall", "trim", "echo", "search", "feedback", "install", "cat", "8bit", "email", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
                 sysCmds.forEach { lines.add(TerminalLine(text = "  $it", type = LineType.OUTPUT)) }
             }
             "/storage", "storage" -> {
@@ -947,12 +931,25 @@ class CommandEngine(
                 }
             }
             else -> {
-                if (targetArg.startsWith("storage") || currentPath.startsWith("storage")) {
-                    val fullPath = if (targetArg.startsWith("storage")) targetArg else if (targetArg.isNotEmpty() && targetArg != "~" && targetArg != "apps" && targetArg != "/apps") "$currentPath/$targetArg" else currentPath
+                val isExplicitStorageQuery = targetArg.startsWith("storage0") || targetArg.startsWith("storage1") || targetArg.startsWith("/")
+                val isCurrentPathStorage = currentPath.startsWith("storage")
+
+                if (isExplicitStorageQuery || isCurrentPathStorage) {
+                    val fullPath = if (targetArg.startsWith("storage") || targetArg.startsWith("/")) {
+                        targetArg
+                    } else if (targetArg.isNotEmpty() && targetArg != "~" && targetArg != "apps" && targetArg != "/apps") {
+                        "$currentPath/$targetArg"
+                    } else {
+                        currentPath
+                    }
+
                     val file = resolveStoragePath(fullPath)
                     if (file.exists() && file.isDirectory) {
                         val files = listFilesWithMediaStoreFallback(file).sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
                         lines.add(TerminalLine(text = "DIRECTORY: $fullPath (${files.size} items)", type = LineType.HEADER))
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager()) {
+                            lines.add(TerminalLine(text = "Notice: All Files Access permission is required on Android 11+ to view non-media files. Type 'sys storage' to grant.", type = LineType.SYSTEM))
+                        }
                         if (files.isEmpty()) {
                             lines.add(TerminalLine(text = "  (empty directory)", type = LineType.OUTPUT))
                         } else {
@@ -963,6 +960,11 @@ class CommandEngine(
                             }
                         }
                         return CommandResult(outputLines = lines)
+                    } else if (isExplicitStorageQuery) {
+                        return CommandResult(
+                            outputLines = listOf(TerminalLine(text = "ls: directory not found: $fullPath", type = LineType.ERROR)),
+                            success = false
+                        )
                     }
                 }
 
@@ -1006,7 +1008,7 @@ class CommandEngine(
             results.addAll(directFiles)
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
                 val projection = arrayOf(
                     MediaStore.Files.FileColumns.DATA,
@@ -1015,22 +1017,37 @@ class CommandEngine(
                 val pathPrefix = dir.absolutePath
                 val selection = "${MediaStore.Files.FileColumns.DATA} LIKE ?"
                 val selectionArgs = arrayOf("$pathPrefix/%")
-                val cursor = context.contentResolver.query(
+
+                val contentUris = listOf(
                     MediaStore.Files.getContentUri("external"),
-                    projection,
-                    selection,
-                    selectionArgs,
-                    null
+                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+                    MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
                 )
-                cursor?.use { c ->
-                    val dataIdx = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATA)
-                    while (c.moveToNext()) {
-                        val path = c.getString(dataIdx) ?: continue
-                        val itemFile = File(path)
-                        if (itemFile.parentFile?.absolutePath == dir.absolutePath && results.none { it.name == itemFile.name }) {
-                            results.add(itemFile)
+
+                for (uri in contentUris) {
+                    try {
+                        val cursor = context.contentResolver.query(
+                            uri,
+                            projection,
+                            selection,
+                            selectionArgs,
+                            null
+                        )
+                        cursor?.use { c ->
+                            val dataIdx = c.getColumnIndex(MediaStore.Files.FileColumns.DATA)
+                            if (dataIdx != -1) {
+                                while (c.moveToNext()) {
+                                    val path = c.getString(dataIdx) ?: continue
+                                    val itemFile = File(path)
+                                    if (itemFile.parentFile?.absolutePath == dir.absolutePath && results.none { it.name.equals(itemFile.name, ignoreCase = true) }) {
+                                        results.add(itemFile)
+                                    }
+                                }
+                            }
                         }
-                    }
+                    } catch (_: Exception) {}
                 }
             } catch (_: Exception) {}
         }
@@ -1057,7 +1074,9 @@ class CommandEngine(
     }
 
     private fun handleCd(args: List<String>, settings: LauncherSettings): CommandResult {
-        val path = args.firstOrNull()?.trim() ?: "~"
+        val rawPath = args.joinToString(" ").trim().removeSurrounding("\"").removeSurrounding("'")
+        val path = if (rawPath.isBlank()) "~" else rawPath
+
         when {
             path == ".." -> {
                 currentPath = when {
@@ -1106,21 +1125,44 @@ class CommandEngine(
     private fun resolveStoragePath(path: String): File {
         val internalStorage = Environment.getExternalStorageDirectory()
         val clean = path.trim()
+        val sdCard = getSdCardDirectory() ?: internalStorage
+
         return when {
             clean == "storage0" || clean == "/storage0" -> internalStorage
+            clean == "storage1" || clean == "/storage1" -> sdCard
             clean.startsWith("storage0/") || clean.startsWith("/storage0/") -> {
                 val sub = clean.removePrefix("storage0/").removePrefix("/storage0/")
-                File(internalStorage, sub)
+                resolveCaseInsensitivePath(internalStorage, sub)
             }
-            clean == "storage1" || clean == "/storage1" -> getSdCardDirectory() ?: internalStorage
             clean.startsWith("storage1/") || clean.startsWith("/storage1/") -> {
-                val sd = getSdCardDirectory() ?: internalStorage
                 val sub = clean.removePrefix("storage1/").removePrefix("/storage1/")
-                File(sd, sub)
+                resolveCaseInsensitivePath(sdCard, sub)
             }
             clean.startsWith("/") -> File(clean)
-            else -> File(internalStorage, clean)
+            else -> resolveCaseInsensitivePath(internalStorage, clean)
         }
+    }
+
+    private fun resolveCaseInsensitivePath(baseDir: File, subPath: String): File {
+        if (subPath.isBlank()) return baseDir
+        val segments = subPath.split("/").filter { it.isNotEmpty() }
+        var current = baseDir
+
+        for (segment in segments) {
+            val directFile = File(current, segment)
+            if (directFile.exists()) {
+                current = directFile
+            } else {
+                val children = current.listFiles()
+                val caseMatch = children?.firstOrNull { it.name.equals(segment, ignoreCase = true) }
+                if (caseMatch != null) {
+                    current = caseMatch
+                } else {
+                    return File(current, segment)
+                }
+            }
+        }
+        return current
     }
 
     private fun getSdCardDirectory(): File? {
@@ -1347,6 +1389,7 @@ class CommandEngine(
                 settingsRepository.setStatusBarVisible(newVisible)
                 CommandResult(outputLines = listOf(TerminalLine(text = "Status bar set to ${if (newVisible) "visible" else "hidden (full immersion)"}", type = LineType.SUCCESS)))
             }
+            "storage", "files", "permissions" -> handleAllFilesPermissionRequest()
             "wifi" -> {
                 context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
                 CommandResult(outputLines = listOf(TerminalLine(text = "Opened Wi-Fi Settings", type = LineType.SUCCESS)))
@@ -1366,7 +1409,32 @@ class CommandEngine(
                 CommandResult(outputLines = listOf(TerminalLine(text = "Opened Hotspot & Tethering Settings", type = LineType.SUCCESS)))
             }
             "settings" -> handleSysSettingsSubpage(subArgs.joinToString(" "))
-            else -> CommandResult(outputLines = listOf(TerminalLine(text = "Usage: sys <flash|statusbar|wifi|bt|sound|rotation|gps|hotspot|settings>", type = LineType.ERROR)), success = false)
+            else -> CommandResult(outputLines = listOf(TerminalLine(text = "Usage: sys <flash|statusbar|storage|wifi|bt|sound|rotation|gps|hotspot|settings>", type = LineType.ERROR)), success = false)
+        }
+    }
+
+    private fun handleAllFilesPermissionRequest(): CommandResult {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return try {
+                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(intent)
+                CommandResult(outputLines = listOf(TerminalLine(text = "Opened All Files Access Permission Settings...", type = LineType.SUCCESS)))
+            } catch (_: Exception) {
+                try {
+                    val genericIntent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(genericIntent)
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Opened All Files Access Permission Settings...", type = LineType.SUCCESS)))
+                } catch (e: Exception) {
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Unable to open permission settings: ${e.message}", type = LineType.ERROR)), success = false)
+                }
+            }
+        } else {
+            return CommandResult(outputLines = listOf(TerminalLine(text = "All Files Access permission is not required on Android 10 and below.", type = LineType.SYSTEM)))
         }
     }
 
