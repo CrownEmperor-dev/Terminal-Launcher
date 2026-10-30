@@ -241,7 +241,7 @@ class CommandEngine(
             "Uptime: $uptime",
             "RAM: $ramInfo",
             "Battery: $batInfo",
-            "Shell: TerminalLauncher v1.3.6"
+            "Shell: TerminalLauncher v1.4.0"
         )
 
         val result = mutableListOf<TerminalLine>()

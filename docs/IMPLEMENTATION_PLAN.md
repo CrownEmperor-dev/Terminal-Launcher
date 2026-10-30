@@ -7,7 +7,8 @@
 > 3. **Execution & Version Bump Protocol**: After implementing and verifying a feature with `./gradlew app:assembleDebug` and `./gradlew app:testDebugUnitTest`:
 >    - Increment version number in `app/build.gradle.kts`, `CommandEngine.kt`, `OptionsMenuDialog.kt`, `TerminalViewModel.kt`, and `README.md` (Minor `+0.1.0` for features, Patch `+0.0.1` for tweaks/fixes).
 >    - Output a **"Fix and New Features Log"** summary at the start of your response.
-> 4. **Session Override Rule**: This protocol overrides any conflicting parameters from previous chat sessions.
+> 4. **Infofetch Version Synchronization Rule**: Before beginning any task or releasing a build, verify and update `generateInfofetchLines()` in `CommandEngine.kt` so that `infofetch` and the startup shell banner always display the current, newest version (e.g., `v1.4.0`).
+> 5. **Session Override Rule**: This protocol overrides any conflicting parameters from previous chat sessions.
 
 ---
 
@@ -28,7 +29,24 @@ Any new feature requests, commands, or project phases will be placed at the top 
   - **System Screenshot Fallback**: On Android 11+ (API 30+), support `screenshot sys` using `AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT` for full OS screen capture.
   - **Terminal Output**: Display saved PNG file path and size (e.g. `[SUCCESS]: Screenshot saved to storage0/Pictures/Screenshots/screenshot_20260228_123000.png (420 KB)`).
 
-### 3. Help & Manual (`help` / `man`) Complete Command Audit & Update
+### 3. Enhanced `infofetch` System Metrics (CPU, Disks, App Counts)
+- **Technical Execution Strategy**:
+  - **CPU Specs**: Query `Build.SUPPORTED_ABIS.firstOrNull()` and `Runtime.getRuntime().availableProcessors()` (e.g., `CPU: arm64-v8a (8 Cores)`).
+  - **Disk Storage**: Use `StatFs` on `Environment.getDataDirectory()` to calculate free vs. total GB (e.g., `Storage: 42.5 GB free / 128.0 GB`).
+  - **App Counts**: Query `packageManager.getInstalledPackages(0)` to count user-installed apps vs. system apps (e.g., `Apps: 64 User / 180 System (244 Total)`).
+  - **Banner Integration**: Render these metrics directly inside `generateInfofetchLines()` in `CommandEngine.kt`.
+
+### 4. Direct `sys ringer` / `sys sound` Mode Control & Do Not Disturb (DND) Permission Handling
+- **Reported Bug**: Executing `sys ringer` on Xiaomi Redmi Note 8 (Android 11) redirects the user to Sound Settings instead of changing the ringer mode.
+- **Root Cause Analysis**:
+  1. `handleRingerMode()` only matched exact strings `"silent"`, `"vibrate"`, `"normal"`. Short tokens documented in manual like `"s"`, `"v"`, `"n"`, or no sub-argument defaulted to `else` which opened `Settings.ACTION_SOUND_SETTINGS`.
+  2. On Android 7.0+ (API 24+), changing `ringerMode` to `RINGER_MODE_SILENT` throws a `SecurityException` unless Do Not Disturb (DND) Access (`NotificationManager.isNotificationPolicyAccessGranted`) is granted.
+- **Solution Strategy**:
+  - Support all shortcuts and synonyms: `"s"`, `"silent"`, `"mute"` -> Silent Mode; `"v"`, `"vibrate"` -> Vibrate Mode; `"n"`, `"normal"`, `"sound"`, `"ring"` -> Normal Mode.
+  - Cycle Mode when no argument is passed: Running `sys ringer` without arguments toggles/cycles through `NORMAL` -> `VIBRATE` -> `SILENT` -> `NORMAL` dynamically and displays current state.
+  - Catch `SecurityException` gracefully on Android 7-15 and launch `Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS` with clear prompt: `Please grant Do Not Disturb Access for Terminal Launcher to set Silent Mode directly`.
+
+### 5. Help & Manual (`help` / `man`) Complete Command Audit & Update
 - **Goal**: Audit and update `handleHelp()` in `CommandEngine.kt` to ensure every built-in command, utility, and flag is fully listed and documented.
 - **Audit Checklist**:
   - Core: `options`, `about`, `version`, `whatsnew`, `echo`, `search`, `feedback`, `install`, `cat`, `mkdir`, `rm`, `8bit`, `email`, `time`, `killall`, `trim`, `matrix`, `ls`, `cd`, `open`, `uninstall`, `alias`, `unalias`, `clear`, `history`, `help`.
@@ -36,7 +54,7 @@ Any new feature requests, commands, or project phases will be placed at the top 
   - Preferences: `config` (theme, statusbar, autokeyboard, fastfetch, prompt, autocomplete), `settings`.
   - Utilities: `infofetch`, `top`, `battery`, `calc`, `sys` (`flash`, `ringer`, `statusbar`, `recents`, `storage`, `settings`, `gps`, `hotspot`).
 
-### 4. Full `grep` Implementation & Command Piping (`|`) & Wildcards (`*.log`)
+### 6. Full `grep` Implementation & Command Piping (`|`) & Wildcards (`*.log`)
 - **`grep` Command Flags**:
   - `-i` : Case-insensitive match.
   - `-v` : Invert match (output non-matching lines).
