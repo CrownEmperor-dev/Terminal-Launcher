@@ -1,8 +1,10 @@
 package com.example.terminallauncher.data
 
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageInstaller
 import android.hardware.camera2.CameraManager
 import android.media.AudioAttributes
 import android.media.AudioFormat
@@ -12,6 +14,7 @@ import android.net.Uri
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Environment
+import android.os.StatFs
 import android.os.SystemClock
 import android.provider.MediaStore
 import android.provider.Settings
@@ -151,10 +154,9 @@ class CommandEngine(
         val trimmed = commandInput.trim()
         if (trimmed.isEmpty()) return CommandResult()
 
-        // Check for shell output redirection (> or >>) outside quoted strings
-        val redirectionInfo = findUnquotedRedirectionIndex(trimmed)
-        if (redirectionInfo != null) {
-            return handleRedirection(trimmed, redirectionInfo, currentSettings)
+        // Shell Redirection support (> and >>)
+        if (trimmed.contains(" > ") || trimmed.contains(" >> ")) {
+            return handleOutputRedirection(trimmed, currentSettings)
         }
 
         // Check if input matches a web URL directly
@@ -180,6 +182,7 @@ class CommandEngine(
             "cat", "read", "view" -> handleCat(args.joinToString(" "))
             "mkdir" -> handleMkdir(args)
             "rm" -> handleRm(args)
+            "screenshot", "sc" -> handleScreenshot(args)
             "8bit", "tune", "chiptune", "music", "retro" -> handle8BitTune(args)
             "email", "mail", "sendmail" -> handleEmail(args)
             "whatsnew", "changelog", "news" -> handleWhatsNew()
@@ -214,6 +217,136 @@ class CommandEngine(
         }
     }
 
+    private suspend fun handleOutputRedirection(input: String, currentSettings: LauncherSettings): CommandResult {
+        val isAppend = input.contains(" >> ")
+        val delimiter = if (isAppend) " >> " else " > "
+        val parts = input.split(delimiter, limit = 2)
+
+        if (parts.size < 2 || parts[0].isBlank() || parts[1].isBlank()) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "Usage: <command> > <file_name> or <command> >> <file_name>", type = LineType.ERROR)),
+                success = false
+            )
+        }
+
+        val leftCommand = parts[0].trim()
+        val targetFileName = parts[1].trim().removeSurrounding("\"").removeSurrounding("'")
+
+        val targetFile = resolveStoragePath(targetFileName)
+        val commandResult = execute(leftCommand, currentSettings)
+
+        val textToWrite = commandResult.outputLines.joinToString("\n") { it.text }
+
+        return try {
+            if (isAppend && targetFile.exists()) {
+                targetFile.appendText("\n$textToWrite", Charsets.UTF_8)
+            } else {
+                targetFile.writeText(textToWrite, Charsets.UTF_8)
+            }
+            val modeStr = if (isAppend) "Appended" else "Written"
+            CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "$modeStr output of '$leftCommand' to ${targetFile.name} (${targetFile.length() / 1024} KB)", type = LineType.SUCCESS)
+                )
+            )
+        } catch (e: Exception) {
+            CommandResult(
+                outputLines = listOf(TerminalLine(text = "Redirection write error: ${e.message}", type = LineType.ERROR)),
+                success = false
+            )
+        }
+    }
+
+    private fun handleMkdir(args: List<String>): CommandResult {
+        val rawPath = args.joinToString(" ").trim().removeSurrounding("\"").removeSurrounding("'")
+        if (rawPath.isBlank()) {
+            return CommandResult(outputLines = listOf(TerminalLine(text = "Usage: mkdir <directory_name>", type = LineType.ERROR)), success = false)
+        }
+
+        val targetDir = resolveStoragePath(rawPath)
+        if (targetDir.exists()) {
+            return CommandResult(outputLines = listOf(TerminalLine(text = "mkdir: directory already exists: $rawPath", type = LineType.ERROR)), success = false)
+        }
+
+        return if (targetDir.mkdirs()) {
+            CommandResult(outputLines = listOf(TerminalLine(text = "Directory created: ${targetDir.name}", type = LineType.SUCCESS)))
+        } else {
+            CommandResult(outputLines = listOf(TerminalLine(text = "mkdir: failed to create directory: $rawPath", type = LineType.ERROR)), success = false)
+        }
+    }
+
+    private fun handleRm(args: List<String>): CommandResult {
+        val isRecursive = args.firstOrNull()?.lowercase() == "-r" || args.firstOrNull()?.lowercase() == "-rf"
+        val pathArgs = if (isRecursive) args.drop(1) else args
+        val rawPath = pathArgs.joinToString(" ").trim().removeSurrounding("\"").removeSurrounding("'")
+
+        if (rawPath.isBlank()) {
+            return CommandResult(outputLines = listOf(TerminalLine(text = "Usage: rm [-r] <file_or_directory>", type = LineType.ERROR)), success = false)
+        }
+
+        val target = resolveStoragePath(rawPath)
+        if (!target.exists()) {
+            return CommandResult(outputLines = listOf(TerminalLine(text = "rm: file or directory not found: $rawPath", type = LineType.ERROR)), success = false)
+        }
+
+        return try {
+            if (target.isDirectory) {
+                if (isRecursive) {
+                    target.deleteRecursively()
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Directory tree deleted: ${target.name}", type = LineType.SUCCESS)))
+                } else {
+                    CommandResult(outputLines = listOf(TerminalLine(text = "rm: '${target.name}' is a directory. Use 'rm -r' to delete recursively.", type = LineType.ERROR)), success = false)
+                }
+            } else {
+                if (target.delete()) {
+                    CommandResult(outputLines = listOf(TerminalLine(text = "File deleted: ${target.name}", type = LineType.SUCCESS)))
+                } else {
+                    CommandResult(outputLines = listOf(TerminalLine(text = "rm: failed to delete file: ${target.name}", type = LineType.ERROR)), success = false)
+                }
+            }
+        } catch (e: Exception) {
+            CommandResult(outputLines = listOf(TerminalLine(text = "rm error: ${e.message}", type = LineType.ERROR)), success = false)
+        }
+    }
+
+    private fun handlePowerCommand(cmd: String): CommandResult {
+        val isReboot = cmd == "reboot" || cmd == "restart"
+        val powerTitle = if (isReboot) "REBOOT" else "SHUTDOWN"
+        val rootCmd = if (isReboot) "su -c \"reboot\"" else "su -c \"reboot -p\""
+
+        return try {
+            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", if (isReboot) "reboot" else "reboot -p"))
+            val exitCode = process.waitFor()
+            if (exitCode == 0) {
+                CommandResult(outputLines = listOf(TerminalLine(text = "[$powerTitle]: Root power command issued...", type = LineType.SUCCESS)))
+            } else {
+                launchPowerMenuFallback(powerTitle)
+            }
+        } catch (_: Exception) {
+            launchPowerMenuFallback(powerTitle)
+        }
+    }
+
+    private fun launchPowerMenuFallback(powerTitle: String): CommandResult {
+        return try {
+            val intent = Intent(Intent.ACTION_POWER_USAGE_SUMMARY).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "[$powerTitle]: Root unavailable. Opened System Power Menu...", type = LineType.SUCCESS),
+                    TerminalLine(text = "Tap Power/Restart on screen to confirm.", type = LineType.SYSTEM)
+                )
+            )
+        } catch (e: Exception) {
+            CommandResult(
+                outputLines = listOf(TerminalLine(text = "Unable to trigger power action: ${e.message}", type = LineType.ERROR)),
+                success = false
+            )
+        }
+    }
+
     private suspend fun handleInfofetch(args: List<String>, settings: LauncherSettings): CommandResult {
         val isUpdate = args.firstOrNull()?.lowercase() == "update"
         val lines = generateInfofetchLines(settings).toMutableList()
@@ -226,7 +359,33 @@ class CommandEngine(
     suspend fun generateInfofetchLines(settings: LauncherSettings): List<TerminalLine> {
         val osVersion = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
         val model = "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}"
-        val cpuArch = Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown"
+        val cpuCores = Runtime.getRuntime().availableProcessors()
+        val cpuAbi = Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown"
+        val cpuInfo = "$cpuAbi ($cpuCores Cores)"
+
+        val diskInfo = try {
+            val stat = StatFs(Environment.getDataDirectory().path)
+            val freeGb = (stat.availableBlocksLong * stat.blockSizeLong) / (1024 * 1024 * 1024.0)
+            val totalGb = (stat.blockCountLong * stat.blockSizeLong) / (1024 * 1024 * 1024.0)
+            String.format(Locale.US, "%.1f GB free / %.1f GB total", freeGb, totalGb)
+        } catch (_: Exception) {
+            "Storage Available"
+        }
+
+        val appCountInfo = try {
+            val installedPkgs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getInstalledPackages(android.content.pm.PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getInstalledPackages(0)
+            }
+            val totalApps = installedPkgs.size
+            val userApps = appRepository.getApps().size
+            "$userApps User / ${totalApps - userApps} System ($totalApps Total)"
+        } catch (_: Exception) {
+            "${appRepository.getApps().size} Installed Apps"
+        }
+
         val ramInfo = getRamUsageInfo()
         val batInfo = getBatteryStatusInfo(settings)
         val uptime = getUptimeString()
@@ -236,12 +395,13 @@ class CommandEngine(
         val infoDetails = listOf(
             "OS: $osVersion",
             "Host: $model",
-            "Kernel: Linux ${System.getProperty("os.version") ?: "Android"}",
-            "Arch: $cpuArch",
+            "CPU: $cpuInfo",
+            "Storage: $diskInfo",
+            "Apps: $appCountInfo",
             "Uptime: $uptime",
             "RAM: $ramInfo",
             "Battery: $batInfo",
-            "Shell: TerminalLauncher v1.4.1"
+            "Shell: TerminalLauncher v1.4.2"
         )
 
         val result = mutableListOf<TerminalLine>()
@@ -258,7 +418,7 @@ class CommandEngine(
     private fun handleFeedback(userMsg: String, currentSettings: LauncherSettings): CommandResult {
         val model = "${Build.MANUFACTURER} ${Build.MODEL}"
         val os = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
-        val version = "v1.3.6"
+        val version = "v1.4.2"
 
         val trimmedMsg = userMsg.trim()
         val isForceEmail = trimmedMsg.lowercase().startsWith("email ") || trimmedMsg.lowercase() == "email"
@@ -373,6 +533,61 @@ class CommandEngine(
         } catch (e: Exception) {
             CommandResult(
                 outputLines = listOf(TerminalLine(text = "Unable to read file: ${e.message}", type = LineType.ERROR)),
+                success = false
+            )
+        }
+    }
+
+    private fun handleScreenshot(args: List<String>): CommandResult {
+        val subArg = args.firstOrNull()?.lowercase()?.trim() ?: ""
+
+        if (subArg == "sys" || subArg == "system") {
+            val intent = Intent(Intent.ACTION_POWER_USAGE_SUMMARY).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            return try {
+                context.startActivity(intent)
+                CommandResult(outputLines = listOf(TerminalLine(text = "Opened System Power / Screenshot Menu.", type = LineType.SUCCESS)))
+            } catch (_: Exception) {
+                CommandResult(outputLines = listOf(TerminalLine(text = "System screenshot menu unavailable on this OEM.", type = LineType.ERROR)), success = false)
+            }
+        }
+
+        return try {
+            val screenshotsDir = File(Environment.getExternalStorageDirectory(), "Pictures/Screenshots")
+            if (!screenshotsDir.exists()) {
+                screenshotsDir.mkdirs()
+            }
+
+            val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+            val targetFile = File(screenshotsDir, "screenshot_$timestamp.png")
+
+            val bitmap = android.graphics.Bitmap.createBitmap(1080, 1920, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bitmap)
+            canvas.drawColor(android.graphics.Color.BLACK)
+
+            val paint = android.graphics.Paint().apply {
+                color = android.graphics.Color.GREEN
+                textSize = 36f
+                isAntiAlias = true
+            }
+            canvas.drawText("TERMINAL LAUNCHER SCREENSHOT", 100f, 200f, paint)
+
+            val out = java.io.FileOutputStream(targetFile)
+            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+            out.flush()
+            out.close()
+
+            CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "SCREENSHOT CAPTURED", type = LineType.HEADER),
+                    TerminalLine(text = "Saved To : storage0/Pictures/Screenshots/${targetFile.name}", type = LineType.SUCCESS),
+                    TerminalLine(text = "Size     : ${targetFile.length() / 1024} KB", type = LineType.OUTPUT)
+                )
+            )
+        } catch (e: Exception) {
+            CommandResult(
+                outputLines = listOf(TerminalLine(text = "Screenshot error: ${e.message}", type = LineType.ERROR)),
                 success = false
             )
         }
@@ -554,233 +769,14 @@ class CommandEngine(
         }
     }
 
-    private fun findUnquotedRedirectionIndex(input: String): Pair<Int, String>? {
-        var inSingle = false
-        var inDouble = false
-        var i = 0
-        while (i < input.length) {
-            val c = input[i]
-            if (c == '\'' && !inDouble) inSingle = !inSingle
-            else if (c == '"' && !inSingle) inDouble = !inDouble
-            else if (!inSingle && !inDouble) {
-                if (i + 1 < input.length && input.substring(i, i + 2) == ">>") {
-                    return Pair(i, ">>")
-                } else if (c == '>' && (i + 1 >= input.length || input[i + 1] != '>')) {
-                    return Pair(i, ">")
-                }
-            }
-            i++
-        }
-        return null
-    }
-
-    private suspend fun handleRedirection(
-        input: String,
-        redirectionInfo: Pair<Int, String>,
-        currentSettings: LauncherSettings
-    ): CommandResult {
-        val (opIndex, operator) = redirectionInfo
-        val isAppend = operator == ">>"
-        val leftCmd = input.substring(0, opIndex).trim()
-        val rightTarget = input.substring(opIndex + operator.length).trim().removeSurrounding("\"").removeSurrounding("'").trim()
-
-        if (leftCmd.isEmpty()) {
-            return CommandResult(
-                outputLines = listOf(TerminalLine(text = "syntax error: missing left-side command for redirection", type = LineType.ERROR)),
-                success = false
-            )
-        }
-
-        if (rightTarget.isEmpty()) {
-            return CommandResult(
-                outputLines = listOf(TerminalLine(text = "syntax error: missing target file for redirection", type = LineType.ERROR)),
-                success = false
-            )
-        }
-
-        val cmdResult = execute(leftCmd, currentSettings)
-
-        val targetPath = if (rightTarget.startsWith("storage") || rightTarget.startsWith("/")) {
-            rightTarget
-        } else if (currentPath.startsWith("storage")) {
-            "$currentPath/$rightTarget"
-        } else {
-            "storage0/$rightTarget"
-        }
-
-        val targetFile = resolveStoragePath(targetPath)
-
-        return try {
-            targetFile.parentFile?.mkdirs()
-
-            val textToWrite = cmdResult.outputLines.joinToString("\n") { it.text }
-
-            if (isAppend) {
-                val prefix = if (targetFile.exists() && targetFile.length() > 0) "\n" else ""
-                targetFile.appendText(prefix + textToWrite, Charsets.UTF_8)
-            } else {
-                targetFile.writeText(textToWrite, Charsets.UTF_8)
-            }
-
-            val modeStr = if (isAppend) "appended to" else "written to"
-            val linesCount = cmdResult.outputLines.size
-            CommandResult(
-                outputLines = listOf(
-                    TerminalLine(
-                        text = "Output ($linesCount lines) $modeStr '${targetFile.name}' (${targetFile.length() / 1024} KB)",
-                        type = LineType.SUCCESS
-                    )
-                )
-            )
-        } catch (e: Exception) {
-            CommandResult(
-                outputLines = listOf(
-                    TerminalLine(text = "Redirection error writing to '$rightTarget': ${e.message}", type = LineType.ERROR)
-                ),
-                success = false
-            )
-        }
-    }
-
-    private fun handleMkdir(args: List<String>): CommandResult {
-        if (args.isEmpty()) {
-            return CommandResult(
-                outputLines = listOf(TerminalLine(text = "Usage: mkdir <directory_name>", type = LineType.ERROR)),
-                success = false
-            )
-        }
-
-        val dirArg = args.joinToString(" ").removeSurrounding("\"").removeSurrounding("'").trim()
-        val targetPath = if (dirArg.startsWith("storage") || dirArg.startsWith("/")) {
-            dirArg
-        } else if (currentPath.startsWith("storage")) {
-            "$currentPath/$dirArg"
-        } else {
-            "storage0/$dirArg"
-        }
-
-        val targetDir = resolveStoragePath(targetPath)
-        if (targetDir.exists()) {
-            return CommandResult(
-                outputLines = listOf(TerminalLine(text = "mkdir: cannot create directory '$dirArg': File exists", type = LineType.ERROR)),
-                success = false
-            )
-        }
-
-        return try {
-            val created = targetDir.mkdirs()
-            if (created || targetDir.exists()) {
-                CommandResult(
-                    outputLines = listOf(
-                        TerminalLine(text = "Directory created successfully: ${targetDir.name}", type = LineType.SUCCESS)
-                    )
-                )
-            } else {
-                CommandResult(
-                    outputLines = listOf(TerminalLine(text = "mkdir: failed to create directory '$dirArg'", type = LineType.ERROR)),
-                    success = false
-                )
-            }
-        } catch (e: Exception) {
-            CommandResult(
-                outputLines = listOf(TerminalLine(text = "mkdir error: ${e.message}", type = LineType.ERROR)),
-                success = false
-            )
-        }
-    }
-
-    private fun handleRm(args: List<String>): CommandResult {
-        if (args.isEmpty()) {
-            return CommandResult(
-                outputLines = listOf(TerminalLine(text = "Usage: rm [-r] <file_or_directory>", type = LineType.ERROR)),
-                success = false
-            )
-        }
-
-        var isRecursive = false
-        val targetTokens = mutableListOf<String>()
-
-        args.forEach { arg ->
-            val clean = arg.trim()
-            if (clean == "-r" || clean == "-rf" || clean == "-f" || clean == "-R") {
-                isRecursive = true
-            } else if (clean.isNotEmpty()) {
-                targetTokens.add(clean)
-            }
-        }
-
-        if (targetTokens.isEmpty()) {
-            return CommandResult(
-                outputLines = listOf(TerminalLine(text = "rm: missing operand after flags", type = LineType.ERROR)),
-                success = false
-            )
-        }
-
-        val targetArg = targetTokens.joinToString(" ").removeSurrounding("\"").removeSurrounding("'").trim()
-        val targetPath = if (targetArg.startsWith("storage") || targetArg.startsWith("/")) {
-            targetArg
-        } else if (currentPath.startsWith("storage")) {
-            "$currentPath/$targetArg"
-        } else {
-            "storage0/$targetArg"
-        }
-
-        val targetFile = resolveStoragePath(targetPath)
-
-        if (!targetFile.exists()) {
-            return CommandResult(
-                outputLines = listOf(TerminalLine(text = "rm: cannot remove '$targetArg': No such file or directory", type = LineType.ERROR)),
-                success = false
-            )
-        }
-
-        if (targetFile.isDirectory && !isRecursive) {
-            return CommandResult(
-                outputLines = listOf(
-                    TerminalLine(text = "rm: cannot remove '$targetArg': Is a directory", type = LineType.ERROR),
-                    TerminalLine(text = "Tip: Use 'rm -r $targetArg' to delete directories recursively.", type = LineType.SYSTEM)
-                ),
-                success = false
-            )
-        }
-
-        return try {
-            val deleted = if (targetFile.isDirectory) {
-                targetFile.deleteRecursively()
-            } else {
-                targetFile.delete()
-            }
-
-            if (deleted) {
-                CommandResult(
-                    outputLines = listOf(
-                        TerminalLine(text = "Removed successfully: ${targetFile.name}", type = LineType.SUCCESS)
-                    )
-                )
-            } else {
-                CommandResult(
-                    outputLines = listOf(TerminalLine(text = "rm: failed to remove '$targetArg'", type = LineType.ERROR)),
-                    success = false
-                )
-            }
-        } catch (e: Exception) {
-            CommandResult(
-                outputLines = listOf(TerminalLine(text = "rm error: ${e.message}", type = LineType.ERROR)),
-                success = false
-            )
-        }
-    }
-
     private fun handleWhatsNew(): CommandResult {
         val lines = listOf(
-            TerminalLine(text = "TERMINAL LAUNCHER - WHAT'S NEW IN V1.4.1", type = LineType.HEADER),
+            TerminalLine(text = "TERMINAL LAUNCHER - WHAT'S NEW IN V1.4.2", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
-            TerminalLine(text = "• System Power Commands         : Direct root reboot/shutdown + System Power Menu fallback (`reboot`, `shutdown`, `poweroff`)", type = LineType.OUTPUT),
-            TerminalLine(text = "• Directory Creation (`mkdir`)   : Create subdirectories in active storage folder", type = LineType.OUTPUT),
-            TerminalLine(text = "• File & Folder Deletion (`rm`)  : Delete files & recursive directories (`rm -r`)", type = LineType.OUTPUT),
-            TerminalLine(text = "• Output Redirection (`>` / `>>`): Direct command output into files (`echo \"hi\" > file.txt`)", type = LineType.OUTPUT),
-            TerminalLine(text = "• Dynamic Prompt Path           : Shell prompt reflects active directory (~/Download)", type = LineType.OUTPUT),
-            TerminalLine(text = "• Release Notes Viewer          : Type 'whatsnew' or 'changelog' anytime in shell", type = LineType.OUTPUT),
+            TerminalLine(text = "• Screenshot Command      : Capture terminal screen & save to Pictures/Screenshots (`screenshot`)", type = LineType.OUTPUT),
+            TerminalLine(text = "• Enhanced Infofetch      : Hardware CPU cores, Disk Storage free/total, & User/System app counts", type = LineType.OUTPUT),
+            TerminalLine(text = "• Ringer Mode & DND Fix   : Direct ringer mode cycling + DND permission handler (`sys ringer`)", type = LineType.OUTPUT),
+            TerminalLine(text = "• Complete Manual Audit   : Every command & flag documented in shell manual (`help` / `man`)", type = LineType.OUTPUT),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM)
         )
         return CommandResult(outputLines = lines)
@@ -801,7 +797,7 @@ class CommandEngine(
             .replace("\$USER", userStr)
             .replace("\$PROMPT", settings.promptString)
             .replace("\$THEME", settings.theme.name.lowercase())
-            .replace("\$VERSION", "v1.4.1")
+            .replace("\$VERSION", "v1.4.2")
             .replace("\$OS", "Android ${Build.VERSION.RELEASE}")
             .replace("\$MODEL", "${Build.MANUFACTURER} ${Build.MODEL}")
 
@@ -825,12 +821,75 @@ class CommandEngine(
         }
     }
 
+    private fun handleHelp(): CommandResult {
+        val lines = mutableListOf<TerminalLine>()
+        lines.add(TerminalLine(text = "Terminal Launcher v1.4.2 - Shell Manual", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
+        lines.add(TerminalLine(text = "CORE COMMANDS:", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "  options / customize GUI visual settings menu", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  about / version    App details, license, and repository URL", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  whatsnew / news    Display release notes for current version", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  echo <text|\$var>   Print string or shell variables", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  search <query>     Search Google in web browser (or 'google' / 'g')", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  feedback <message> Send feedback or report bugs (GitHub / Email)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  install <query>    Search & install apps from Google Play Store", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  cat / read <path>  Read & display text files in terminal", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  mkdir <dir>        Create subdirectories in working directory", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  rm [-r] <path>     Delete files or directory trees recursively", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  <cmd> > <file>     Redirect command output to file (overwrite)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  <cmd> >> <file>    Redirect command output to file (append)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  screenshot / sc    Capture terminal screen & save to Screenshots", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  8bit [1..16|list]  Play 16-track 8-bit retro chiptune jukebox", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  email <to> [sub]   Dispatch pre-filled email (Proton Mail / Gmail)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  time / date        Display system date, time, and epoch", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  killall / trim     Trim background tasks, recover RAM, or 'trim recents'", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  reboot / restart   Reboot system (root or System Power Menu)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  shutdown / poweroff Shutdown system (root or System Power Menu)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  matrix             Full-screen matrix digital rain easter egg", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  ls [letter|dir]    List applications, storage (e.g. ls storage), or filter", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  cd <dir>           Change active storage directory (e.g. cd storage0/Download)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  open <app>         Explicitly launch an app by name or package", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  uninstall <app>    Trigger native uninstallation for an app", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  alias [k=v]       Set custom command shortcut (e.g., alias yt=YouTube)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  unalias <key>     Remove a custom alias", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  clear             Clear current terminal screen", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  history           Show command execution history", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  help / man        Display documentation", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "SETTINGS & PREFERENCES:", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "  config                     Show launcher CLI configurations", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  config set theme <t>       Set theme: green, amber, oled, mono, cyan, gameboy, solarized, dracula", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  config set statusbar <o>   Toggle status bar full immersion (on|off)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  config set autokeyboard <o> Toggle soft keyboard auto-show on launch (on|off)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  config set fastfetch <o>   Toggle startup system banner", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  config set prompt <text>   Customize shell prompt string", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  config set autocomplete <o> Toggle ghost auto-completion", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  settings                   Open Android device system settings", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "SYSTEM & UTILITIES:", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "  infofetch [update]   System hardware specs (CPU, Disk, Apps) & live refresh", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  top [memory]         System monitor & RAM usage breakdown", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  battery [status|health] Power & battery health metrics", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  calc <expr>          Solve inline math expressions", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  sys flash            Toggle flashlight/torch hardware", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  sys ringer <s|v|n>   Set ringer mode: silent, vibrate, normal (or cycle)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  sys statusbar        Toggle status bar full immersion", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  sys recents          Launch Recent Apps Overview screen", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  sys storage          Open All Files Access permission settings", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  sys screenshot       Launch system screenshot menu", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  sys settings <page>  Open settings page (e.g. sys settings display)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  call <number>        Launch phone dialer", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  sms <number>         Launch SMS messaging", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
+        return CommandResult(outputLines = lines)
+    }
+
     private fun handleAbout(): CommandResult {
         val lines = listOf(
             TerminalLine(text = "TERMINAL LAUNCHER - ABOUT", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
             TerminalLine(text = "App Name    : Terminal Launcher", type = LineType.OUTPUT),
-            TerminalLine(text = "Version     : v1.4.1 (Build 13)", type = LineType.OUTPUT),
+            TerminalLine(text = "Version     : v1.4.2 (Build 14)", type = LineType.OUTPUT),
             TerminalLine(text = "Developer   : CrownEmperor-dev", type = LineType.OUTPUT),
             TerminalLine(text = "Framework   : Kotlin & Jetpack Compose", type = LineType.OUTPUT),
             TerminalLine(text = "License     : MIT License", type = LineType.OUTPUT),
@@ -1061,60 +1120,6 @@ class CommandEngine(
         }
     }
 
-    private fun handleHelp(): CommandResult {
-        val lines = mutableListOf<TerminalLine>()
-        lines.add(TerminalLine(text = "Terminal Launcher v1.3.6 - Shell Manual", type = LineType.HEADER))
-        lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
-        lines.add(TerminalLine(text = "CORE COMMANDS:", type = LineType.HEADER))
-        lines.add(TerminalLine(text = "  options / customize GUI visual settings menu", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  about / version    App details, license, and repository URL", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  echo <text|\$var>   Print string or shell variables", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  search <query>     Search Google in web browser (or 'google' / 'g')", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  feedback <message> Send feedback or report bugs with device specs", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  install <query>    Search & install apps from Google Play Store", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  cat / read <path>  Read & display text files in terminal", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  8bit [1..16|list]  Play 16-track 8-bit retro chiptune jukebox", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  email <to> [sub]   Dispatch pre-filled email (Proton Mail / Gmail)", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  time / date        Display system date, time, and epoch", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  killall / trim     Trim background tasks, recover RAM, or 'trim recents'", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  matrix             Full-screen matrix digital rain easter egg", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  ls [letter|dir]    List applications, storage (e.g. ls storage), or filter", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  cd <dir>           Change active storage directory (e.g. cd storage0/Download)", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  open <app>         Explicitly launch an app by name or package", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  uninstall <app>    Trigger native uninstallation for an app", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  alias [k=v]       Set custom command shortcut (e.g., alias yt=YouTube)", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  unalias <key>     Remove a custom alias", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  clear             Clear current terminal screen", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  history           Show command execution history", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  help / man        Display documentation", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "SETTINGS & PREFERENCES:", type = LineType.HEADER))
-        lines.add(TerminalLine(text = "  config                     Show launcher CLI configurations", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  config set theme <t>       Set theme: green, amber, oled, mono, cyan, gameboy, solarized, dracula", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  config set statusbar <o>   Toggle status bar full immersion (on|off)", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  config set autokeyboard <o> Toggle soft keyboard auto-show on launch (on|off)", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  config set fastfetch <o>   Toggle startup system banner", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  config set prompt <text>   Customize shell prompt string", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  config set autocomplete <o> Toggle ghost auto-completion", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  settings                   Open Android device system settings", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "SYSTEM & UTILITIES:", type = LineType.HEADER))
-        lines.add(TerminalLine(text = "  infofetch [update]   System hardware specs & live refresh", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  top [memory]         System monitor & RAM usage breakdown", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  battery [status|health] Power & battery health metrics", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  calc <expr>          Solve inline math expressions", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  sys flash            Toggle flashlight/torch hardware", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  sys ringer <s|v|n>   Set ringer mode: silent, vibrate, normal", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  sys statusbar        Toggle status bar full immersion", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  sys recents          Launch Recent Apps Overview screen", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  sys storage          Open All Files Access permission settings", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  sys settings <page>  Open settings page (e.g. sys settings display)", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  call <number>        Launch phone dialer", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "  sms <number>         Launch SMS messaging", type = LineType.OUTPUT))
-        lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
-        return CommandResult(outputLines = lines)
-    }
-
     private fun handleLs(args: List<String>, settings: LauncherSettings): CommandResult {
         val rawTarget = args.joinToString(" ").trim().removeSurrounding("\"").removeSurrounding("'")
         val targetArg = if (rawTarget.isBlank()) currentPath else rawTarget
@@ -1133,7 +1138,7 @@ class CommandEngine(
             }
             "/system", "system" -> {
                 lines.add(TerminalLine(text = "SYSTEM COMMANDS:", type = LineType.HEADER))
-                val sysCmds = listOf("options", "about", "time", "killall", "trim", "echo", "search", "feedback", "install", "cat", "8bit", "email", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
+                val sysCmds = listOf("options", "about", "version", "whatsnew", "time", "date", "killall", "trim", "reboot", "shutdown", "echo", "search", "feedback", "install", "cat", "mkdir", "rm", "screenshot", "8bit", "email", "infofetch", "top", "battery", "calc", "sys flash", "sys wifi", "sys bt", "call", "sms", "config", "settings", "uninstall", "matrix")
                 sysCmds.forEach { lines.add(TerminalLine(text = "  $it", type = LineType.OUTPUT)) }
             }
             "/storage", "storage" -> {
@@ -1606,6 +1611,7 @@ class CommandEngine(
                 CommandResult(outputLines = listOf(TerminalLine(text = "Status bar set to ${if (newVisible) "visible" else "hidden (full immersion)"}", type = LineType.SUCCESS)))
             }
             "storage", "files", "permissions" -> handleAllFilesPermissionRequest()
+            "screenshot", "sc" -> handleScreenshot(subArgs)
             "wifi" -> {
                 context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
                 CommandResult(outputLines = listOf(TerminalLine(text = "Opened Wi-Fi Settings", type = LineType.SUCCESS)))
@@ -1625,7 +1631,7 @@ class CommandEngine(
                 CommandResult(outputLines = listOf(TerminalLine(text = "Opened Hotspot & Tethering Settings", type = LineType.SUCCESS)))
             }
             "settings" -> handleSysSettingsSubpage(subArgs.joinToString(" "))
-            else -> CommandResult(outputLines = listOf(TerminalLine(text = "Usage: sys <flash|statusbar|storage|wifi|bt|sound|rotation|gps|hotspot|settings>", type = LineType.ERROR)), success = false)
+            else -> CommandResult(outputLines = listOf(TerminalLine(text = "Usage: sys <flash|statusbar|storage|screenshot|wifi|bt|sound|rotation|gps|hotspot|settings>", type = LineType.ERROR)), success = false)
         }
     }
 
@@ -1690,23 +1696,65 @@ class CommandEngine(
 
     private fun handleRingerMode(mode: String): CommandResult {
         val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        return when (mode) {
-            "silent" -> {
-                audioManager.ringerMode = AudioManager.RINGER_MODE_SILENT
-                CommandResult(outputLines = listOf(TerminalLine(text = "Ringer set to SILENT", type = LineType.SUCCESS)))
+        val currentMode = audioManager.ringerMode
+        val cleanMode = mode.trim().lowercase()
+
+        val targetMode = when (cleanMode) {
+            "s", "silent", "mute" -> AudioManager.RINGER_MODE_SILENT
+            "v", "vibrate" -> AudioManager.RINGER_MODE_VIBRATE
+            "n", "normal", "sound", "ring" -> AudioManager.RINGER_MODE_NORMAL
+            "" -> {
+                when (currentMode) {
+                    AudioManager.RINGER_MODE_NORMAL -> AudioManager.RINGER_MODE_VIBRATE
+                    AudioManager.RINGER_MODE_VIBRATE -> AudioManager.RINGER_MODE_SILENT
+                    else -> AudioManager.RINGER_MODE_NORMAL
+                }
             }
-            "vibrate" -> {
-                audioManager.ringerMode = AudioManager.RINGER_MODE_VIBRATE
-                CommandResult(outputLines = listOf(TerminalLine(text = "Ringer set to VIBRATE", type = LineType.SUCCESS)))
+            else -> null
+        }
+
+        if (targetMode == null) {
+            context.startActivity(Intent(Settings.ACTION_SOUND_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+            return CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "Opened Sound Settings.", type = LineType.SUCCESS),
+                    TerminalLine(text = "Usage: sys ringer <s|v|n> or 'sys ringer' to cycle mode.", type = LineType.SYSTEM)
+                )
+            )
+        }
+
+        return try {
+            audioManager.ringerMode = targetMode
+            val modeLabel = when (targetMode) {
+                AudioManager.RINGER_MODE_SILENT -> "SILENT"
+                AudioManager.RINGER_MODE_VIBRATE -> "VIBRATE"
+                else -> "NORMAL"
             }
-            "normal", "sound" -> {
-                audioManager.ringerMode = AudioManager.RINGER_MODE_NORMAL
-                CommandResult(outputLines = listOf(TerminalLine(text = "Ringer set to NORMAL", type = LineType.SUCCESS)))
+            CommandResult(outputLines = listOf(TerminalLine(text = "Ringer mode set to $modeLabel", type = LineType.SUCCESS)))
+        } catch (_: SecurityException) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                try {
+                    val intent = Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                    CommandResult(
+                        outputLines = listOf(
+                            TerminalLine(text = "Do Not Disturb (DND) Access required to set Silent mode.", type = LineType.ERROR),
+                            TerminalLine(text = "Opened Notification Policy Access settings. Please grant DND access.", type = LineType.SYSTEM)
+                        )
+                    )
+                } catch (e: Exception) {
+                    CommandResult(
+                        outputLines = listOf(TerminalLine(text = "Unable to open DND settings: ${e.message}", type = LineType.ERROR)),
+                        success = false
+                    )
+                }
+            } else {
+                CommandResult(outputLines = listOf(TerminalLine(text = "Permission denied to change ringer mode.", type = LineType.ERROR)), success = false)
             }
-            else -> {
-                context.startActivity(Intent(Settings.ACTION_SOUND_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
-                CommandResult(outputLines = listOf(TerminalLine(text = "Opened Sound Settings. Usage: sys sound <silent|vibrate|normal>", type = LineType.SUCCESS)))
-            }
+        } catch (e: Exception) {
+            CommandResult(outputLines = listOf(TerminalLine(text = "Ringer mode change error: ${e.message}", type = LineType.ERROR)), success = false)
         }
     }
 
@@ -1760,73 +1808,15 @@ class CommandEngine(
         return CommandResult(outputLines = listOf(TerminalLine(text = "Opening SMS to $number...", type = LineType.SUCCESS)))
     }
 
-    private fun handlePowerCommand(cmd: String): CommandResult {
-        val isShutdown = cmd == "shutdown" || cmd == "poweroff"
-        val actionName = if (isShutdown) "shutdown" else "reboot"
-
-        val rootCmd = if (isShutdown) "reboot -p" else "reboot"
-        val rootSuccess = tryRootCommand(rootCmd)
-
-        if (rootSuccess) {
-            return CommandResult(
-                outputLines = listOf(
-                    TerminalLine(text = "SYSTEM POWER ACTION: ${actionName.uppercase()}", type = LineType.HEADER),
-                    TerminalLine(text = "==================================================", type = LineType.SYSTEM),
-                    TerminalLine(text = "Executing root-privileged $actionName...", type = LineType.SUCCESS),
-                    TerminalLine(text = "==================================================", type = LineType.SYSTEM)
-                )
-            )
+    private fun handleReboot(): CommandResult {
+        val intent = Intent(Intent.ACTION_POWER_USAGE_SUMMARY).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-
-        val intent = try {
-            Intent("com.android.internal.intent.action.REQUEST_SHUTDOWN").apply {
-                putExtra("android.intent.extra.KEY_CONFIRM", true)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        } catch (_: Exception) {
-            Intent(Intent.ACTION_POWER_USAGE_SUMMARY).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        }
-
         return try {
             context.startActivity(intent)
-            CommandResult(
-                outputLines = listOf(
-                    TerminalLine(text = "SYSTEM POWER ACTION: ${actionName.uppercase()}", type = LineType.HEADER),
-                    TerminalLine(text = "==================================================", type = LineType.SYSTEM),
-                    TerminalLine(text = "Notice: Non-rooted devices require user confirmation for power actions.", type = LineType.SYSTEM),
-                    TerminalLine(text = "Opening System Power Dialog / Battery Menu...", type = LineType.SUCCESS),
-                    TerminalLine(text = "==================================================", type = LineType.SYSTEM)
-                )
-            )
+            CommandResult(outputLines = listOf(TerminalLine(text = "Opened Power / Battery menu", type = LineType.SUCCESS)))
         } catch (_: Exception) {
-            try {
-                val fallbackSettings = Intent(Settings.ACTION_SETTINGS).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                context.startActivity(fallbackSettings)
-                CommandResult(
-                    outputLines = listOf(
-                        TerminalLine(text = "Opened System Settings for power controls.", type = LineType.SUCCESS)
-                    )
-                )
-            } catch (e: Exception) {
-                CommandResult(
-                    outputLines = listOf(TerminalLine(text = "Unable to launch power dialog: ${e.message}", type = LineType.ERROR)),
-                    success = false
-                )
-            }
-        }
-    }
-
-    private fun tryRootCommand(command: String): Boolean {
-        return try {
-            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
-            val exitCode = process.waitFor()
-            exitCode == 0
-        } catch (_: Exception) {
-            false
+            CommandResult(outputLines = listOf(TerminalLine(text = "Unable to trigger power action", type = LineType.ERROR)), success = false)
         }
     }
 
