@@ -53,7 +53,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                         _uiState.value = _uiState.value.copy(lines = savedBuffer)
                     } else {
                         val initialLines = mutableListOf<TerminalLine>()
-                        initialLines.add(TerminalLine(text = "Welcome to Terminal Launcher v1.3.2", type = LineType.HEADER))
+                        initialLines.add(TerminalLine(text = "Welcome to Terminal Launcher v1.3.4", type = LineType.HEADER))
                         initialLines.add(TerminalLine(text = "Type 'help' for documentation, 'ls' for app list, 'options' for GUI settings.", type = LineType.SYSTEM))
                         val settings = _uiState.value.settings
                         if (settings.fastfetchOnStart) {
@@ -255,6 +255,10 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
             if (result.openMatrixMode) {
                 _uiState.value = _uiState.value.copy(isMatrixActive = true)
+            }
+
+            if (result.updatedPrompt != null) {
+                settingsRepository.setPromptString(result.updatedPrompt)
             }
 
             if (result.shouldClearBuffer) {

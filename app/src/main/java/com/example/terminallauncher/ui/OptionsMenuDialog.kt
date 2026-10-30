@@ -424,7 +424,7 @@ fun OptionsMenuDialog(
                         .padding(8.dp)
                 ) {
                     Text(
-                        text = "Terminal Launcher v1.3.2 (MIT License)",
+                        text = "Terminal Launcher v1.3.4 (MIT License)",
                         style = TextStyle(
                             fontFamily = FontFamily.Monospace,
                             fontSize = 11.sp,
@@ -463,7 +463,7 @@ fun OptionsMenuDialog(
                         .border(1.dp, colorScheme.promptColor, RoundedCornerShape(4.dp))
                 ) {
                     Text(
-                        text = if (showWhatsNew) "[ HIDE RELEASE NOTES ]" else "[ WHAT'S NEW IN V1.3.2 ]",
+                        text = if (showWhatsNew) "[ HIDE RELEASE NOTES ]" else "[ WHAT'S NEW IN V1.3.4 ]",
                         style = TextStyle(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
@@ -481,7 +481,35 @@ fun OptionsMenuDialog(
                             .padding(8.dp)
                     ) {
                         Text(
-                            text = "WHAT'S NEW IN V1.3.2:",
+                            text = "WHAT'S NEW IN V1.3.4:",
+                            style = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = colorScheme.headerColor
+                            )
+                        )
+                        Text(
+                            text = "• Dynamic Prompt Path   : Shell prompt dynamically reflects active storage directory (~/Download)\n• Android 15 File Vis   : Enhanced 'ls' with MediaStore fallback on API 35\n• Uninstallation Fix    : Direct App Info fallback for Android 11-15 (MIUI / Moto)\n• Enhanced Infofetch    : Added CPU cores, Disk Storage, & App counts",
+                            style = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 10.sp,
+                                color = colorScheme.textPrimary
+                            )
+                        )
+                    }
+                }
+
+                if (showWhatsNew) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, colorScheme.promptColor, RoundedCornerShape(4.dp))
+                            .padding(8.dp)
+                    ) {
+                        Text(
+                            text = "WHAT'S NEW IN V1.3.3:",
                             style = TextStyle(
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 11.sp,

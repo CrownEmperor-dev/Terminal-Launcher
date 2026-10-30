@@ -13,27 +13,14 @@
 
 ## Active Priority Queue (Next Intake Stack)
 
-### 1. Fix `ls` File Visibility on Android 15 (Moto G35 / API 35) [NEXT IN QUEUE]
-- **Problem**: On Android 15, `ls` lists directories but hides regular files (`.txt`, `.pdf`, `.apk`) due to Android 15 scoped storage file enumeration filters.
-- **Solution Strategy**:
-  - Update `handleLs()` to use `File.listFiles()` with explicit `MediaStore.Files` / `Environment.isExternalStorageManager()` query fallbacks to guarantee regular files display alongside directories across all Android 15 devices.
-
-### 2. Dynamic Linux Terminal Prompt Path (`user@mobile:~/Download$ `)
-- **Feature Goal**: Mirror standard Linux bash shells where the prompt reflects the current active directory.
-- **Execution Logic**:
-  - Root: `user@mobile:~$ `
-  - Inside `storage0/Download`: `user@mobile:~/Download$ `
-  - Inside `storage0/Download/Docs`: `user@mobile:~/Download/Docs$ `
-  - Update `TerminalViewModel` state and prompt calculation dynamically when `cd` changes `currentPath`.
-
-### 3. File Creation (`mkdir`), Deletion (`rm`), and Output Redirection (`echo "text" > file.txt`)
+### 1. File Creation (`mkdir`), Deletion (`rm`), and Output Redirection (`echo "text" > file.txt`) [NEXT IN QUEUE]
 - **`mkdir <dir_name>`**: Creates new subdirectory inside active `cd` folder or path.
 - **`rm <file_or_dir>`**: Deletes specified file or directory (`rm -r` for recursive folder removal).
 - **Shell Redirection (`>` & `>>`)**:
   - Parse input for `>` (overwrite) and `>>` (append).
   - Execute left-hand command (e.g. `echo "Hello World" > notes.txt` or `time >> log.txt`) and write/append output text directly to target file in active `cd` directory.
 
-### 4. Full `grep` Implementation & Command Piping (`|`) & Wildcards (`*.log`)
+### 2. Full `grep` Implementation & Command Piping (`|`) & Wildcards (`*.log`)
 - **`grep` Command Flags**:
   - `-i` : Case-insensitive match.
   - `-v` : Invert match (output non-matching lines).
@@ -87,6 +74,12 @@
 ---
 
 ## Completed Phases & Feature Summary
+
+### Version 1.3.4 Patch Release [COMPLETED]
+- **Dynamic Linux Terminal Prompt Path**: Shell prompt dynamically reflects active storage directories (`user@mobile:~/Download$ `, `user@mobile:~/Download/Docs$ `) whenever `cd` changes working directory.
+
+### Version 1.3.3 Patch Release [COMPLETED]
+- **Android 15 Scoped Storage `ls` File Visibility Fix**: Added `MANAGE_EXTERNAL_STORAGE` and `READ_MEDIA_*` permission declarations plus a `MediaStore.Files` fallback in `listFilesWithMediaStoreFallback()` to guarantee regular files (`.txt`, `.pdf`, `.apk`, `.log`) display alongside directories on Android 15 (Moto G35 / API 35).
 
 ### Version 1.3.2 Patch Release [COMPLETED]
 - **Canonical `Uri.fromParts` Uninstallation & Direct App Info Fallback**: `uninstall <app>` uses `Intent.ACTION_DELETE` with `Uri.fromParts("package", pkgName, null)` and direct App Info page fallback (`Settings.ACTION_APPLICATION_DETAILS_SETTINGS`) guaranteeing 1-tap uninstallation on Android 11–15 (MIUI, Motorola, Samsung).

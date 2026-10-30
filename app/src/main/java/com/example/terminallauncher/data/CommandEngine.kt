@@ -15,6 +15,7 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.Environment
 import android.os.SystemClock
+import android.provider.MediaStore
 import android.provider.Settings
 import androidx.compose.runtime.Immutable
 import com.example.terminallauncher.MainActivity
@@ -47,7 +48,8 @@ data class CommandResult(
     val openOptionsMenu: Boolean = false,
     val openMatrixMode: Boolean = false,
     val launchedApp: AppModel? = null,
-    val success: Boolean = true
+    val success: Boolean = true,
+    val updatedPrompt: String? = null
 )
 
 data class ChiptuneSong(
@@ -185,7 +187,7 @@ class CommandEngine(
             )
             "clear" -> CommandResult(shouldClearBuffer = true)
             "ls" -> handleLs(args, currentSettings)
-            "cd" -> handleCd(args)
+            "cd" -> handleCd(args, currentSettings)
             "apps" -> handleAppsList()
             "open", "launch" -> handleOpenApp(args.joinToString(" "))
             "uninstall", "remove" -> handleUninstall(args.joinToString(" "))
@@ -249,7 +251,7 @@ class CommandEngine(
             "Storage: $storageInfo",
             "Apps: $appCountInfo",
             "Battery: $batInfo",
-            "Shell: TerminalLauncher v1.3.2"
+            "Shell: TerminalLauncher v1.3.4"
         )
 
         val result = mutableListOf<TerminalLine>()
@@ -266,7 +268,7 @@ class CommandEngine(
     private fun handleFeedback(userMsg: String, currentSettings: LauncherSettings): CommandResult {
         val model = "${Build.MANUFACTURER} ${Build.MODEL}"
         val os = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
-        val version = "v1.3.2"
+        val version = "v1.3.4"
 
         val trimmedMsg = userMsg.trim()
         val isForceEmail = trimmedMsg.lowercase().startsWith("email ") || trimmedMsg.lowercase() == "email"
@@ -563,12 +565,13 @@ class CommandEngine(
 
     private fun handleWhatsNew(): CommandResult {
         val lines = listOf(
-            TerminalLine(text = "TERMINAL LAUNCHER - WHAT'S NEW IN V1.3.2", type = LineType.HEADER),
+            TerminalLine(text = "TERMINAL LAUNCHER - WHAT'S NEW IN V1.3.4", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
-            TerminalLine(text = "• Uninstallation Fix : Direct App Info fallback for Android 11-15 (MIUI / Moto)", type = LineType.OUTPUT),
-            TerminalLine(text = "• Optimized Core Engine: Removed deprecated Termux background dependencies", type = LineType.OUTPUT),
-            TerminalLine(text = "• Enhanced Infofetch   : Added CPU cores, Disk Storage, & User/System app counts", type = LineType.OUTPUT),
-            TerminalLine(text = "• Release Notes Viewer : Type 'whatsnew' or 'changelog' anytime in shell", type = LineType.OUTPUT),
+            TerminalLine(text = "• Dynamic Prompt Path   : Shell prompt dynamically reflects active storage directory (~/Download)", type = LineType.OUTPUT),
+            TerminalLine(text = "• Android 15 File Vis   : Enhanced 'ls' with MediaStore fallback on API 35", type = LineType.OUTPUT),
+            TerminalLine(text = "• Uninstallation Fix    : Direct App Info fallback for Android 11-15 (MIUI / Moto)", type = LineType.OUTPUT),
+            TerminalLine(text = "• Enhanced Infofetch    : Added CPU cores, Disk Storage, & User/System app counts", type = LineType.OUTPUT),
+            TerminalLine(text = "• Release Notes Viewer  : Type 'whatsnew' or 'changelog' anytime in shell", type = LineType.OUTPUT),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM)
         )
         return CommandResult(outputLines = lines)
@@ -598,7 +601,7 @@ class CommandEngine(
             .replace("\$USER", userStr)
             .replace("\$PROMPT", settings.promptString)
             .replace("\$THEME", settings.theme.name.lowercase())
-            .replace("\$VERSION", "v1.3.2")
+            .replace("\$VERSION", "v1.3.4")
             .replace("\$OS", "Android ${Build.VERSION.RELEASE}")
             .replace("\$MODEL", "${Build.MANUFACTURER} ${Build.MODEL}")
 
@@ -627,7 +630,7 @@ class CommandEngine(
             TerminalLine(text = "TERMINAL LAUNCHER - ABOUT", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
             TerminalLine(text = "App Name    : Terminal Launcher", type = LineType.OUTPUT),
-            TerminalLine(text = "Version     : v1.3.2 (Build 8)", type = LineType.OUTPUT),
+            TerminalLine(text = "Version     : v1.3.4 (Build 10)", type = LineType.OUTPUT),
             TerminalLine(text = "Developer   : CrownEmperor-dev", type = LineType.OUTPUT),
             TerminalLine(text = "Framework   : Kotlin & Jetpack Compose", type = LineType.OUTPUT),
             TerminalLine(text = "License     : MIT License", type = LineType.OUTPUT),
@@ -945,10 +948,10 @@ class CommandEngine(
             }
             else -> {
                 if (targetArg.startsWith("storage") || currentPath.startsWith("storage")) {
-                    val fullPath = if (targetArg.startsWith("storage")) targetArg else "$currentPath/$targetArg"
+                    val fullPath = if (targetArg.startsWith("storage")) targetArg else if (targetArg.isNotEmpty() && targetArg != "~" && targetArg != "apps" && targetArg != "/apps") "$currentPath/$targetArg" else currentPath
                     val file = resolveStoragePath(fullPath)
                     if (file.exists() && file.isDirectory) {
-                        val files = file.listFiles()?.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() })) ?: emptyList()
+                        val files = listFilesWithMediaStoreFallback(file).sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
                         lines.add(TerminalLine(text = "DIRECTORY: $fullPath (${files.size} items)", type = LineType.HEADER))
                         if (files.isEmpty()) {
                             lines.add(TerminalLine(text = "  (empty directory)", type = LineType.OUTPUT))
@@ -996,7 +999,64 @@ class CommandEngine(
         return CommandResult(outputLines = lines)
     }
 
-    private fun handleCd(args: List<String>): CommandResult {
+    private fun listFilesWithMediaStoreFallback(dir: File): List<File> {
+        val results = mutableListOf<File>()
+        val directFiles = dir.listFiles()
+        if (directFiles != null) {
+            results.addAll(directFiles)
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                val projection = arrayOf(
+                    MediaStore.Files.FileColumns.DATA,
+                    MediaStore.Files.FileColumns.DISPLAY_NAME
+                )
+                val pathPrefix = dir.absolutePath
+                val selection = "${MediaStore.Files.FileColumns.DATA} LIKE ?"
+                val selectionArgs = arrayOf("$pathPrefix/%")
+                val cursor = context.contentResolver.query(
+                    MediaStore.Files.getContentUri("external"),
+                    projection,
+                    selection,
+                    selectionArgs,
+                    null
+                )
+                cursor?.use { c ->
+                    val dataIdx = c.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATA)
+                    while (c.moveToNext()) {
+                        val path = c.getString(dataIdx) ?: continue
+                        val itemFile = File(path)
+                        if (itemFile.parentFile?.absolutePath == dir.absolutePath && results.none { it.name == itemFile.name }) {
+                            results.add(itemFile)
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+        return results
+    }
+
+    fun getCurrentPrompt(settings: LauncherSettings): String {
+        val basePrompt = settings.promptString
+        val baseUser = if (basePrompt.contains("@")) {
+            basePrompt.substringBefore("@") + "@" + basePrompt.substringAfter("@").substringBefore(":")
+        } else {
+            "user@mobile"
+        }
+        val dirSegment = when {
+            currentPath == "~" || currentPath == "/" -> "~"
+            currentPath == "storage0" || currentPath == "/storage0" -> "~"
+            currentPath.startsWith("storage0/") -> "~/" + currentPath.removePrefix("storage0/").removePrefix("/")
+            currentPath == "storage1" || currentPath == "/storage1" -> "~/storage1"
+            currentPath.startsWith("storage1/") -> "~/storage1/" + currentPath.removePrefix("storage1/").removePrefix("/")
+            currentPath.startsWith("/") -> currentPath
+            else -> "~/$currentPath"
+        }
+        return "$baseUser:$dirSegment$ "
+    }
+
+    private fun handleCd(args: List<String>, settings: LauncherSettings): CommandResult {
         val path = args.firstOrNull()?.trim() ?: "~"
         when {
             path == ".." -> {
@@ -1036,7 +1096,11 @@ class CommandEngine(
                 return CommandResult(outputLines = listOf(TerminalLine(text = "cd: no such directory: $path", type = LineType.ERROR)), success = false)
             }
         }
-        return CommandResult(outputLines = listOf(TerminalLine(text = "Directory: $currentPath", type = LineType.SUCCESS)))
+        val newPrompt = getCurrentPrompt(settings)
+        return CommandResult(
+            outputLines = listOf(TerminalLine(text = "Directory: $currentPath", type = LineType.SUCCESS)),
+            updatedPrompt = newPrompt
+        )
     }
 
     private fun resolveStoragePath(path: String): File {
