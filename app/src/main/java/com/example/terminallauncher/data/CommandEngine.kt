@@ -1,10 +1,8 @@
 package com.example.terminallauncher.data
 
-import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageInstaller
 import android.hardware.camera2.CameraManager
 import android.media.AudioAttributes
 import android.media.AudioFormat
@@ -737,17 +735,18 @@ class CommandEngine(
     }
 
     private fun handleUninstall(appQuery: String): CommandResult {
-        if (appQuery.isBlank()) {
+        val cleanQuery = appQuery.trim().removeSurrounding("\"").removeSurrounding("'")
+        if (cleanQuery.isBlank()) {
             return CommandResult(
                 outputLines = listOf(TerminalLine(text = "Usage: uninstall <app_name_or_package>", type = LineType.ERROR)),
                 success = false
             )
         }
 
-        val app = appRepository.findApp(appQuery)
+        val app = appRepository.findApp(cleanQuery)
         if (app == null) {
             return CommandResult(
-                outputLines = listOf(TerminalLine(text = "App not found for uninstallation: '$appQuery'", type = LineType.ERROR)),
+                outputLines = listOf(TerminalLine(text = "App not found for uninstallation: '$cleanQuery'", type = LineType.ERROR)),
                 success = false
             )
         }
@@ -756,19 +755,10 @@ class CommandEngine(
         val label = app.label
 
         return try {
-            val packageInstaller = context.packageManager.packageInstaller
-            val callbackIntent = Intent(context, MainActivity::class.java).apply {
-                putExtra("UNINSTALL_PKG", pkgName)
+            val deleteIntent = Intent(Intent.ACTION_DELETE, Uri.fromParts("package", pkgName, null)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-            } else {
-                PendingIntent.FLAG_UPDATE_CURRENT
-            }
-            val pendingIntent = PendingIntent.getActivity(context, 0, callbackIntent, flags)
-
-            packageInstaller.uninstall(pkgName, pendingIntent.intentSender)
-
+            context.startActivity(deleteIntent)
             CommandResult(
                 outputLines = listOf(
                     TerminalLine(text = "Opening system uninstallation prompt for $label ($pkgName)...", type = LineType.SUCCESS)
@@ -776,8 +766,7 @@ class CommandEngine(
             )
         } catch (_: Exception) {
             try {
-                val settingsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                    data = Uri.parse("package:$pkgName")
+                val settingsIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", pkgName, null)).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
                 context.startActivity(settingsIntent)
