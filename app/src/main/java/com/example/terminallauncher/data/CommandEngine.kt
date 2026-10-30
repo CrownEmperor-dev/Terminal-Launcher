@@ -151,6 +151,12 @@ class CommandEngine(
         val trimmed = commandInput.trim()
         if (trimmed.isEmpty()) return CommandResult()
 
+        // Check for shell output redirection (> or >>) outside quoted strings
+        val redirectionInfo = findUnquotedRedirectionIndex(trimmed)
+        if (redirectionInfo != null) {
+            return handleRedirection(trimmed, redirectionInfo, currentSettings)
+        }
+
         // Check if input matches a web URL directly
         if (isWebUrl(trimmed)) {
             return handleWebUrl(trimmed)
@@ -172,6 +178,8 @@ class CommandEngine(
             "feedback", "report", "bug" -> handleFeedback(args.joinToString(" "), currentSettings)
             "install" -> handleInstall(args.joinToString(" "))
             "cat", "read", "view" -> handleCat(args.joinToString(" "))
+            "mkdir" -> handleMkdir(args)
+            "rm" -> handleRm(args)
             "8bit", "tune", "chiptune", "music", "retro" -> handle8BitTune(args)
             "email", "mail", "sendmail" -> handleEmail(args)
             "whatsnew", "changelog", "news" -> handleWhatsNew()
@@ -546,14 +554,233 @@ class CommandEngine(
         }
     }
 
+    private fun findUnquotedRedirectionIndex(input: String): Pair<Int, String>? {
+        var inSingle = false
+        var inDouble = false
+        var i = 0
+        while (i < input.length) {
+            val c = input[i]
+            if (c == '\'' && !inDouble) inSingle = !inSingle
+            else if (c == '"' && !inSingle) inDouble = !inDouble
+            else if (!inSingle && !inDouble) {
+                if (i + 1 < input.length && input.substring(i, i + 2) == ">>") {
+                    return Pair(i, ">>")
+                } else if (c == '>' && (i + 1 >= input.length || input[i + 1] != '>')) {
+                    return Pair(i, ">")
+                }
+            }
+            i++
+        }
+        return null
+    }
+
+    private suspend fun handleRedirection(
+        input: String,
+        redirectionInfo: Pair<Int, String>,
+        currentSettings: LauncherSettings
+    ): CommandResult {
+        val (opIndex, operator) = redirectionInfo
+        val isAppend = operator == ">>"
+        val leftCmd = input.substring(0, opIndex).trim()
+        val rightTarget = input.substring(opIndex + operator.length).trim().removeSurrounding("\"").removeSurrounding("'").trim()
+
+        if (leftCmd.isEmpty()) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "syntax error: missing left-side command for redirection", type = LineType.ERROR)),
+                success = false
+            )
+        }
+
+        if (rightTarget.isEmpty()) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "syntax error: missing target file for redirection", type = LineType.ERROR)),
+                success = false
+            )
+        }
+
+        val cmdResult = execute(leftCmd, currentSettings)
+
+        val targetPath = if (rightTarget.startsWith("storage") || rightTarget.startsWith("/")) {
+            rightTarget
+        } else if (currentPath.startsWith("storage")) {
+            "$currentPath/$rightTarget"
+        } else {
+            "storage0/$rightTarget"
+        }
+
+        val targetFile = resolveStoragePath(targetPath)
+
+        return try {
+            targetFile.parentFile?.mkdirs()
+
+            val textToWrite = cmdResult.outputLines.joinToString("\n") { it.text }
+
+            if (isAppend) {
+                val prefix = if (targetFile.exists() && targetFile.length() > 0) "\n" else ""
+                targetFile.appendText(prefix + textToWrite, Charsets.UTF_8)
+            } else {
+                targetFile.writeText(textToWrite, Charsets.UTF_8)
+            }
+
+            val modeStr = if (isAppend) "appended to" else "written to"
+            val linesCount = cmdResult.outputLines.size
+            CommandResult(
+                outputLines = listOf(
+                    TerminalLine(
+                        text = "Output ($linesCount lines) $modeStr '${targetFile.name}' (${targetFile.length() / 1024} KB)",
+                        type = LineType.SUCCESS
+                    )
+                )
+            )
+        } catch (e: Exception) {
+            CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "Redirection error writing to '$rightTarget': ${e.message}", type = LineType.ERROR)
+                ),
+                success = false
+            )
+        }
+    }
+
+    private fun handleMkdir(args: List<String>): CommandResult {
+        if (args.isEmpty()) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "Usage: mkdir <directory_name>", type = LineType.ERROR)),
+                success = false
+            )
+        }
+
+        val dirArg = args.joinToString(" ").removeSurrounding("\"").removeSurrounding("'").trim()
+        val targetPath = if (dirArg.startsWith("storage") || dirArg.startsWith("/")) {
+            dirArg
+        } else if (currentPath.startsWith("storage")) {
+            "$currentPath/$dirArg"
+        } else {
+            "storage0/$dirArg"
+        }
+
+        val targetDir = resolveStoragePath(targetPath)
+        if (targetDir.exists()) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "mkdir: cannot create directory '$dirArg': File exists", type = LineType.ERROR)),
+                success = false
+            )
+        }
+
+        return try {
+            val created = targetDir.mkdirs()
+            if (created || targetDir.exists()) {
+                CommandResult(
+                    outputLines = listOf(
+                        TerminalLine(text = "Directory created successfully: ${targetDir.name}", type = LineType.SUCCESS)
+                    )
+                )
+            } else {
+                CommandResult(
+                    outputLines = listOf(TerminalLine(text = "mkdir: failed to create directory '$dirArg'", type = LineType.ERROR)),
+                    success = false
+                )
+            }
+        } catch (e: Exception) {
+            CommandResult(
+                outputLines = listOf(TerminalLine(text = "mkdir error: ${e.message}", type = LineType.ERROR)),
+                success = false
+            )
+        }
+    }
+
+    private fun handleRm(args: List<String>): CommandResult {
+        if (args.isEmpty()) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "Usage: rm [-r] <file_or_directory>", type = LineType.ERROR)),
+                success = false
+            )
+        }
+
+        var isRecursive = false
+        val targetTokens = mutableListOf<String>()
+
+        args.forEach { arg ->
+            val clean = arg.trim()
+            if (clean == "-r" || clean == "-rf" || clean == "-f" || clean == "-R") {
+                isRecursive = true
+            } else if (clean.isNotEmpty()) {
+                targetTokens.add(clean)
+            }
+        }
+
+        if (targetTokens.isEmpty()) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "rm: missing operand after flags", type = LineType.ERROR)),
+                success = false
+            )
+        }
+
+        val targetArg = targetTokens.joinToString(" ").removeSurrounding("\"").removeSurrounding("'").trim()
+        val targetPath = if (targetArg.startsWith("storage") || targetArg.startsWith("/")) {
+            targetArg
+        } else if (currentPath.startsWith("storage")) {
+            "$currentPath/$targetArg"
+        } else {
+            "storage0/$targetArg"
+        }
+
+        val targetFile = resolveStoragePath(targetPath)
+
+        if (!targetFile.exists()) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "rm: cannot remove '$targetArg': No such file or directory", type = LineType.ERROR)),
+                success = false
+            )
+        }
+
+        if (targetFile.isDirectory && !isRecursive) {
+            return CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "rm: cannot remove '$targetArg': Is a directory", type = LineType.ERROR),
+                    TerminalLine(text = "Tip: Use 'rm -r $targetArg' to delete directories recursively.", type = LineType.SYSTEM)
+                ),
+                success = false
+            )
+        }
+
+        return try {
+            val deleted = if (targetFile.isDirectory) {
+                targetFile.deleteRecursively()
+            } else {
+                targetFile.delete()
+            }
+
+            if (deleted) {
+                CommandResult(
+                    outputLines = listOf(
+                        TerminalLine(text = "Removed successfully: ${targetFile.name}", type = LineType.SUCCESS)
+                    )
+                )
+            } else {
+                CommandResult(
+                    outputLines = listOf(TerminalLine(text = "rm: failed to remove '$targetArg'", type = LineType.ERROR)),
+                    success = false
+                )
+            }
+        } catch (e: Exception) {
+            CommandResult(
+                outputLines = listOf(TerminalLine(text = "rm error: ${e.message}", type = LineType.ERROR)),
+                success = false
+            )
+        }
+    }
+
     private fun handleWhatsNew(): CommandResult {
         val lines = listOf(
-            TerminalLine(text = "TERMINAL LAUNCHER - WHAT'S NEW IN V1.3.6", type = LineType.HEADER),
+            TerminalLine(text = "TERMINAL LAUNCHER - WHAT'S NEW IN V1.4.0", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
-            TerminalLine(text = "• Multi-Word Folder Support: 'cd storage0/Quick Share' & 'ls \"Quick Share\"' work seamlessly", type = LineType.OUTPUT),
-            TerminalLine(text = "• All Files Access Prompt  : Run 'sys storage' to grant All Files Access on Android 11-15", type = LineType.OUTPUT),
-            TerminalLine(text = "• Case-Insensitive Storage: 'ls storage0/download' & 'cd storage0/download' match 'Download'", type = LineType.OUTPUT),
-            TerminalLine(text = "• Storage Directory Guard  : 'ls storage0/invalid' outputs explicit error instead of app list", type = LineType.OUTPUT),
+            TerminalLine(text = "• Directory Creation (`mkdir`)   : Create subdirectories in active storage folder", type = LineType.OUTPUT),
+            TerminalLine(text = "• File & Folder Deletion (`rm`)  : Delete files & recursive directories (`rm -r`)", type = LineType.OUTPUT),
+            TerminalLine(text = "• Output Redirection (`>` / `>>`): Direct command output into files (`echo \"hi\" > file.txt`)", type = LineType.OUTPUT),
+            TerminalLine(text = "• Dynamic Prompt Path           : Shell prompt reflects active directory (~/Download)", type = LineType.OUTPUT),
+            TerminalLine(text = "• All Files Access Prompt       : Run 'sys storage' to grant All Files Access on Android 11-15", type = LineType.OUTPUT),
+            TerminalLine(text = "• Release Notes Viewer          : Type 'whatsnew' or 'changelog' anytime in shell", type = LineType.OUTPUT),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM)
         )
         return CommandResult(outputLines = lines)

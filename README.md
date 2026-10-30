@@ -27,7 +27,7 @@ user@mobile:~$ infofetch
 OS: Android 8.0+ (API 26+) / Waydroid Linux
 Host: Android Mobile Device
 Kernel: Linux 5.x / Android Runtime
-Shell: TerminalLauncher v1.3.6
+Shell: TerminalLauncher v1.4.0
 UI Engine: Jetpack Compose
 Edge-To-Edge & Full Immersion: Active (Hide Status Bar & Auto-Keyboard Toggle)
 Themes: CRT Green | Amber Phosphor | OLED Black | Monochrome | Cyberpunk Cyan | Game Boy | Solarized | Dracula
@@ -65,6 +65,10 @@ OPTIONS & COMMANDS
            feedback <msg>     Submit feedback or bug report with automatic device specs.
            install <query>    Search & install apps directly from Google Play Store.
            cat / read <path>  Read and view text files directly inside terminal buffer.
+           mkdir <dir>        Create subdirectories in active storage directory.
+           rm [-r] <path>     Remove files or directories recursively.
+           <cmd> > <file>     Redirect command output to file (overwrite).
+           <cmd> >> <file>    Redirect command output to file (append).
            8bit [1..16|list]  Play 16-track 8-bit retro chiptune jukebox.
            email <to> [sub]   Dispatch pre-filled email compose (Proton Mail / Gmail).
            whatsnew / news    Display release notes and what's new in v1.4.0.

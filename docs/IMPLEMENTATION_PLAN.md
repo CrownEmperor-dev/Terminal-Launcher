@@ -15,15 +15,7 @@
 
 Any new feature requests, commands, or project phases will be placed at the top of this queue for execution.
 
-### 1. File Creation (`mkdir`), Deletion (`rm`), and Output Redirection (`echo "text" > file.txt` [NEXT IN QUEUE]
-
-- **`mkdir <dir_name>`**: Creates new subdirectory inside active `cd` folder or path.
-- **`rm <file_or_dir>`**: Deletes specified file or directory (`rm -r` for recursive folder removal).
-- **Shell Redirection (`>` & `>>`)**:
-  - Parse input for `>` (overwrite) and `>>` (append).
-  - Execute left-hand command (e.g. `echo "Hello World" > notes.txt` or `time >> log.txt`) and write/append output text directly to target file in active `cd` directory.
-
-### 2. Full `grep` Implementation & Command Piping (`|`) & Wildcards (`*.log`)
+### 1. Full `grep` Implementation & Command Piping (`|`) & Wildcards (`*.log`) [NEXT IN QUEUE]
 
 - **`grep` Command Flags**:
   - `-i` : Case-insensitive match.
@@ -34,9 +26,16 @@ Any new feature requests, commands, or project phases will be placed at the top 
   - `-w` : Exact word boundary match (`\bpattern\b`).
 - **Command Piping (`|`)**: Support piping left-hand output into right-hand `grep` filter (e.g., `ls | grep ".txt"` or `history | grep "config"`).
 - **Wildcard Expansion (`*.log`, `*.txt`)**: Support searching across multiple files (e.g., `grep "error" *.log`).
+
 ---
 
 ## Completed Phases & Feature Summary
+
+### Version 1.4.0 Feature Release [COMPLETED]
+- **Directory Creation (`mkdir`)**: `mkdir <dir_name>` creates subdirectories in active working directory or explicit storage path.
+- **File & Folder Deletion (`rm`)**: `rm <file>` removes files; `rm -r <dir>` recursively deletes directory trees.
+- **Shell Output Redirection (`>` & `>>`)**: `echo "text" > file.txt` (overwrite) and `time >> log.txt` (append) redirect command output to target files.
+- **Dynamic Linux Terminal Prompt Path**: Shell prompt dynamically reflects active working directories (`user@mobile:~/Download$ `) upon `cd`.
 
 ### Version 1.3.6 Patch Release [COMPLETED]
 - **Multi-Word Directory & File Name Support**: `handleCd`, `handleLs`, `handleCat` now join all argument tokens and strip surrounding quotes. Unquoted multi-word paths (`cd storage0/Quick Share`) and quoted paths (`cd "storage0/Quick Share"`) resolve 100% seamlessly.
