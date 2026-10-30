@@ -209,7 +209,7 @@ class CommandEngine(
             "sys", "toggle" -> handleSys(args, currentSettings)
             "call" -> handleCall(args.joinToString(" "))
             "sms" -> handleSms(args.joinToString(" "))
-            "reboot", "shutdown" -> handleReboot()
+            "reboot", "restart", "shutdown", "poweroff" -> handlePowerCommand(cmd)
             else -> handleFallback(resolvedCommand)
         }
     }
@@ -241,7 +241,7 @@ class CommandEngine(
             "Uptime: $uptime",
             "RAM: $ramInfo",
             "Battery: $batInfo",
-            "Shell: TerminalLauncher v1.4.0"
+            "Shell: TerminalLauncher v1.4.1"
         )
 
         val result = mutableListOf<TerminalLine>()
@@ -773,13 +773,13 @@ class CommandEngine(
 
     private fun handleWhatsNew(): CommandResult {
         val lines = listOf(
-            TerminalLine(text = "TERMINAL LAUNCHER - WHAT'S NEW IN V1.4.0", type = LineType.HEADER),
+            TerminalLine(text = "TERMINAL LAUNCHER - WHAT'S NEW IN V1.4.1", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
+            TerminalLine(text = "• System Power Commands         : Direct root reboot/shutdown + System Power Menu fallback (`reboot`, `shutdown`, `poweroff`)", type = LineType.OUTPUT),
             TerminalLine(text = "• Directory Creation (`mkdir`)   : Create subdirectories in active storage folder", type = LineType.OUTPUT),
             TerminalLine(text = "• File & Folder Deletion (`rm`)  : Delete files & recursive directories (`rm -r`)", type = LineType.OUTPUT),
             TerminalLine(text = "• Output Redirection (`>` / `>>`): Direct command output into files (`echo \"hi\" > file.txt`)", type = LineType.OUTPUT),
             TerminalLine(text = "• Dynamic Prompt Path           : Shell prompt reflects active directory (~/Download)", type = LineType.OUTPUT),
-            TerminalLine(text = "• All Files Access Prompt       : Run 'sys storage' to grant All Files Access on Android 11-15", type = LineType.OUTPUT),
             TerminalLine(text = "• Release Notes Viewer          : Type 'whatsnew' or 'changelog' anytime in shell", type = LineType.OUTPUT),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM)
         )
@@ -801,7 +801,7 @@ class CommandEngine(
             .replace("\$USER", userStr)
             .replace("\$PROMPT", settings.promptString)
             .replace("\$THEME", settings.theme.name.lowercase())
-            .replace("\$VERSION", "v1.3.6")
+            .replace("\$VERSION", "v1.4.1")
             .replace("\$OS", "Android ${Build.VERSION.RELEASE}")
             .replace("\$MODEL", "${Build.MANUFACTURER} ${Build.MODEL}")
 
@@ -830,7 +830,7 @@ class CommandEngine(
             TerminalLine(text = "TERMINAL LAUNCHER - ABOUT", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
             TerminalLine(text = "App Name    : Terminal Launcher", type = LineType.OUTPUT),
-            TerminalLine(text = "Version     : v1.3.6 (Build 12)", type = LineType.OUTPUT),
+            TerminalLine(text = "Version     : v1.4.1 (Build 13)", type = LineType.OUTPUT),
             TerminalLine(text = "Developer   : CrownEmperor-dev", type = LineType.OUTPUT),
             TerminalLine(text = "Framework   : Kotlin & Jetpack Compose", type = LineType.OUTPUT),
             TerminalLine(text = "License     : MIT License", type = LineType.OUTPUT),
@@ -1760,15 +1760,73 @@ class CommandEngine(
         return CommandResult(outputLines = listOf(TerminalLine(text = "Opening SMS to $number...", type = LineType.SUCCESS)))
     }
 
-    private fun handleReboot(): CommandResult {
-        val intent = Intent(Intent.ACTION_POWER_USAGE_SUMMARY).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    private fun handlePowerCommand(cmd: String): CommandResult {
+        val isShutdown = cmd == "shutdown" || cmd == "poweroff"
+        val actionName = if (isShutdown) "shutdown" else "reboot"
+
+        val rootCmd = if (isShutdown) "reboot -p" else "reboot"
+        val rootSuccess = tryRootCommand(rootCmd)
+
+        if (rootSuccess) {
+            return CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "SYSTEM POWER ACTION: ${actionName.uppercase()}", type = LineType.HEADER),
+                    TerminalLine(text = "==================================================", type = LineType.SYSTEM),
+                    TerminalLine(text = "Executing root-privileged $actionName...", type = LineType.SUCCESS),
+                    TerminalLine(text = "==================================================", type = LineType.SYSTEM)
+                )
+            )
         }
+
+        val intent = try {
+            Intent("com.android.internal.intent.action.REQUEST_SHUTDOWN").apply {
+                putExtra("android.intent.extra.KEY_CONFIRM", true)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        } catch (_: Exception) {
+            Intent(Intent.ACTION_POWER_USAGE_SUMMARY).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        }
+
         return try {
             context.startActivity(intent)
-            CommandResult(outputLines = listOf(TerminalLine(text = "Opened Power / Battery menu", type = LineType.SUCCESS)))
+            CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "SYSTEM POWER ACTION: ${actionName.uppercase()}", type = LineType.HEADER),
+                    TerminalLine(text = "==================================================", type = LineType.SYSTEM),
+                    TerminalLine(text = "Notice: Non-rooted devices require user confirmation for power actions.", type = LineType.SYSTEM),
+                    TerminalLine(text = "Opening System Power Dialog / Battery Menu...", type = LineType.SUCCESS),
+                    TerminalLine(text = "==================================================", type = LineType.SYSTEM)
+                )
+            )
         } catch (_: Exception) {
-            CommandResult(outputLines = listOf(TerminalLine(text = "Unable to trigger power action", type = LineType.ERROR)), success = false)
+            try {
+                val fallbackSettings = Intent(Settings.ACTION_SETTINGS).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                context.startActivity(fallbackSettings)
+                CommandResult(
+                    outputLines = listOf(
+                        TerminalLine(text = "Opened System Settings for power controls.", type = LineType.SUCCESS)
+                    )
+                )
+            } catch (e: Exception) {
+                CommandResult(
+                    outputLines = listOf(TerminalLine(text = "Unable to launch power dialog: ${e.message}", type = LineType.ERROR)),
+                    success = false
+                )
+            }
+        }
+    }
+
+    private fun tryRootCommand(command: String): Boolean {
+        return try {
+            val process = Runtime.getRuntime().exec(arrayOf("su", "-c", command))
+            val exitCode = process.waitFor()
+            exitCode == 0
+        } catch (_: Exception) {
+            false
         }
     }
 

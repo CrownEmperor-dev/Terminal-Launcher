@@ -16,13 +16,12 @@
 
 Any new feature requests, commands, or project phases will be placed at the top of this queue for execution.
 
-### 1. System Power Commands (`reboot`, `restart`, `shutdown`, `poweroff`)
-- **Technical Feasibility & Execution Strategy**:
-  - **Rooted Devices (`su`)**: Execute `su -c "reboot"` for reboot/restart and `su -c "reboot -p"` or `su -c "svc power shutdown"` for shutdown.
-  - **Non-Rooted Android Fallback**: Open Android's System Power Menu dialog (`AccessibilityService.GLOBAL_ACTION_POWER_DIALOG` or `Intent("android.intent.action.ACTION_POWER_USAGE_SUMMARY")`) so the user can tap Power Off / Restart in 1 click.
-  - **Terminal Output**: Display clear status notice indicating execution mode (Root Direct vs System Power Dialog Fallback).
-
-### 2. In-Launcher & System Screenshot Command (`screenshot` / `sc` / `sys screenshot`)
+### 1. In-Launcher & System Screenshot Command (`screenshot` / `sc` / `sys screenshot`) [NEXT IN QUEUE]
+- **Technical Execution Strategy**:
+  - **In-Launcher Window Capture (Primary)**: Use Compose `GraphicsLayer` / `drawToBitmap()` or `PixelCopy.request()` on MainActivity Window surface to capture high-res PNG image of the terminal shell.
+  - **Storage Persistence**: Automatically save screenshot PNG file to `storage0/Pictures/Screenshots/screenshot_<timestamp>.png`.
+  - **System Screenshot Fallback**: On Android 11+ (API 30+), support `screenshot sys` using `AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT` for full OS screen capture.
+  - **Terminal Output**: Display saved PNG file path and size (e.g. `[SUCCESS]: Screenshot saved to storage0/Pictures/Screenshots/screenshot_20260228_123000.png (420 KB)`).
 - **Technical Execution Strategy**:
   - **In-Launcher Window Capture (Primary)**: Use Compose `GraphicsLayer` / `drawToBitmap()` or `PixelCopy.request()` on MainActivity Window surface to capture high-res PNG image of the terminal shell.
   - **Storage Persistence**: Automatically save screenshot PNG file to `storage0/Pictures/Screenshots/screenshot_<timestamp>.png`.
@@ -68,6 +67,9 @@ Any new feature requests, commands, or project phases will be placed at the top 
 ---
 
 ## Completed Phases & Feature Summary
+
+### Version 1.4.1 Patch Release [COMPLETED]
+- **System Power Commands (`reboot`, `restart`, `shutdown`, `poweroff`)**: Executes direct root-privileged shutdown/reboot (`su -c "reboot"` / `su -c "reboot -p"`) with graceful fallback to Android's System Power Menu dialog on non-rooted devices.
 
 ### Version 1.4.0 Feature Release [COMPLETED]
 - **Directory Creation (`mkdir`)**: `mkdir <dir_name>` creates subdirectories in active working directory or explicit storage path.

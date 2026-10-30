@@ -27,7 +27,7 @@ user@mobile:~$ infofetch
 OS: Android 8.0+ (API 26+) / Waydroid Linux
 Host: Android Mobile Device
 Kernel: Linux 5.x / Android Runtime
-Shell: TerminalLauncher v1.4.0
+Shell: TerminalLauncher v1.4.1
 UI Engine: Jetpack Compose
 Edge-To-Edge & Full Immersion: Active (Hide Status Bar & Auto-Keyboard Toggle)
 Themes: CRT Green | Amber Phosphor | OLED Black | Monochrome | Cyberpunk Cyan | Game Boy | Solarized | Dracula
@@ -71,7 +71,9 @@ OPTIONS & COMMANDS
            <cmd> >> <file>    Redirect command output to file (append).
            8bit [1..16|list]  Play 16-track 8-bit retro chiptune jukebox.
            email <to> [sub]   Dispatch pre-filled email compose (Proton Mail / Gmail).
-           whatsnew / news    Display release notes and what's new in v1.4.0.
+           reboot / restart   Reboot system (direct root or System Power Menu fallback).
+           shutdown / poweroff Shutdown system (direct root or System Power Menu fallback).
+           whatsnew / news    Display release notes and what's new in v1.4.1.
            time / date        Display current system time, date, and Unix epoch seconds.
            killall / trim     Trim background processes & free RAM (ideal for 4GB devices).
            matrix             Trigger full-screen Matrix Digital Rain easter egg.
