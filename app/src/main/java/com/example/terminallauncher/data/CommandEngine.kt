@@ -154,9 +154,16 @@ class CommandEngine(
         val trimmed = commandInput.trim()
         if (trimmed.isEmpty()) return CommandResult()
 
+        // Shell Piping support (|)
+        val pipeIdx = findUnquotedPipeIndex(trimmed)
+        if (pipeIdx != -1) {
+            return handlePiping(trimmed, pipeIdx, currentSettings)
+        }
+
         // Shell Redirection support (> and >>)
-        if (trimmed.contains(" > ") || trimmed.contains(" >> ")) {
-            return handleOutputRedirection(trimmed, currentSettings)
+        val redirectionInfo = findUnquotedRedirectionIndex(trimmed)
+        if (redirectionInfo != null) {
+            return handleRedirection(trimmed, redirectionInfo, currentSettings)
         }
 
         // Check if input matches a web URL directly
@@ -180,6 +187,7 @@ class CommandEngine(
             "feedback", "report", "bug" -> handleFeedback(args.joinToString(" "), currentSettings)
             "install" -> handleInstall(args.joinToString(" "))
             "cat", "read", "view" -> handleCat(args.joinToString(" "))
+            "grep" -> handleGrep(args, currentSettings)
             "mkdir" -> handleMkdir(args)
             "rm" -> handleRm(args)
             "screenshot", "sc" -> handleScreenshot(args)
@@ -217,44 +225,347 @@ class CommandEngine(
         }
     }
 
-    private suspend fun handleOutputRedirection(input: String, currentSettings: LauncherSettings): CommandResult {
-        val isAppend = input.contains(" >> ")
-        val delimiter = if (isAppend) " >> " else " > "
-        val parts = input.split(delimiter, limit = 2)
+    data class GrepOptions(
+        val caseInsensitive: Boolean = false,
+        val invertMatch: Boolean = false,
+        val showLineNumbers: Boolean = false,
+        val countOnly: Boolean = false,
+        val recursive: Boolean = false,
+        val wordMatch: Boolean = false,
+        val pattern: String = "",
+        val fileTargets: List<String> = emptyList()
+    )
 
-        if (parts.size < 2 || parts[0].isBlank() || parts[1].isBlank()) {
+    private fun findUnquotedPipeIndex(input: String): Int {
+        var inSingle = false
+        var inDouble = false
+        var i = 0
+        while (i < input.length) {
+            val c = input[i]
+            if (c == '\'' && !inDouble) inSingle = !inSingle
+            else if (c == '"' && !inSingle) inDouble = !inDouble
+            else if (!inSingle && !inDouble && c == '|') {
+                return i
+            }
+            i++
+        }
+        return -1
+    }
+
+    private suspend fun handlePiping(input: String, pipeIdx: Int, settings: LauncherSettings): CommandResult {
+        val leftCmd = input.substring(0, pipeIdx).trim()
+        val rightCmd = input.substring(pipeIdx + 1).trim()
+
+        if (leftCmd.isEmpty()) {
+            return CommandResult(outputLines = listOf(TerminalLine(text = "syntax error near unexpected token '|'", type = LineType.ERROR)), success = false)
+        }
+        if (rightCmd.isEmpty()) {
+            return CommandResult(outputLines = listOf(TerminalLine(text = "syntax error: missing right-side filter command", type = LineType.ERROR)), success = false)
+        }
+
+        val leftResult = execute(leftCmd, settings)
+        val rightTokens = rightCmd.split(Regex("\\s+"))
+        val rightCmdName = rightTokens.first().lowercase()
+
+        if (rightCmdName == "grep") {
+            val grepArgs = rightTokens.drop(1)
+            val grepOptions = parseGrepOptions(grepArgs)
+            if (grepOptions.pattern.isEmpty()) {
+                return CommandResult(outputLines = listOf(TerminalLine(text = "Usage: grep [-i|-v|-n|-c|-w] <pattern>", type = LineType.ERROR)), success = false)
+            }
+            return executeGrepOnLines(grepOptions, leftResult.outputLines)
+        } else {
             return CommandResult(
-                outputLines = listOf(TerminalLine(text = "Usage: <command> > <file_name> or <command> >> <file_name>", type = LineType.ERROR)),
+                outputLines = listOf(TerminalLine(text = "piping error: '$rightCmdName' is not a supported pipe filter (use 'grep')", type = LineType.ERROR)),
+                success = false
+            )
+        }
+    }
+
+    private fun findUnquotedRedirectionIndex(input: String): Pair<Int, String>? {
+        var inSingle = false
+        var inDouble = false
+        var i = 0
+        while (i < input.length) {
+            val c = input[i]
+            if (c == '\'' && !inDouble) inSingle = !inSingle
+            else if (c == '"' && !inSingle) inDouble = !inDouble
+            else if (!inSingle && !inDouble) {
+                if (i + 1 < input.length && input.substring(i, i + 2) == ">>") {
+                    return Pair(i, ">>")
+                } else if (c == '>' && (i + 1 >= input.length || input[i + 1] != '>')) {
+                    return Pair(i, ">")
+                }
+            }
+            i++
+        }
+        return null
+    }
+
+    private suspend fun handleRedirection(
+        input: String,
+        redirectionInfo: Pair<Int, String>,
+        currentSettings: LauncherSettings
+    ): CommandResult {
+        val (opIndex, operator) = redirectionInfo
+        val isAppend = operator == ">>"
+        val leftCmd = input.substring(0, opIndex).trim()
+        val rightTarget = input.substring(opIndex + operator.length).trim().removeSurrounding("\"").removeSurrounding("'").trim()
+
+        if (leftCmd.isEmpty()) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "syntax error: missing left-side command for redirection", type = LineType.ERROR)),
                 success = false
             )
         }
 
-        val leftCommand = parts[0].trim()
-        val targetFileName = parts[1].trim().removeSurrounding("\"").removeSurrounding("'")
+        if (rightTarget.isEmpty()) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "syntax error: missing target file for redirection", type = LineType.ERROR)),
+                success = false
+            )
+        }
 
-        val targetFile = resolveStoragePath(targetFileName)
-        val commandResult = execute(leftCommand, currentSettings)
+        val cmdResult = execute(leftCmd, currentSettings)
 
-        val textToWrite = commandResult.outputLines.joinToString("\n") { it.text }
+        val targetPath = if (rightTarget.startsWith("storage") || rightTarget.startsWith("/")) {
+            rightTarget
+        } else if (currentPath.startsWith("storage")) {
+            "$currentPath/$rightTarget"
+        } else {
+            "storage0/$rightTarget"
+        }
+
+        val targetFile = resolveStoragePath(targetPath)
 
         return try {
-            if (isAppend && targetFile.exists()) {
-                targetFile.appendText("\n$textToWrite", Charsets.UTF_8)
+            targetFile.parentFile?.mkdirs()
+
+            val textToWrite = cmdResult.outputLines.joinToString("\n") { it.text }
+
+            if (isAppend) {
+                val prefix = if (targetFile.exists() && targetFile.length() > 0) "\n" else ""
+                targetFile.appendText(prefix + textToWrite, Charsets.UTF_8)
             } else {
                 targetFile.writeText(textToWrite, Charsets.UTF_8)
             }
-            val modeStr = if (isAppend) "Appended" else "Written"
+
+            val modeStr = if (isAppend) "appended to" else "written to"
+            val linesCount = cmdResult.outputLines.size
             CommandResult(
                 outputLines = listOf(
-                    TerminalLine(text = "$modeStr output of '$leftCommand' to ${targetFile.name} (${targetFile.length() / 1024} KB)", type = LineType.SUCCESS)
+                    TerminalLine(
+                        text = "Output ($linesCount lines) $modeStr '${targetFile.name}' (${targetFile.length() / 1024} KB)",
+                        type = LineType.SUCCESS
+                    )
                 )
             )
         } catch (e: Exception) {
             CommandResult(
-                outputLines = listOf(TerminalLine(text = "Redirection write error: ${e.message}", type = LineType.ERROR)),
+                outputLines = listOf(
+                    TerminalLine(text = "Redirection error writing to '$rightTarget': ${e.message}", type = LineType.ERROR)
+                ),
                 success = false
             )
         }
+    }
+
+    private fun parseGrepOptions(args: List<String>): GrepOptions {
+        var caseInsensitive = false
+        var invertMatch = false
+        var showLineNumbers = false
+        var countOnly = false
+        var recursive = false
+        var wordMatch = false
+        var pattern = ""
+        val fileTargets = mutableListOf<String>()
+
+        args.forEach { arg ->
+            val clean = arg.trim()
+            if (clean.startsWith("-") && clean.length > 1 && !clean.startsWith("--")) {
+                clean.substring(1).forEach { char ->
+                    when (char) {
+                        'i', 'I' -> caseInsensitive = true
+                        'v', 'V' -> invertMatch = true
+                        'n', 'N' -> showLineNumbers = true
+                        'c', 'C' -> countOnly = true
+                        'r', 'R' -> recursive = true
+                        'w', 'W' -> wordMatch = true
+                    }
+                }
+            } else if (clean == "--case-insensitive") {
+                caseInsensitive = true
+            } else if (clean == "--invert-match") {
+                invertMatch = true
+            } else if (clean == "--line-number") {
+                showLineNumbers = true
+            } else if (clean == "--count") {
+                countOnly = true
+            } else if (clean == "--recursive") {
+                recursive = true
+            } else if (pattern.isEmpty()) {
+                pattern = clean.removeSurrounding("\"").removeSurrounding("'")
+            } else {
+                fileTargets.add(clean.removeSurrounding("\"").removeSurrounding("'"))
+            }
+        }
+
+        return GrepOptions(
+            caseInsensitive = caseInsensitive,
+            invertMatch = invertMatch,
+            showLineNumbers = showLineNumbers,
+            countOnly = countOnly,
+            recursive = recursive,
+            wordMatch = wordMatch,
+            pattern = pattern,
+            fileTargets = fileTargets
+        )
+    }
+
+    private fun executeGrepOnLines(options: GrepOptions, inputLines: List<TerminalLine>): CommandResult {
+        val regexOptions = mutableSetOf<RegexOption>()
+        if (options.caseInsensitive) regexOptions.add(RegexOption.IGNORE_CASE)
+
+        val patternEscaped = if (options.wordMatch) "\\b${Regex.escape(options.pattern)}\\b" else Regex.escape(options.pattern)
+        val regex = try {
+            Regex(patternEscaped, regexOptions)
+        } catch (_: Exception) {
+            return CommandResult(outputLines = listOf(TerminalLine(text = "grep: invalid regex pattern '${options.pattern}'", type = LineType.ERROR)), success = false)
+        }
+
+        val matchingLines = mutableListOf<TerminalLine>()
+        var matchCount = 0
+
+        inputLines.forEachIndexed { idx, line ->
+            val isMatch = regex.containsMatchIn(line.text)
+            val matched = if (options.invertMatch) !isMatch else isMatch
+            if (matched) {
+                matchCount++
+                val textWithLineNum = if (options.showLineNumbers) "${idx + 1}: ${line.text}" else line.text
+                matchingLines.add(TerminalLine(text = textWithLineNum, type = line.type))
+            }
+        }
+
+        if (options.countOnly) {
+            return CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "Total matches: $matchCount", type = LineType.SUCCESS)
+                )
+            )
+        }
+
+        if (matchingLines.isEmpty()) {
+            return CommandResult(outputLines = listOf(TerminalLine(text = "grep: no lines matching '${options.pattern}'", type = LineType.SYSTEM)))
+        }
+
+        return CommandResult(outputLines = matchingLines)
+    }
+
+    private fun handleGrep(args: List<String>, settings: LauncherSettings): CommandResult {
+        if (args.isEmpty()) {
+            return CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "Usage: grep [-i|-v|-n|-c|-r|-w] <pattern> [file_or_wildcard...]", type = LineType.ERROR),
+                    TerminalLine(text = "Example: grep -i -n \"error\" *.log or ls | grep \".txt\"", type = LineType.SYSTEM)
+                ),
+                success = false
+            )
+        }
+
+        val options = parseGrepOptions(args)
+        if (options.pattern.isEmpty()) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "grep: missing search pattern", type = LineType.ERROR)),
+                success = false
+            )
+        }
+
+        if (options.fileTargets.isEmpty()) {
+            return CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "grep: missing target file (e.g. grep '${options.pattern}' file.txt) or pipe command (e.g. ls | grep '${options.pattern}')", type = LineType.ERROR)
+                ),
+                success = false
+            )
+        }
+
+        val targetFiles = mutableListOf<File>()
+
+        options.fileTargets.forEach { targetStr ->
+            if (targetStr.contains("*")) {
+                val dirFile = resolveStoragePath(currentPath)
+                val matches = listFilesWithMediaStoreFallback(dirFile).filter { file ->
+                    val regexPattern = Regex("^" + Regex.escape(targetStr).replace("\\*", ".*") + "$", RegexOption.IGNORE_CASE)
+                    !file.isDirectory && regexPattern.matches(file.name)
+                }
+                targetFiles.addAll(matches)
+            } else {
+                val fullPath = if (targetStr.startsWith("storage") || targetStr.startsWith("/")) targetStr else "$currentPath/$targetStr"
+                val f = resolveStoragePath(fullPath)
+                if (f.exists()) {
+                    if (f.isDirectory && options.recursive) {
+                        f.walkTopDown().filter { it.isFile }.forEach { targetFiles.add(it) }
+                    } else if (!f.isDirectory) {
+                        targetFiles.add(f)
+                    }
+                }
+            }
+        }
+
+        if (targetFiles.isEmpty()) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "grep: no matching files found for '${options.fileTargets.joinToString(" ")}'", type = LineType.ERROR)),
+                success = false
+            )
+        }
+
+        val outputLines = mutableListOf<TerminalLine>()
+        var totalMatches = 0
+        val isMultiFile = targetFiles.size > 1
+
+        val regexOptions = mutableSetOf<RegexOption>()
+        if (options.caseInsensitive) regexOptions.add(RegexOption.IGNORE_CASE)
+        val patternEscaped = if (options.wordMatch) "\\b${Regex.escape(options.pattern)}\\b" else Regex.escape(options.pattern)
+        val regex = Regex(patternEscaped, regexOptions)
+
+        targetFiles.forEach { file ->
+            try {
+                var fileMatchCount = 0
+                file.readLines(Charsets.UTF_8).forEachIndexed { idx, line ->
+                    val isMatch = regex.containsMatchIn(line)
+                    val matched = if (options.invertMatch) !isMatch else isMatch
+                    if (matched) {
+                        fileMatchCount++
+                        totalMatches++
+                        if (!options.countOnly) {
+                            val linePrefix = when {
+                                isMultiFile && options.showLineNumbers -> "${file.name}:${idx + 1}: "
+                                isMultiFile -> "${file.name}: "
+                                options.showLineNumbers -> "${idx + 1}: "
+                                else -> ""
+                            }
+                            outputLines.add(TerminalLine(text = "$linePrefix$line", type = LineType.OUTPUT))
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        if (options.countOnly) {
+            return CommandResult(
+                outputLines = listOf(
+                    TerminalLine(text = "Total matches across ${targetFiles.size} files: $totalMatches", type = LineType.SUCCESS)
+                )
+            )
+        }
+
+        if (outputLines.isEmpty()) {
+            return CommandResult(
+                outputLines = listOf(TerminalLine(text = "grep: no matches found for '${options.pattern}' in ${targetFiles.size} files", type = LineType.SYSTEM))
+            )
+        }
+
+        return CommandResult(outputLines = outputLines)
     }
 
     private fun handleMkdir(args: List<String>): CommandResult {
@@ -401,7 +712,7 @@ class CommandEngine(
             "Uptime: $uptime",
             "RAM: $ramInfo",
             "Battery: $batInfo",
-            "Shell: TerminalLauncher v1.4.2"
+            "Shell: TerminalLauncher v1.4.3"
         )
 
         val result = mutableListOf<TerminalLine>()
@@ -418,7 +729,7 @@ class CommandEngine(
     private fun handleFeedback(userMsg: String, currentSettings: LauncherSettings): CommandResult {
         val model = "${Build.MANUFACTURER} ${Build.MODEL}"
         val os = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
-        val version = "v1.4.2"
+        val version = "v1.4.3"
 
         val trimmedMsg = userMsg.trim()
         val isForceEmail = trimmedMsg.lowercase().startsWith("email ") || trimmedMsg.lowercase() == "email"
@@ -771,12 +1082,12 @@ class CommandEngine(
 
     private fun handleWhatsNew(): CommandResult {
         val lines = listOf(
-            TerminalLine(text = "TERMINAL LAUNCHER - WHAT'S NEW IN V1.4.2", type = LineType.HEADER),
+            TerminalLine(text = "TERMINAL LAUNCHER - WHAT'S NEW IN V1.4.3", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
-            TerminalLine(text = "• Screenshot Command      : Capture terminal screen & save to Pictures/Screenshots (`screenshot`)", type = LineType.OUTPUT),
-            TerminalLine(text = "• Enhanced Infofetch      : Hardware CPU cores, Disk Storage free/total, & User/System app counts", type = LineType.OUTPUT),
-            TerminalLine(text = "• Ringer Mode & DND Fix   : Direct ringer mode cycling + DND permission handler (`sys ringer`)", type = LineType.OUTPUT),
-            TerminalLine(text = "• Complete Manual Audit   : Every command & flag documented in shell manual (`help` / `man`)", type = LineType.OUTPUT),
+            TerminalLine(text = "• Full `grep` Engine    : Filter text with flags (`-i`, `-v`, `-n`, `-c`, `-r`, `-w`)", type = LineType.OUTPUT),
+            TerminalLine(text = "• Command Piping (`|`)  : Pipe command output into grep (`ls | grep .txt`)", type = LineType.OUTPUT),
+            TerminalLine(text = "• Wildcard Matching     : Search across multiple files (`grep \"error\" *.log`)", type = LineType.OUTPUT),
+            TerminalLine(text = "• Directory & Redirection: File/folder creation (`mkdir`), deletion (`rm -r`), redirection (`>` / `>>`)", type = LineType.OUTPUT),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM)
         )
         return CommandResult(outputLines = lines)
@@ -797,7 +1108,7 @@ class CommandEngine(
             .replace("\$USER", userStr)
             .replace("\$PROMPT", settings.promptString)
             .replace("\$THEME", settings.theme.name.lowercase())
-            .replace("\$VERSION", "v1.4.2")
+            .replace("\$VERSION", "v1.4.3")
             .replace("\$OS", "Android ${Build.VERSION.RELEASE}")
             .replace("\$MODEL", "${Build.MANUFACTURER} ${Build.MODEL}")
 
@@ -823,7 +1134,7 @@ class CommandEngine(
 
     private fun handleHelp(): CommandResult {
         val lines = mutableListOf<TerminalLine>()
-        lines.add(TerminalLine(text = "Terminal Launcher v1.4.2 - Shell Manual", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "Terminal Launcher v1.4.3 - Shell Manual", type = LineType.HEADER))
         lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
         lines.add(TerminalLine(text = "CORE COMMANDS:", type = LineType.HEADER))
         lines.add(TerminalLine(text = "  options / customize GUI visual settings menu", type = LineType.OUTPUT))
@@ -834,6 +1145,8 @@ class CommandEngine(
         lines.add(TerminalLine(text = "  feedback <message> Send feedback or report bugs (GitHub / Email)", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  install <query>    Search & install apps from Google Play Store", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  cat / read <path>  Read & display text files in terminal", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  grep [flags] <pat> Filter lines matching pattern (flags: -i, -v, -n, -c, -r, -w)", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  <cmd> | grep <pat> Pipe command output into grep filter (e.g. ls | grep .txt)", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  mkdir <dir>        Create subdirectories in working directory", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  rm [-r] <path>     Delete files or directory trees recursively", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  <cmd> > <file>     Redirect command output to file (overwrite)", type = LineType.OUTPUT))
@@ -889,7 +1202,7 @@ class CommandEngine(
             TerminalLine(text = "TERMINAL LAUNCHER - ABOUT", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
             TerminalLine(text = "App Name    : Terminal Launcher", type = LineType.OUTPUT),
-            TerminalLine(text = "Version     : v1.4.2 (Build 14)", type = LineType.OUTPUT),
+            TerminalLine(text = "Version     : v1.4.3 (Build 15)", type = LineType.OUTPUT),
             TerminalLine(text = "Developer   : CrownEmperor-dev", type = LineType.OUTPUT),
             TerminalLine(text = "Framework   : Kotlin & Jetpack Compose", type = LineType.OUTPUT),
             TerminalLine(text = "License     : MIT License", type = LineType.OUTPUT),

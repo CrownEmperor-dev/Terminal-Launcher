@@ -40,6 +40,27 @@ class CommandEngineTest {
         assertEquals(AsciiArtStyle.DEFAULT, settings.asciiArtStyle)
     }
 
+    @Test
+    fun testGrepMatchingLogic() {
+        val sampleLines = listOf(
+            "1: ERROR [System]: Failed to initialize graphics engine",
+            "2: INFO [System]: Loading assets",
+            "3: WARNING [Network]: Connection timeout",
+            "4: error [Database]: Query failed"
+        )
+
+        val caseInsensitiveRegex = Regex("error", setOf(RegexOption.IGNORE_CASE))
+        val matches = sampleLines.filter { caseInsensitiveRegex.containsMatchIn(it) }
+        assertEquals(2, matches.size)
+
+        val invertMatches = sampleLines.filter { !caseInsensitiveRegex.containsMatchIn(it) }
+        assertEquals(2, invertMatches.size)
+
+        val wordBoundaryRegex = Regex("\\bERROR\\b")
+        val wordMatches = sampleLines.filter { wordBoundaryRegex.containsMatchIn(it) }
+        assertEquals(1, wordMatches.size)
+    }
+
     private fun evaluateMath(expr: String): Double {
         val sanitized = expr.replace(" ", "")
         return object : Any() {

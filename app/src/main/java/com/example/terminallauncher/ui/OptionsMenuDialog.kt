@@ -424,7 +424,7 @@ fun OptionsMenuDialog(
                         .padding(8.dp)
                 ) {
                     Text(
-                        text = "Terminal Launcher v1.4.1 (MIT License)",
+                        text = "Terminal Launcher v1.4.3 (MIT License)",
                         style = TextStyle(
                             fontFamily = FontFamily.Monospace,
                             fontSize = 11.sp,
@@ -463,7 +463,7 @@ fun OptionsMenuDialog(
                         .border(1.dp, colorScheme.promptColor, RoundedCornerShape(4.dp))
                 ) {
                     Text(
-                        text = if (showWhatsNew) "[ HIDE RELEASE NOTES ]" else "[ WHAT'S NEW IN V1.4.1 ]",
+                        text = if (showWhatsNew) "[ HIDE RELEASE NOTES ]" else "[ WHAT'S NEW IN V1.4.3 ]",
                         style = TextStyle(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
@@ -481,7 +481,7 @@ fun OptionsMenuDialog(
                             .padding(8.dp)
                     ) {
                         Text(
-                            text = "WHAT'S NEW IN V1.4.1:",
+                            text = "WHAT'S NEW IN V1.4.3:",
                             style = TextStyle(
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 11.sp,
@@ -490,35 +490,7 @@ fun OptionsMenuDialog(
                             )
                         )
                         Text(
-                            text = "• System Power Commands : Direct root reboot/shutdown + System Power Menu fallback (`reboot`, `shutdown`, `poweroff`)\n• Directory Creation     : Create subdirectories in active storage folder (`mkdir`)\n• File & Folder Deletion : Delete files & recursive directories (`rm -r`)\n• Output Redirection     : Direct command output into files (`>` & `>>`)",
-                            style = TextStyle(
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 10.sp,
-                                color = colorScheme.textPrimary
-                            )
-                        )
-                    }
-                }
-
-                if (showWhatsNew) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .border(1.dp, colorScheme.promptColor, RoundedCornerShape(4.dp))
-                            .padding(8.dp)
-                    ) {
-                        Text(
-                            text = "WHAT'S NEW IN V1.3.3:",
-                            style = TextStyle(
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = colorScheme.headerColor
-                            )
-                        )
-                        Text(
-                            text = "• Uninstallation Fix: Direct App Info fallback for Android 11-15 (MIUI / Moto)\n• Engine Optimization: Removed deprecated Termux background dependencies\n• Enhanced Infofetch: Added CPU cores, Disk Storage, & App counts\n• Release Notes Viewer: Type 'whatsnew' or 'changelog' in shell",
+                            text = "• Full `grep` Engine    : Filter text with flags (`-i`, `-v`, `-n`, `-c`, `-r`, `-w`)\n• Command Piping        : Pipe command output into grep (`ls | grep .txt`)\n• File Wildcards        : Search across multiple files (`grep \"error\" *.log`)\n• System Power Commands : Direct root reboot/shutdown + System Power Menu fallback",
                             style = TextStyle(
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 10.sp,

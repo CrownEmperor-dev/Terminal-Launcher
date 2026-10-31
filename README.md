@@ -27,7 +27,7 @@ user@mobile:~$ infofetch
 OS: Android 8.0+ (API 26+) / Waydroid Linux
 Host: Android Mobile Device
 Kernel: Linux 5.x / Android Runtime
-Shell: TerminalLauncher v1.4.1
+Shell: TerminalLauncher v1.4.3
 UI Engine: Jetpack Compose
 Edge-To-Edge & Full Immersion: Active (Hide Status Bar & Auto-Keyboard Toggle)
 Themes: CRT Green | Amber Phosphor | OLED Black | Monochrome | Cyberpunk Cyan | Game Boy | Solarized | Dracula
@@ -65,6 +65,8 @@ OPTIONS & COMMANDS
            feedback <msg>     Submit feedback or bug report with automatic device specs.
            install <query>    Search & install apps directly from Google Play Store.
            cat / read <path>  Read and view text files directly inside terminal buffer.
+           grep [flags] <pat> Filter text with flags (-i, -v, -n, -c, -r, -w) or wildcards (*.log).
+           <cmd> | grep <pat> Pipe command output lines into grep filter (e.g. ls | grep .txt).
            mkdir <dir>        Create subdirectories in active storage directory.
            rm [-r] <path>     Remove files or directories recursively.
            <cmd> > <file>     Redirect command output to file (overwrite).
@@ -73,7 +75,7 @@ OPTIONS & COMMANDS
            email <to> [sub]   Dispatch pre-filled email compose (Proton Mail / Gmail).
            reboot / restart   Reboot system (direct root or System Power Menu fallback).
            shutdown / poweroff Shutdown system (direct root or System Power Menu fallback).
-           whatsnew / news    Display release notes and what's new in v1.4.1.
+           whatsnew / news    Display release notes and what's new in v1.4.3.
            time / date        Display current system time, date, and Unix epoch seconds.
            killall / trim     Trim background processes & free RAM (ideal for 4GB devices).
            matrix             Trigger full-screen Matrix Digital Rain easter egg.
