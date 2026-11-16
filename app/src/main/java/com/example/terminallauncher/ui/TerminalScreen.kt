@@ -7,9 +7,14 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -38,18 +43,23 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -58,6 +68,10 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import com.example.terminallauncher.data.WallpaperScaleMode
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.withStyle
@@ -174,6 +188,29 @@ fun TerminalScreen(
         return
     }
 
+    // Gallery Wallpaper Image Picker ActivityResultLauncher
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        viewModel.onWallpaperImagePicked(uri)
+    }
+
+    val getContentLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        viewModel.onWallpaperImagePicked(uri)
+    }
+
+    LaunchedEffect(uiState.openWallpaperPicker) {
+        if (uiState.openWallpaperPicker) {
+            if (ActivityResultContracts.PickVisualMedia.isPhotoPickerAvailable(context)) {
+                photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            } else {
+                getContentLauncher.launch("image/*")
+            }
+        }
+    }
+
     // Render GUI Options Dialog overlay if requested
     if (uiState.isOptionsMenuVisible) {
         OptionsMenuDialog(
@@ -196,17 +233,31 @@ fun TerminalScreen(
             onSendEmailFeedback = {
                 viewModel.closeOptionsMenu()
                 viewModel.sendEmailFeedbackCommand()
-            }
+            },
+            onSetWallpaperEnabled = { viewModel.setWallpaperEnabled(it) },
+            onPickWallpaper = { viewModel.triggerWallpaperPicker() },
+            onClearWallpaper = { viewModel.clearWallpaper() },
+            onSetWallpaperDim = { viewModel.setWallpaperDim(it) },
+            onSetWallpaperBlur = { viewModel.setWallpaperBlur(it) },
+            onSetWallpaperScale = { viewModel.setWallpaperScale(it) }
         )
     }
+
+    val contentScale = when (uiState.settings.wallpaperScale) {
+        WallpaperScaleMode.CROP -> ContentScale.Crop
+        WallpaperScaleMode.FIT -> ContentScale.Fit
+        WallpaperScaleMode.STRETCH -> ContentScale.FillBounds
+    }
+
+    val blurModifier = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && uiState.settings.wallpaperBlur > 0) {
+        Modifier.blur(uiState.settings.wallpaperBlur.dp)
+    } else Modifier
+
+    val bgBitmap = uiState.wallpaperBitmap
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(colorScheme.background)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .imePadding()
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null
@@ -214,8 +265,42 @@ fun TerminalScreen(
                 focusRequester.requestFocus()
                 keyboardController?.show()
             }
-            .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 20.dp)
     ) {
+        // Full-screen Edge-to-Edge Background Wallpaper Image Layer
+        if (uiState.settings.wallpaperEnabled && bgBitmap != null) {
+            Image(
+                bitmap = bgBitmap,
+                contentDescription = "Background Wallpaper",
+                contentScale = contentScale,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(blurModifier)
+            )
+            // Black Dimming Overlay
+            val dimAlpha = (uiState.settings.wallpaperDim / 100f).coerceIn(0f, 0.85f)
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = dimAlpha))
+            )
+        } else {
+            // Solid Theme Color Background Layer
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(colorScheme.background)
+            )
+        }
+
+        // Inner Safe-Area Text Content Layer
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 20.dp)
+        ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Output Line Buffer - Wrapped in SelectionContainer for highlighting & copying!
             SelectionContainer(
@@ -334,6 +419,7 @@ fun TerminalScreen(
             }
         }
     }
+}
 }
 
 @Composable

@@ -35,6 +35,12 @@ enum class AsciiArtStyle {
     OFF
 }
 
+enum class WallpaperScaleMode {
+    CROP,
+    FIT,
+    STRETCH
+}
+
 data class LauncherSettings(
     val theme: TerminalThemeType = TerminalThemeType.CRT_GREEN,
     val promptString: String = "user@mobile:~$ ",
@@ -48,7 +54,13 @@ data class LauncherSettings(
     val history: List<String> = emptyList(),
     val textSizeSp: Int = 15,
     val asciiArtStyle: AsciiArtStyle = AsciiArtStyle.DEFAULT,
-    val customAsciiArt: String = ""
+    val customAsciiArt: String = "",
+    val wallpaperEnabled: Boolean = false,
+    val wallpaperUri: String = "",
+    val wallpaperDim: Int = 35,
+    val wallpaperBlur: Int = 0,
+    val wallpaperScale: WallpaperScaleMode = WallpaperScaleMode.CROP,
+    val wallpaperUpdateTimestamp: Long = 0L
 )
 
 class SettingsRepository(private val context: Context) {
@@ -68,6 +80,12 @@ class SettingsRepository(private val context: Context) {
         val TEXT_SIZE_SP = intPreferencesKey("text_size_sp")
         val ASCII_ART_STYLE = stringPreferencesKey("ascii_art_style")
         val CUSTOM_ASCII_ART = stringPreferencesKey("custom_ascii_art")
+        val WALLPAPER_ENABLED = booleanPreferencesKey("wallpaper_enabled")
+        val WALLPAPER_URI = stringPreferencesKey("wallpaper_uri")
+        val WALLPAPER_DIM = intPreferencesKey("wallpaper_dim")
+        val WALLPAPER_BLUR = intPreferencesKey("wallpaper_blur")
+        val WALLPAPER_SCALE = stringPreferencesKey("wallpaper_scale")
+        val WALLPAPER_UPDATE_TIMESTAMP = longPreferencesKey("wallpaper_update_timestamp")
     }
 
     val settingsFlow: Flow<LauncherSettings> = context.dataStore.data.map { preferences ->
@@ -101,6 +119,18 @@ class SettingsRepository(private val context: Context) {
         }
         val customAscii = preferences[PreferencesKeys.CUSTOM_ASCII_ART] ?: ""
 
+        val wallpaperEnabled = preferences[PreferencesKeys.WALLPAPER_ENABLED] ?: false
+        val wallpaperUri = preferences[PreferencesKeys.WALLPAPER_URI] ?: ""
+        val wallpaperDim = preferences[PreferencesKeys.WALLPAPER_DIM] ?: 35
+        val wallpaperBlur = preferences[PreferencesKeys.WALLPAPER_BLUR] ?: 0
+        val scaleName = preferences[PreferencesKeys.WALLPAPER_SCALE] ?: WallpaperScaleMode.CROP.name
+        val wallpaperScale = try {
+            WallpaperScaleMode.valueOf(scaleName)
+        } catch (_: Exception) {
+            WallpaperScaleMode.CROP
+        }
+        val wallpaperUpdateTimestamp = preferences[PreferencesKeys.WALLPAPER_UPDATE_TIMESTAMP] ?: 0L
+
         LauncherSettings(
             theme = theme,
             promptString = prompt,
@@ -114,7 +144,13 @@ class SettingsRepository(private val context: Context) {
             history = historyList,
             textSizeSp = textSize,
             asciiArtStyle = asciiStyle,
-            customAsciiArt = customAscii
+            customAsciiArt = customAscii,
+            wallpaperEnabled = wallpaperEnabled,
+            wallpaperUri = wallpaperUri,
+            wallpaperDim = wallpaperDim,
+            wallpaperBlur = wallpaperBlur,
+            wallpaperScale = wallpaperScale,
+            wallpaperUpdateTimestamp = wallpaperUpdateTimestamp
         )
     }
 
@@ -198,6 +234,45 @@ class SettingsRepository(private val context: Context) {
     suspend fun setCustomAsciiArt(art: String) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.CUSTOM_ASCII_ART] = art
+        }
+    }
+
+    suspend fun setWallpaperEnabled(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.WALLPAPER_ENABLED] = enabled
+        }
+    }
+
+    suspend fun setWallpaperUri(uri: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.WALLPAPER_URI] = uri
+            preferences[PreferencesKeys.WALLPAPER_UPDATE_TIMESTAMP] = System.currentTimeMillis()
+        }
+    }
+
+    suspend fun updateWallpaper(uri: String, enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.WALLPAPER_URI] = uri
+            preferences[PreferencesKeys.WALLPAPER_ENABLED] = enabled
+            preferences[PreferencesKeys.WALLPAPER_UPDATE_TIMESTAMP] = System.currentTimeMillis()
+        }
+    }
+
+    suspend fun setWallpaperDim(dimPercent: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.WALLPAPER_DIM] = dimPercent.coerceIn(0, 100)
+        }
+    }
+
+    suspend fun setWallpaperBlur(blurDp: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.WALLPAPER_BLUR] = blurDp.coerceIn(0, 20)
+        }
+    }
+
+    suspend fun setWallpaperScale(scale: WallpaperScaleMode) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.WALLPAPER_SCALE] = scale.name
         }
     }
 

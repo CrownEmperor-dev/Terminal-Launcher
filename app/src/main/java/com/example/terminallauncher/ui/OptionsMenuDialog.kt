@@ -41,6 +41,7 @@ import androidx.compose.ui.window.Dialog
 import com.example.terminallauncher.data.AsciiArtStyle
 import com.example.terminallauncher.data.LauncherSettings
 import com.example.terminallauncher.data.TerminalThemeType
+import com.example.terminallauncher.data.WallpaperScaleMode
 import com.example.terminallauncher.ui.theme.TerminalColorScheme
 
 @Composable
@@ -58,7 +59,13 @@ fun OptionsMenuDialog(
     onSetAutoShowKeyboard: (Boolean) -> Unit,
     onSetPrompt: (String) -> Unit,
     onSendFeedback: () -> Unit,
-    onSendEmailFeedback: () -> Unit = {}
+    onSendEmailFeedback: () -> Unit = {},
+    onSetWallpaperEnabled: (Boolean) -> Unit = {},
+    onPickWallpaper: () -> Unit = {},
+    onClearWallpaper: () -> Unit = {},
+    onSetWallpaperDim: (Int) -> Unit = {},
+    onSetWallpaperBlur: (Int) -> Unit = {},
+    onSetWallpaperScale: (WallpaperScaleMode) -> Unit = {}
 ) {
     var promptInput by remember { mutableStateOf(settings.promptString) }
     var customAsciiInput by remember { mutableStateOf(settings.customAsciiArt) }
@@ -406,6 +413,174 @@ fun OptionsMenuDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
+                // Custom Background Wallpaper Section
+                Text(
+                    text = "CUSTOM BACKGROUND WALLPAPER:",
+                    style = TextStyle(
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = colorScheme.promptColor
+                    )
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Enable Wallpaper:",
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 13.sp,
+                            color = colorScheme.textPrimary
+                        )
+                    )
+                    Switch(
+                        checked = settings.wallpaperEnabled,
+                        onCheckedChange = { onSetWallpaperEnabled(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colorScheme.background,
+                            checkedTrackColor = colorScheme.promptColor,
+                            uncheckedThumbColor = colorScheme.textGhost,
+                            uncheckedTrackColor = colorScheme.background
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Button(
+                        onClick = onPickWallpaper,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colorScheme.background,
+                            contentColor = colorScheme.promptColor
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .border(1.dp, colorScheme.promptColor, RoundedCornerShape(4.dp))
+                    ) {
+                        Text(
+                            text = "[ CHOOSE IMAGE ]",
+                            style = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        )
+                    }
+
+                    Button(
+                        onClick = onClearWallpaper,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colorScheme.background,
+                            contentColor = colorScheme.errorColor
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .border(1.dp, colorScheme.errorColor, RoundedCornerShape(4.dp))
+                    ) {
+                        Text(
+                            text = "[ CLEAR IMAGE ]",
+                            style = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        )
+                    }
+                }
+
+                if (settings.wallpaperEnabled) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "OVERLAY DIMMING (%):",
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = colorScheme.textSecondary
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(0 to "0%", 25 to "25%", 35 to "35%", 50 to "50%", 75 to "75%").forEach { (dim, label) ->
+                            OptionChip(
+                                label = label,
+                                isSelected = settings.wallpaperDim == dim,
+                                colorScheme = colorScheme,
+                                onClick = { onSetWallpaperDim(dim) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "BACKGROUND BLUR (DP):",
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = colorScheme.textSecondary
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(0 to "0dp (Off)", 4 to "4dp", 8 to "8dp", 12 to "12dp", 16 to "16dp").forEach { (blur, label) ->
+                            OptionChip(
+                                label = label,
+                                isSelected = settings.wallpaperBlur == blur,
+                                colorScheme = colorScheme,
+                                onClick = { onSetWallpaperBlur(blur) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "IMAGE SCALE MODE:",
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = colorScheme.textSecondary
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(
+                            WallpaperScaleMode.CROP to "Crop",
+                            WallpaperScaleMode.FIT to "Fit",
+                            WallpaperScaleMode.STRETCH to "Stretch"
+                        ).forEach { (scale, label) ->
+                            OptionChip(
+                                label = label,
+                                isSelected = settings.wallpaperScale == scale,
+                                colorScheme = colorScheme,
+                                onClick = { onSetWallpaperScale(scale) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
                 // About Info Card
                 Text(
                     text = "[ ABOUT TERMINAL LAUNCHER ]",
@@ -424,7 +599,7 @@ fun OptionsMenuDialog(
                         .padding(8.dp)
                 ) {
                     Text(
-                        text = "Terminal Launcher v1.4.3 (MIT License)",
+                        text = "Terminal Launcher v1.5.0 (MIT License)",
                         style = TextStyle(
                             fontFamily = FontFamily.Monospace,
                             fontSize = 11.sp,
@@ -463,7 +638,7 @@ fun OptionsMenuDialog(
                         .border(1.dp, colorScheme.promptColor, RoundedCornerShape(4.dp))
                 ) {
                     Text(
-                        text = if (showWhatsNew) "[ HIDE RELEASE NOTES ]" else "[ WHAT'S NEW IN V1.4.3 ]",
+                        text = if (showWhatsNew) "[ HIDE RELEASE NOTES ]" else "[ WHAT'S NEW IN V1.5.0 ]",
                         style = TextStyle(
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold,
@@ -481,7 +656,7 @@ fun OptionsMenuDialog(
                             .padding(8.dp)
                     ) {
                         Text(
-                            text = "WHAT'S NEW IN V1.4.3:",
+                            text = "WHAT'S NEW IN V1.5.0:",
                             style = TextStyle(
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 11.sp,
@@ -490,7 +665,7 @@ fun OptionsMenuDialog(
                             )
                         )
                         Text(
-                            text = "• Full `grep` Engine    : Filter text with flags (`-i`, `-v`, `-n`, `-c`, `-r`, `-w`)\n• Command Piping        : Pipe command output into grep (`ls | grep .txt`)\n• File Wildcards        : Search across multiple files (`grep \"error\" *.log`)\n• System Power Commands : Direct root reboot/shutdown + System Power Menu fallback",
+                            text = "• Custom Wallpaper Engine  : Choose background images from gallery (`wallpaper pick`)\n• Scoped Storage Persistence: Safe file copying & decoding (100% Android 11+ safe)\n• Dimming & Dual-Mode Blur  : Black dimming overlay (0-100%) & API 31+ GPU / software blur (0-20dp)\n• Aspect Scale Modes       : Support Crop, Fit, and Stretch wallpaper scaling modes",
                             style = TextStyle(
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 10.sp,

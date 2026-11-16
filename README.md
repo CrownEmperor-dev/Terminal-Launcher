@@ -27,10 +27,11 @@ user@mobile:~$ infofetch
 OS: Android 8.0+ (API 26+) / Waydroid Linux
 Host: Android Mobile Device
 Kernel: Linux 5.x / Android Runtime
-Shell: TerminalLauncher v1.4.3
+Shell: TerminalLauncher v1.5.0
 UI Engine: Jetpack Compose
 Edge-To-Edge & Full Immersion: Active (Hide Status Bar & Auto-Keyboard Toggle)
 Themes: CRT Green | Amber Phosphor | OLED Black | Monochrome | Cyberpunk Cyan | Game Boy | Solarized | Dracula
+Wallpaper Engine: Custom Gallery Background, Dimming (0-100%), Dual Blur (0-20dp), Scale Modes
 ASCII Banners: Default | Bugdroid | Tux | Retro PC | Minimal | Custom Multi-Color | Off
 Autocomplete: Inline Ghost Prediction & Duplicate App Auto-Disambiguation
 Text Selection: Highlight & Copy Output Buffer / Clipboard Paste (Ctrl+C / Ctrl+V)
@@ -58,6 +59,7 @@ DESCRIPTION
 
 OPTIONS & COMMANDS
        core & gui:
+           wallpaper [cmd]    Custom background wallpaper engine (pick, on, off, dim, blur, scale, debug, clear).
            options / customize Open dedicated retro GUI Options Menu overlay.
            about / version    Display app version, credits, license, and repository URL.
            echo <text|$var>   Print text or shell variables ($USER, $PROMPT, $THEME, $VERSION, $OS).
@@ -75,7 +77,7 @@ OPTIONS & COMMANDS
            email <to> [sub]   Dispatch pre-filled email compose (Proton Mail / Gmail).
            reboot / restart   Reboot system (direct root or System Power Menu fallback).
            shutdown / poweroff Shutdown system (direct root or System Power Menu fallback).
-           whatsnew / news    Display release notes and what's new in v1.4.3.
+           whatsnew / news    Display release notes and what's new in v1.5.0.
            time / date        Display current system time, date, and Unix epoch seconds.
            killall / trim     Trim background processes & free RAM (ideal for 4GB devices).
            matrix             Trigger full-screen Matrix Digital Rain easter egg.
@@ -143,6 +145,24 @@ Terminal Launcher supports 8 retro color schemes:
 | **Game Boy Classic** | `config set theme gameboy` | Retro Olive `#0F380F` & `#306230` on Olive Screen `#9BBC0F` |
 | **Solarized Dark** | `config set theme solarized` | Solarized Teal `#839496` & Yellow `#B58900` on `#002B36` |
 | **Dracula Retro** | `config set theme dracula` | Vibrant Purple `#BD93F9` & Pink `#FF79C6` on `#282A36` |
+
+---
+
+## 🖼️ `user@mobile:~$ wallpaper`
+
+Terminal Launcher includes a built-in **Custom Background Wallpaper Engine**:
+
+* **Edge-to-Edge Immersion**: Wallpaper extends 100% full screen behind the status bar at top and home handle gesture bar at bottom.
+* **Dual Photo Pickers**: Uses Google's official Android Photo Picker (`PickVisualMedia`) with fallback to SAF `GetContent`.
+* **Universal Format Support**: Natively converts HEIC, WebP, AVIF, JPEG, PNG, and RAW photos into a 100% persistent local sandbox file (`wallpaper.png`).
+* **CLI Commands**:
+  - `wallpaper pick` — Launch native Android photo gallery picker.
+  - `wallpaper <on|off>` — Toggle background wallpaper.
+  - `wallpaper dim <0..100>` — Set black overlay dimming percentage.
+  - `wallpaper blur <0..20>` — Set background blur radius in dp (hardware GPU or software fast blur).
+  - `wallpaper scale <crop|fit|stretch>` — Set image aspect ratio scaling mode.
+  - `wallpaper debug` — Print live diagnostic report of wallpaper file, URI, and memory bitmap status.
+  - `wallpaper clear` — Remove custom background wallpaper.
 
 ---
 

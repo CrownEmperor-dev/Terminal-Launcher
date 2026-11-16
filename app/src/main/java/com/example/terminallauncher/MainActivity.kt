@@ -24,7 +24,10 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             TerminalLauncherTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = androidx.compose.ui.graphics.Color.Black
+                ) {
                     TerminalScreen()
                 }
             }

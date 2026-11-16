@@ -48,6 +48,7 @@ data class CommandResult(
     val shouldClearBuffer: Boolean = false,
     val openOptionsMenu: Boolean = false,
     val openMatrixMode: Boolean = false,
+    val openWallpaperPicker: Boolean = false,
     val launchedApp: AppModel? = null,
     val success: Boolean = true,
     val updatedPrompt: String? = null
@@ -221,6 +222,7 @@ class CommandEngine(
             "alias" -> handleAlias(args, currentSettings)
             "unalias" -> handleUnalias(args)
             "history" -> handleHistory(currentSettings)
+            "wallpaper", "bg", "wp" -> handleWallpaper(args, currentSettings)
             "config" -> handleConfig(args, currentSettings)
             "settings" -> handleSystemSettings()
             "infofetch", "fastfetch", "neofetch" -> handleInfofetch(args, currentSettings)
@@ -645,7 +647,7 @@ class CommandEngine(
             "Uptime: $uptime",
             "RAM: $ramInfo",
             "Battery: $batInfo",
-            "Shell: TerminalLauncher v1.4.2"
+            "Shell: TerminalLauncher v1.5.0"
         )
 
         val result = mutableListOf<TerminalLine>()
@@ -662,7 +664,7 @@ class CommandEngine(
     private fun handleFeedback(userMsg: String, currentSettings: LauncherSettings): CommandResult {
         val model = "${Build.MANUFACTURER} ${Build.MODEL}"
         val os = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
-        val version = "v1.4.2"
+        val version = "v1.5.0"
 
         val trimmedMsg = userMsg.trim()
         val isForceEmail = trimmedMsg.lowercase().startsWith("email ") || trimmedMsg.lowercase() == "email"
@@ -1057,12 +1059,13 @@ class CommandEngine(
 
     private fun handleWhatsNew(): CommandResult {
         val lines = listOf(
-            TerminalLine(text = "TERMINAL LAUNCHER - WHAT'S NEW IN V1.4.2", type = LineType.HEADER),
+            TerminalLine(text = "TERMINAL LAUNCHER - WHAT'S NEW IN V1.5.0", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
-            TerminalLine(text = "• Screenshot Command      : Capture terminal screen & save to Pictures/Screenshots (`screenshot`)", type = LineType.OUTPUT),
-            TerminalLine(text = "• Enhanced Infofetch      : Hardware CPU cores, Disk Storage free/total, & User/System app counts", type = LineType.OUTPUT),
-            TerminalLine(text = "• Ringer Mode & DND Fix   : Direct ringer mode cycling + DND permission handler (`sys ringer`)", type = LineType.OUTPUT),
-            TerminalLine(text = "• Complete Manual Audit   : Every command & flag documented in shell manual (`help` / `man`)", type = LineType.OUTPUT),
+            TerminalLine(text = "• Custom Wallpaper Engine  : Set custom background images from gallery (`wallpaper pick`)", type = LineType.OUTPUT),
+            TerminalLine(text = "• Android 11+ Scoped Storage : Safe image copying & persistence across reboots", type = LineType.OUTPUT),
+            TerminalLine(text = "• Dimming & Dual Blur      : Black dimming overlay (0-100%) & API 31+ GPU / software blur (0-20dp)", type = LineType.OUTPUT),
+            TerminalLine(text = "• Wallpaper Scale Modes    : Support Crop, Fit, and Stretch scaling modes (`wallpaper scale`)", type = LineType.OUTPUT),
+            TerminalLine(text = "• Full CLI & GUI Controls  : Complete CLI commands (`wallpaper dim/blur/clear`) & GUI Options menu", type = LineType.OUTPUT),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM)
         )
         return CommandResult(outputLines = lines)
@@ -1083,7 +1086,7 @@ class CommandEngine(
             .replace("\$USER", userStr)
             .replace("\$PROMPT", settings.promptString)
             .replace("\$THEME", settings.theme.name.lowercase())
-            .replace("\$VERSION", "v1.4.2")
+            .replace("\$VERSION", "v1.5.0")
             .replace("\$OS", "Android ${Build.VERSION.RELEASE}")
             .replace("\$MODEL", "${Build.MANUFACTURER} ${Build.MODEL}")
 
@@ -1109,9 +1112,10 @@ class CommandEngine(
 
     private fun handleHelp(): CommandResult {
         val lines = mutableListOf<TerminalLine>()
-        lines.add(TerminalLine(text = "Terminal Launcher v1.4.2 - Shell Manual", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "Terminal Launcher v1.5.0 - Shell Manual", type = LineType.HEADER))
         lines.add(TerminalLine(text = "==================================================", type = LineType.SYSTEM))
         lines.add(TerminalLine(text = "CORE COMMANDS:", type = LineType.HEADER))
+        lines.add(TerminalLine(text = "  wallpaper [pick|on|off|dim|blur|scale|clear] Custom wallpaper engine", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  options / customize GUI visual settings menu", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  about / version    App details, license, and repository URL", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  whatsnew / news    Display release notes for current version", type = LineType.OUTPUT))
@@ -1144,6 +1148,7 @@ class CommandEngine(
         lines.add(TerminalLine(text = "", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "SETTINGS & PREFERENCES:", type = LineType.HEADER))
         lines.add(TerminalLine(text = "  config                     Show launcher CLI configurations", type = LineType.OUTPUT))
+        lines.add(TerminalLine(text = "  config set wallpaper <o>   Configure custom background wallpaper", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  config set theme <t>       Set theme: green, amber, oled, mono, cyan, gameboy, solarized, dracula", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  config set statusbar <o>   Toggle status bar full immersion (on|off)", type = LineType.OUTPUT))
         lines.add(TerminalLine(text = "  config set autokeyboard <o> Toggle soft keyboard auto-show on launch (on|off)", type = LineType.OUTPUT))
@@ -1175,7 +1180,7 @@ class CommandEngine(
             TerminalLine(text = "TERMINAL LAUNCHER - ABOUT", type = LineType.HEADER),
             TerminalLine(text = "==================================================", type = LineType.SYSTEM),
             TerminalLine(text = "App Name    : Terminal Launcher", type = LineType.OUTPUT),
-            TerminalLine(text = "Version     : v1.4.2 (Build 14)", type = LineType.OUTPUT),
+            TerminalLine(text = "Version     : v1.5.0 (Build 16)", type = LineType.OUTPUT),
             TerminalLine(text = "Developer   : CrownEmperor-dev", type = LineType.OUTPUT),
             TerminalLine(text = "Framework   : Kotlin & Jetpack Compose", type = LineType.OUTPUT),
             TerminalLine(text = "License     : MIT License", type = LineType.OUTPUT),
@@ -1785,11 +1790,127 @@ class CommandEngine(
         return CommandResult(outputLines = lines)
     }
 
+    private suspend fun handleWallpaper(args: List<String>, settings: LauncherSettings): CommandResult {
+        if (args.isEmpty() || args[0].lowercase() in listOf("status", "info")) {
+            val wallpaperFile = File(context.filesDir, "wallpaper.png")
+            val fileStatus = if (wallpaperFile.exists() && wallpaperFile.length() > 0) {
+                "Present (${wallpaperFile.length() / 1024} KB)"
+            } else {
+                "Not set / File missing"
+            }
+            val lines = listOf(
+                TerminalLine(text = "CUSTOM WALLPAPER ENGINE:", type = LineType.HEADER),
+                TerminalLine(text = "  Status        : ${if (settings.wallpaperEnabled) "ENABLED" else "DISABLED"}", type = LineType.OUTPUT),
+                TerminalLine(text = "  Image File    : $fileStatus", type = LineType.OUTPUT),
+                TerminalLine(text = "  Overlay Dim   : ${settings.wallpaperDim}%", type = LineType.OUTPUT),
+                TerminalLine(text = "  Blur Radius   : ${settings.wallpaperBlur}dp", type = LineType.OUTPUT),
+                TerminalLine(text = "  Scale Mode    : ${settings.wallpaperScale.name.lowercase()}", type = LineType.OUTPUT),
+                TerminalLine(text = "--------------------------------------------------", type = LineType.SYSTEM),
+                TerminalLine(text = "Commands:", type = LineType.HEADER),
+                TerminalLine(text = "  wallpaper pick          Open gallery image picker", type = LineType.OUTPUT),
+                TerminalLine(text = "  wallpaper <on|off>      Toggle background wallpaper", type = LineType.OUTPUT),
+                TerminalLine(text = "  wallpaper dim <0..100>  Set overlay dimming percentage", type = LineType.OUTPUT),
+                TerminalLine(text = "  wallpaper blur <0..20>  Set blur radius in dp", type = LineType.OUTPUT),
+                TerminalLine(text = "  wallpaper scale <c|f|s> Set scale mode (crop, fit, stretch)", type = LineType.OUTPUT),
+                TerminalLine(text = "  wallpaper clear         Remove custom background image", type = LineType.OUTPUT)
+            )
+            return CommandResult(outputLines = lines)
+        }
+
+        val sub = args[0].lowercase()
+        val value = args.drop(1).joinToString(" ").lowercase()
+
+        return when (sub) {
+            "debug", "check", "test" -> {
+                val wallpaperFile = File(context.filesDir, "wallpaper.png")
+                val lines = listOf(
+                    TerminalLine(text = "WALLPAPER ENGINE DIAGNOSTIC REPORT:", type = LineType.HEADER),
+                    TerminalLine(text = "  Wallpaper Enabled  : ${settings.wallpaperEnabled}", type = LineType.OUTPUT),
+                    TerminalLine(text = "  Settings URI String: '${settings.wallpaperUri}'", type = LineType.OUTPUT),
+                    TerminalLine(text = "  File Path          : ${wallpaperFile.absolutePath}", type = LineType.OUTPUT),
+                    TerminalLine(text = "  File Exists        : ${wallpaperFile.exists()}", type = LineType.OUTPUT),
+                    TerminalLine(text = "  File Size          : ${if (wallpaperFile.exists()) "${wallpaperFile.length() / 1024} KB" else "N/A"}", type = LineType.OUTPUT),
+                    TerminalLine(text = "  Overlay Dim        : ${settings.wallpaperDim}%", type = LineType.OUTPUT),
+                    TerminalLine(text = "  Blur Radius        : ${settings.wallpaperBlur}dp", type = LineType.OUTPUT),
+                    TerminalLine(text = "  Scale Mode         : ${settings.wallpaperScale.name}", type = LineType.OUTPUT)
+                )
+                CommandResult(outputLines = lines)
+            }
+            "on", "enable", "1", "true" -> {
+                val wallpaperFile = File(context.filesDir, "wallpaper.png")
+                if (!wallpaperFile.exists() || wallpaperFile.length() == 0L) {
+                    CommandResult(
+                        outputLines = listOf(
+                            TerminalLine(text = "No custom wallpaper file found. Use 'wallpaper pick' to select an image from gallery.", type = LineType.ERROR)
+                        ),
+                        success = false
+                    )
+                } else {
+                    settingsRepository.setWallpaperEnabled(true)
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Custom background wallpaper ENABLED", type = LineType.SUCCESS)))
+                }
+            }
+            "off", "disable", "0", "false" -> {
+                settingsRepository.setWallpaperEnabled(false)
+                CommandResult(outputLines = listOf(TerminalLine(text = "Custom background wallpaper DISABLED", type = LineType.SUCCESS)))
+            }
+            "pick", "select", "choose" -> {
+                CommandResult(
+                    outputLines = listOf(TerminalLine(text = "Launching gallery image picker...", type = LineType.SUCCESS)),
+                    openWallpaperPicker = true
+                )
+            }
+            "clear", "remove", "delete" -> {
+                val file = File(context.filesDir, "wallpaper.png")
+                if (file.exists()) file.delete()
+                settingsRepository.setWallpaperEnabled(false)
+                settingsRepository.setWallpaperUri("")
+                CommandResult(outputLines = listOf(TerminalLine(text = "Custom background wallpaper cleared", type = LineType.SUCCESS)))
+            }
+            "dim", "dimming" -> {
+                val dim = value.toIntOrNull()
+                if (dim != null && dim in 0..100) {
+                    settingsRepository.setWallpaperDim(dim)
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Wallpaper dimming overlay set to $dim%", type = LineType.SUCCESS)))
+                } else {
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Invalid dim percentage. Usage: wallpaper dim <0..100>", type = LineType.ERROR)), success = false)
+                }
+            }
+            "blur" -> {
+                val blur = value.toIntOrNull()
+                if (blur != null && blur in 0..20) {
+                    settingsRepository.setWallpaperBlur(blur)
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Wallpaper blur radius set to ${blur}dp", type = LineType.SUCCESS)))
+                } else {
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Invalid blur radius. Usage: wallpaper blur <0..20>", type = LineType.ERROR)), success = false)
+                }
+            }
+            "scale", "mode" -> {
+                val scale = when (value) {
+                    "crop", "center", "centercrop", "c" -> WallpaperScaleMode.CROP
+                    "fit", "contain", "f" -> WallpaperScaleMode.FIT
+                    "stretch", "fill", "fillbounds", "s" -> WallpaperScaleMode.STRETCH
+                    else -> null
+                }
+                if (scale != null) {
+                    settingsRepository.setWallpaperScale(scale)
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Wallpaper scale mode set to ${scale.name.lowercase()}", type = LineType.SUCCESS)))
+                } else {
+                    CommandResult(outputLines = listOf(TerminalLine(text = "Invalid scale mode. Options: crop, fit, stretch", type = LineType.ERROR)), success = false)
+                }
+            }
+            else -> CommandResult(outputLines = listOf(TerminalLine(text = "Unknown wallpaper subcommand: $sub. Usage: wallpaper <pick|on|off|dim|blur|scale|clear>", type = LineType.ERROR)), success = false)
+        }
+    }
+
     private suspend fun handleConfig(args: List<String>, settings: LauncherSettings): CommandResult {
         if (args.isEmpty()) {
+            val wallpaperFile = File(context.filesDir, "wallpaper.png")
+            val wpInfo = if (settings.wallpaperEnabled) "enabled (${wallpaperFile.length() / 1024} KB)" else "disabled"
             val lines = listOf(
                 TerminalLine(text = "LAUNCHER CONFIGURATION:", type = LineType.HEADER),
                 TerminalLine(text = "  theme          : ${settings.theme.name.lowercase()}", type = LineType.OUTPUT),
+                TerminalLine(text = "  wallpaper      : $wpInfo (dim: ${settings.wallpaperDim}%, blur: ${settings.wallpaperBlur}dp, scale: ${settings.wallpaperScale.name.lowercase()})", type = LineType.OUTPUT),
                 TerminalLine(text = "  fastfetch      : ${if (settings.fastfetchOnStart) "on" else "off"}", type = LineType.OUTPUT),
                 TerminalLine(text = "  prompt         : '${settings.promptString}'", type = LineType.OUTPUT),
                 TerminalLine(text = "  autocomplete   : ${if (settings.autocompleteEnabled) "on" else "off"}", type = LineType.OUTPUT),
@@ -1798,16 +1919,20 @@ class CommandEngine(
                 TerminalLine(text = "  textSizeSp     : ${settings.textSizeSp}sp", type = LineType.OUTPUT),
                 TerminalLine(text = "  asciiArtStyle  : ${settings.asciiArtStyle.name.lowercase()}", type = LineType.OUTPUT),
                 TerminalLine(text = "--------------------------------------------------", type = LineType.SYSTEM),
-                TerminalLine(text = "Usage: config set <theme|fastfetch|prompt|autocomplete|statusbar|autokeyboard|size|ascii> <value>", type = LineType.SYSTEM)
+                TerminalLine(text = "Usage: config set <wallpaper|theme|fastfetch|prompt|autocomplete|statusbar|autokeyboard|size|ascii> <value>", type = LineType.SYSTEM)
             )
             return CommandResult(outputLines = lines)
         }
 
-        if (args.size >= 3 && args[0].lowercase() == "set") {
+        if (args.size >= 2 && args[0].lowercase() == "set") {
             val option = args[1].lowercase()
             val value = args.drop(2).joinToString(" ")
 
             return when (option) {
+                "wallpaper", "bg", "wp" -> {
+                    val subArgs = if (value.isBlank()) emptyList() else value.split(Regex("\\s+"))
+                    handleWallpaper(subArgs, settings)
+                }
                 "theme" -> {
                     val themeEnum = when (value.lowercase()) {
                         "green", "crt_green" -> TerminalThemeType.CRT_GREEN

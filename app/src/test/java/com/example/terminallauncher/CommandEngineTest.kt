@@ -1,10 +1,10 @@
-package com.example.terminallauncher
-
 import com.example.terminallauncher.data.AppModel
 import com.example.terminallauncher.data.AsciiArtStyle
 import com.example.terminallauncher.data.LauncherSettings
 import com.example.terminallauncher.data.TerminalThemeType
+import com.example.terminallauncher.data.WallpaperScaleMode
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -38,6 +38,10 @@ class CommandEngineTest {
         assertEquals("YouTube", settings.aliases["yt"])
         assertEquals(15, settings.textSizeSp)
         assertEquals(AsciiArtStyle.DEFAULT, settings.asciiArtStyle)
+        assertFalse(settings.wallpaperEnabled)
+        assertEquals(35, settings.wallpaperDim)
+        assertEquals(0, settings.wallpaperBlur)
+        assertEquals(WallpaperScaleMode.CROP, settings.wallpaperScale)
     }
 
     @Test
