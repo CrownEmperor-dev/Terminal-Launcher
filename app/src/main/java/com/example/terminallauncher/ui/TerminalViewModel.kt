@@ -84,7 +84,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
             settingsRepository.settingsFlow.collectLatest { settings ->
                 val wallpaperFile = File(getApplication<Application>().filesDir, "wallpaper.png")
                 val shouldLoad = settings.wallpaperEnabled || (wallpaperFile.exists() && wallpaperFile.length() > 0 && settings.wallpaperUri.isNotEmpty())
-                val loadedBitmap = if (shouldLoad) loadWallpaperBitmap() else null
+                val loadedBitmap = if (shouldLoad) loadWallpaperBitmap(settings.wallpaperBlur) else null
                 _uiState.value = _uiState.value.copy(
                     settings = settings,
                     wallpaperBitmap = loadedBitmap
@@ -93,7 +93,7 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    private suspend fun loadWallpaperBitmap(): ImageBitmap? {
+    private suspend fun loadWallpaperBitmap(blurRadius: Int = _uiState.value.settings.wallpaperBlur): ImageBitmap? {
         return withContext(Dispatchers.IO) {
             try {
                 val context = getApplication<Application>()
@@ -110,11 +110,101 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                         decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
                     }
                 }
-                bitmap?.asImageBitmap()
+                if (bitmap != null) {
+                    val processed = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && blurRadius > 0) {
+                        applyFastBlur(bitmap, blurRadius)
+                    } else bitmap
+                    processed.asImageBitmap()
+                } else null
             } catch (_: Exception) {
                 null
             }
         }
+    }
+
+    private fun applyFastBlur(source: Bitmap, blurRadius: Int): Bitmap {
+        if (blurRadius <= 0) return source
+        val radius = blurRadius.coerceIn(1, 20)
+        val scaleFactor = (radius / 2).coerceIn(2, 6)
+        val w = (source.width / scaleFactor).coerceAtLeast(1)
+        val h = (source.height / scaleFactor).coerceAtLeast(1)
+        val smallBitmap = Bitmap.createScaledBitmap(source, w, h, true)
+
+        val pix = IntArray(w * h)
+        smallBitmap.getPixels(pix, 0, w, 0, 0, w, h)
+
+        val wm = w - 1
+        val hm = h - 1
+        val div = radius + radius + 1
+
+        val r = IntArray(w * h)
+        val g = IntArray(w * h)
+        val b = IntArray(w * h)
+
+        // Pass 1: Horizontal Blur
+        var yw = 0
+        var yi = 0
+        for (_y in 0 until h) {
+            var rsum = 0
+            var gsum = 0
+            var bsum = 0
+
+            for (i in -radius..radius) {
+                val p = pix[yw + Math.min(wm, Math.max(i, 0))]
+                rsum += (p shr 16) and 0xff
+                gsum += (p shr 8) and 0xff
+                bsum += p and 0xff
+            }
+
+            for (x in 0 until w) {
+                r[yi] = rsum / div
+                g[yi] = gsum / div
+                b[yi] = bsum / div
+
+                val p1 = pix[yw + Math.min(x + radius + 1, wm)]
+                val p2 = pix[yw + Math.max(x - radius, 0)]
+
+                rsum += ((p1 shr 16) and 0xff) - ((p2 shr 16) and 0xff)
+                gsum += ((p1 shr 8) and 0xff) - ((p2 shr 8) and 0xff)
+                bsum += (p1 and 0xff) - (p2 and 0xff)
+                yi++
+            }
+            yw += w
+        }
+
+        // Pass 2: Vertical Blur
+        for (x in 0 until w) {
+            var rsum = 0
+            var gsum = 0
+            var bsum = 0
+
+            for (i in -radius..radius) {
+                val idx = Math.min(hm, Math.max(i, 0)) * w + x
+                rsum += r[idx]
+                gsum += g[idx]
+                bsum += b[idx]
+            }
+
+            for (y in 0 until h) {
+                val idx = y * w + x
+                val rAvg = rsum / div
+                val gAvg = gsum / div
+                val bAvg = bsum / div
+
+                pix[idx] = (0xff000000.toInt()) or (rAvg shl 16) or (gAvg shl 8) or bAvg
+
+                val p1 = Math.min(y + radius + 1, hm) * w + x
+                val p2 = Math.max(y - radius, 0) * w + x
+
+                rsum += r[p1] - r[p2]
+                gsum += g[p1] - g[p2]
+                bsum += b[p1] - b[p2]
+            }
+        }
+
+        val blurredBitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        blurredBitmap.setPixels(pix, 0, w, 0, 0, w, h)
+        return blurredBitmap
     }
 
     fun openOptionsMenu() {
@@ -344,6 +434,8 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
     fun setWallpaperBlur(blur: Int) {
         viewModelScope.launch {
             settingsRepository.setWallpaperBlur(blur)
+            val loadedBitmap = loadWallpaperBitmap(blur)
+            _uiState.value = _uiState.value.copy(wallpaperBitmap = loadedBitmap)
         }
     }
 
